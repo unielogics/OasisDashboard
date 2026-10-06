@@ -24,6 +24,13 @@ describe('Session from /me', () => {
     expect(s.serverTime).toBe('2026-06-13T14:36:00.000Z')
     expect(s.businessTz).toBe('America/New_York')
   })
+  it('devTools comes from the optional config payload and is false otherwise', () => {
+    expect(toSession(makeMe(), { serverTime: 'x', businessTz: 'y' }).devTools).toBe(false)
+    expect(
+      toSession(makeMe({ config: { devTools: true } }), { serverTime: 'x', businessTz: 'y' }).devTools,
+    ).toBe(true)
+    expect(toSession(makeMe({ config: {} }), { serverTime: 'x', businessTz: 'y' }).devTools).toBe(false)
+  })
   it('defaults the business timezone when the server sent none', () => {
     expect(toSession(makeMe(), { serverTime: 'x', businessTz: '' }).businessTz).toBe('America/New_York')
   })

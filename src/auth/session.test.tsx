@@ -221,7 +221,7 @@ describe('<SessionProvider>', () => {
     )
     await flush()
     expect(n.replace).toHaveBeenCalledTimes(1)
-    expect(n.replace).toHaveBeenCalledWith('/login?next=%2Fpayments%3Frange%3D7d%23x')
+    expect(n.replace).toHaveBeenCalledWith('/login?next=%2Fpayments%3Frange%3D7d%23x&expired=1')
     expect(container.querySelector('#app')).toBeNull()
   })
 
@@ -269,7 +269,7 @@ describe('<SessionProvider>', () => {
     expect(container.querySelector('#app')).not.toBeNull()
     signedIn = false
     await c.get('/ops/snapshot').catch(() => undefined)
-    expect(n.replace).toHaveBeenCalledWith('/login?next=%2Fpayments%3Frange%3D7d%23x')
+    expect(n.replace).toHaveBeenCalledWith('/login?next=%2Fpayments%3Frange%3D7d%23x&expired=1')
   })
 
   it('view-as posts the role with an Idempotency-Key, then refetches /me and the other families', async () => {
@@ -425,6 +425,9 @@ describe('redirectToLogin and signOutAndLeave', () => {
     const loc = { pathname: '/settings', search: '', hash: '#emergency', replace: vi.fn() }
     redirectToLogin(loc)
     expect(loc.replace).toHaveBeenCalledWith('/login?next=%2Fsettings%23emergency')
+    const expired = { pathname: '/operations', search: '', hash: '', replace: vi.fn() }
+    redirectToLogin(expired, { expired: true })
+    expect(expired.replace).toHaveBeenCalledWith('/login?expired=1')
     const onLogin = { pathname: '/login', search: '?next=/x', hash: '', replace: vi.fn() }
     redirectToLogin(onLogin)
     expect(onLogin.replace).not.toHaveBeenCalled()

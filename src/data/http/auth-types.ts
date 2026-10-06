@@ -59,6 +59,8 @@ export interface MeResponse {
   /** Not sent by the identity module today; the session loader falls back to GET /meta/now. */
   serverTime?: string
   businessTz?: string
+  /** Optional runtime flags (the review asked for a source for `devTools`; absent means false). */
+  config?: { devTools?: boolean }
 }
 
 export interface SignedInResponse {

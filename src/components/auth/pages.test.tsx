@@ -203,6 +203,12 @@ describe('/login', () => {
     expect(toast.style.position).toBe('fixed')
   })
 
+  it('after a session ended mid-use the page says so in the same toast', async () => {
+    router.query = { expired: '1', next: '/payments' }
+    await setup()
+    expect(q('[role=status]').textContent).toBe('Your session ended. Sign in again.')
+  })
+
   it('wraps the card in the designs’ root with the cached theme', async () => {
     localStorage.setItem(THEME_KEY, 'dark')
     await setup()

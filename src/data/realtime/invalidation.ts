@@ -7,6 +7,8 @@ import { realTimers } from './sse'
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */
 export function keysForEvent(e: RealtimeEvent): QueryKey[] {
   if (e.type === 'rbac.changed') return [['me'], ['settings']]
+  // The server ended the session: /me answers 401 and the app goes to the sign-in page.
+  if (e.type === 'auth.expired') return [['me']]
   if (e.channel === 'settings') {
     const section = typeof e.payload.section === 'string' ? e.payload.section : null
     return [section ? ['settings', section] : ['settings']]

@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { compileScreens, SCREENS } from '../compile'
 import { loadLogic } from '../../../src/dc/loadLogic'
 import { LiveChrome } from '../../../src/auth/chrome'
+import { toasts } from '../../../src/data/toast'
 import { makeSession } from '../../../src/auth/test-fixtures'
 import { root } from './original-runtime'
 
@@ -116,6 +117,30 @@ describe('live bridge on the original logic classes', () => {
       })
     })
   }
+
+  it('API-layer toasts appear through the screen\u2019s own flash(), in its own shape, until unmount', () => {
+    const chrome = new LiveChrome()
+    ;(window as any).__oasisLive = chrome
+    const ops: any = new (loadLogic(sourceOf('operations'), 'operations'))({})
+    const pay: any = new (loadLogic(sourceOf('payments'), 'payments'))({})
+    const set: any = new (loadLogic(sourceOf('settings'), 'settings'))({})
+    for (const l of [ops, pay, set]) {
+      attach(l)
+      l.componentDidMount()
+    }
+    toasts.emit({ title: 'Your role can\u2019t issue refunds' })
+    expect(ops.state.toast).toEqual({ title: 'Your role can\u2019t issue refunds', desc: undefined })
+    expect(pay.state.toast).toBe('Your role can\u2019t issue refunds')
+    expect(set.state.toast).toBe('Your role can\u2019t issue refunds')
+    toasts.emit({ title: 'Connection lost', desc: 'retrying' })
+    expect(ops.state.toast).toEqual({ title: 'Connection lost', desc: 'retrying' })
+    expect(pay.state.toast).toBe('Connection lost \u00b7 retrying')
+    expect(set.state.toast).toBe('Connection lost \u00b7 retrying')
+    for (const l of [ops, pay, set]) l.componentWillUnmount()
+    toasts.emit({ title: 'After unmount' })
+    expect(pay.state.toast).toBe('Connection lost \u00b7 retrying')
+    expect(toasts.size).toBe(0)
+  })
 
   it('the bridge is inert when the page has no chrome (parity/prod code path never installs one)', () => {
     const Logic = loadLogic(sourceOf('payments'), 'payments')

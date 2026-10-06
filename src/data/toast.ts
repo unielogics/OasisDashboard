@@ -11,15 +11,41 @@ export interface ToastSpec {
 
 type Listener = (t: ToastSpec) => void
 
+/** How long a toast raised while no screen is listening waits for one (the screens load a moment after the stream). */
+const PENDING_MS = 4000
+const MAX_PENDING = 3
+
 export class ToastBus {
   private listeners = new Set<Listener>()
+  private pending: Array<{ toast: ToastSpec; timer: ReturnType<typeof setTimeout> }> = []
+
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn)
+    // A toast raised before the first screen mounted (the stream failing right after the session loads) is shown now.
+    const waiting = this.pending
+    this.pending = []
+    for (const w of waiting) {
+      clearTimeout(w.timer)
+      fn(w.toast)
+    }
     return () => void this.listeners.delete(fn)
   }
+
   emit(t: ToastSpec): void {
+    if (this.listeners.size === 0) {
+      if (this.pending.length >= MAX_PENDING) clearTimeout(this.pending.shift()!.timer)
+      const entry = {
+        toast: t,
+        timer: setTimeout(() => {
+          this.pending = this.pending.filter((p) => p !== entry)
+        }, PENDING_MS),
+      }
+      this.pending.push(entry)
+      return
+    }
     for (const l of [...this.listeners]) l(t)
   }
+
   get size(): number {
     return this.listeners.size
   }

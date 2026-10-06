@@ -31,9 +31,10 @@ export default function LoginPage({ auth: authProp, navigate = go }: Props) {
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
-    if (router.isReady && router.query.reset === '1')
-      setToast('Password updated. Sign in with your new password.')
-  }, [router.isReady, router.query.reset])
+    if (!router.isReady) return
+    if (router.query.reset === '1') setToast('Password updated. Sign in with your new password.')
+    else if (router.query.expired === '1') setToast('Your session ended. Sign in again.')
+  }, [router.isReady, router.query.reset, router.query.expired])
   const clearToast = useCallback(() => setToast(null), [])
 
   const submit = async (e: FormEvent) => {

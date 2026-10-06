@@ -28,6 +28,8 @@ export interface Session {
   expiresAt: string
   serverTime: string
   businessTz: string
+  /** Dev-only affordances ("Simulate arrival"); false unless the server says so. */
+  devTools: boolean
 }
 
 export interface ServerClockInfo {
@@ -57,6 +59,7 @@ export function toSession(me: MeResponse, clock: ServerClockInfo): Session {
     expiresAt: me.session.expiresAt,
     serverTime: clock.serverTime,
     businessTz: clock.businessTz || DEFAULT_TZ,
+    devTools: me.config?.devTools === true,
   }
 }
 

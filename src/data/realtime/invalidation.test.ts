@@ -22,6 +22,7 @@ describe('keysForEvent', () => {
       ['settings', 'hours'],
     ])
     expect(keysForEvent(ev('settings', 'settings.changed'))).toEqual([['settings']])
+    expect(keysForEvent(ev('notifications', 'auth.expired'))).toEqual([['me']])
     expect(keysForEvent(ev('weird', 'x'))).toEqual([])
   })
 })

@@ -7,7 +7,9 @@ import { CompileError } from './errors'
  *      from window.__oasisLive (src/auth/chrome.ts);
  *   2. the screen re-renders when that store changes (subscribe on mount, unsubscribe on unmount);
  *   3. toggleTheme reports the new theme so it can be saved to the server (PUT /me/preferences) and mirrors the theme
- *      to <html data-theme>.
+ *      to <html data-theme>;
+ *   4. toasts raised by the API layer (a failed command, "Connection lost") appear through the screen's own flash():
+ *      flash(title, desc) on Operations, flash(text) on Payments and Settings.
  * It touches no behaviour of the class itself. A converted view model calls the same store directly instead.
  */
 export const LIVE_BRIDGE = `
@@ -40,7 +42,16 @@ export const LIVE_BRIDGE = `
   P.componentDidMount = function () {
     var c = chrome();
     var self = this;
-    if (c) this.__liveOff = c.subscribe(function () { self.forceUpdate(); });
+    if (c) {
+      var offs = [c.subscribe(function () { self.forceUpdate(); })];
+      if (typeof this.flash === 'function') {
+        offs.push(c.subscribeToasts(function (t) {
+          if (self.flash.length >= 2) self.flash(t.title, t.desc);
+          else self.flash(t.desc ? t.title + ' \u00b7 ' + t.desc : t.title);
+        }));
+      }
+      this.__liveOff = function () { offs.forEach(function (off) { off(); }); };
+    }
     if (didMount) return didMount.apply(this, arguments);
   };
   P.componentWillUnmount = function () {
@@ -57,6 +68,7 @@ export function withLiveBridge(logicSrc: string, screen: string): string {
     [/\brenderVals\s*\(\s*\)\s*\{/, 'a renderVals() method'],
     [/\btoggleTheme\s*:/, 'a toggleTheme handler in renderVals()'],
     [/\btheme\s*:\s*s\.theme/, 'theme in renderVals()'],
+    [/\bflash\s*\(/, 'a flash() toast method'],
   ]
   for (const [re, what] of need) {
     if (!re.test(logicSrc)) {

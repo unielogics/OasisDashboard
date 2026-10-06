@@ -57,9 +57,11 @@ export const useLimit = (kind: MoneyKind) => limitFn(useSession().session, kind)
 /** Full-page redirect to the sign-in page, remembering where the person was. */
 export function redirectToLogin(
   loc: Pick<Location, 'pathname' | 'search' | 'hash' | 'replace'> = window.location,
+  opts: { expired?: boolean } = {},
 ): void {
   if (isPublicPath(loc.pathname)) return
-  loc.replace(loginUrl(loc.pathname + loc.search + loc.hash))
+  const url = loginUrl(loc.pathname + loc.search + loc.hash)
+  loc.replace(opts.expired ? `${url}${url.includes('?') ? '&' : '?'}expired=1` : url)
 }
 
 interface ProviderProps {
@@ -80,10 +82,10 @@ export function SessionProvider({ children, client = api, nav }: ProviderProps) 
       onUnauthorized: () => {
         if (redirecting.current) return
         redirecting.current = true
-        redirectToLogin(nav)
+        redirectToLogin(nav, { expired: true })
       },
     })
-  }, [client])
+  }, [client, nav])
 
   const q = useQuery({
     queryKey: qk.me,

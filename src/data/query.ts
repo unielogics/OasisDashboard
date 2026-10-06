@@ -35,3 +35,13 @@ export function makeQueryClient(): QueryClient {
     },
   })
 }
+
+let shared: QueryClient | null = null
+
+/**
+ * The one QueryClient of the page. React code gets it from the provider; the logic classes (not React) pass it to
+ * command(), so both must be the same instance.
+ */
+export function getQueryClient(): QueryClient {
+  return (shared ??= makeQueryClient())
+}

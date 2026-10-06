@@ -5,6 +5,8 @@
 // the session; the compiler's live variant appends a small bridge to each logic source (tools/dc-compile/live-bridge.ts)
 // that merges `liveChrome.vals()` into renderVals() and re-renders the screen when the store changes. A converted view
 // model does the same by calling `liveChrome.vals()` and `liveChrome.subscribe()` directly.
+import { toasts } from '@/data/toast'
+import type { ToastSpec } from '@/data/toast'
 import type { Session } from './session-model'
 
 export interface ViewAsEntry {
@@ -98,6 +100,11 @@ export class LiveChrome {
     this.userMenuOpen = false
     this.viewAsMenuOpen = false
     this.invalidate()
+  }
+
+  /** The bridge forwards API-layer toasts (errors, "Connection lost") to the screen's own flash(). */
+  subscribeToasts(fn: (t: ToastSpec) => void): () => void {
+    return toasts.subscribe(fn)
   }
 
   /** Called by the bridge when a screen toggled its theme. */

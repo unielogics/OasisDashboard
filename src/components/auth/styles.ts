@@ -90,21 +90,21 @@ export const labelStyle: CSSProperties = {
   color: 'var(--ink2)',
   marginBottom: '6px',
 }
-/** Settings drawer input; the error border colour is the one the drawer uses for invalid fields. */
+/** Settings drawer input; invalid fields get the red border (the design's --red, #C2410C in light). */
 export const inputStyle = (error: boolean): CSSProperties => ({
   width: '100%',
   height: '46px',
   padding: '0 14px',
   borderRadius: '11px',
-  border: '1px solid ' + (error ? '#C2410C' : 'var(--line)'),
+  border: '1px solid ' + (error ? 'var(--red)' : 'var(--line)'),
   background: 'var(--panel)',
   color: 'var(--ink)',
   fontFamily: 'inherit',
   fontSize: '14px',
   fontWeight: 600,
 })
-/** Settings drawer inline error text. */
-export const errorTextStyle: CSSProperties = { fontSize: '12.5px', fontWeight: 700, color: '#C2410C' }
+/** Settings drawer inline error text; --red is #C2410C in light (the drawer's hex) and stays legible in dark. */
+export const errorTextStyle: CSSProperties = { fontSize: '12.5px', fontWeight: 700, color: 'var(--red)' }
 /** Settings drawer primary button; `busy` uses the Payments sheet's blocked-submit colours (panel3 / ink3). */
 export const primaryButtonStyle = (busy: boolean): CSSProperties => ({
   width: '100%',
