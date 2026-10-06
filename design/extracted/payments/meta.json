@@ -1,0 +1,8 @@
+{
+  "screen": "payments",
+  "name": "Oasis Payments",
+  "dataProps": null,
+  "sourceSha256": "6e95c68263ff5f075f41e55545e71e2cedce8285ebb857e0fe9599e7b0b76837",
+  "templateChars": 42834,
+  "logicChars": 35020
+}

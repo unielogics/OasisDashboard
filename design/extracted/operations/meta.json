@@ -1,0 +1,13 @@
+{
+  "screen": "operations",
+  "name": "Oasis Command Center",
+  "dataProps": {
+    "$preview": {
+      "width": 1480,
+      "height": 1000
+    }
+  },
+  "sourceSha256": "c7b785fcf90f47ca42e39f94012fd045cf7b3ae41099cba28ccace870c654a85",
+  "templateChars": 98163,
+  "logicChars": 78500
+}

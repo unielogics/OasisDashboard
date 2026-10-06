@@ -15,7 +15,9 @@
     "test": "vitest run --passWithNoTests",
     "parity:setup": "node scripts/parity-setup.mjs",
     "check": "pnpm design:verify && pnpm lint && pnpm typecheck && pnpm test",
-    "design:verify": "node scripts/verify-design.mjs"
+    "design:verify": "node scripts/verify-design.mjs",
+    "design:extract": "tsx tools/extract-design.ts",
+    "design:checksums": "bash -c 'cd design && find . -type f ! -name CHECKSUMS.sha256 | sort | xargs sha256sum | sed \"s#  \\./#  #\" > CHECKSUMS.sha256'"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -28,6 +30,7 @@
     "@types/node": "^22.20.5",
     "eslint": "^9.39.5",
     "globals": "^16.5.0",
+    "parse5": "^7.3.0",
     "prettier": "^3.9.9",
     "tsx": "^4.23.15",
     "typescript": "~5.8.3",
