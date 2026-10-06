@@ -13,3 +13,4 @@ src/styles/fonts.css
 .next-live
 src/data/http/schema.d.ts
 design-patches/live/partials
+.live-stack

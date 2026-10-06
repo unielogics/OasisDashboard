@@ -36,7 +36,11 @@
     "check": "pnpm assert:react && pnpm design:verify && pnpm dc:check && pnpm lint && pnpm typecheck && pnpm test",
     "design:verify": "node scripts/verify-design.mjs",
     "design:extract": "tsx tools/extract-design.ts",
-    "design:checksums": "bash -c 'cd design && find . -type f ! -name CHECKSUMS.sha256 | sort | xargs sha256sum | sed \"s#  \\./#  #\" > CHECKSUMS.sha256'"
+    "design:checksums": "bash -c 'cd design && find . -type f ! -name CHECKSUMS.sha256 | sort | xargs sha256sum | sed \"s#  \\./#  #\" > CHECKSUMS.sha256'",
+    "live:up": "tsx scripts/live-stack.ts up",
+    "live:down": "tsx scripts/live-stack.ts down",
+    "live:status": "tsx scripts/live-stack.ts status",
+    "live:smoke": "tsx scripts/live-smoke.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
