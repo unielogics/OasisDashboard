@@ -1,6 +1,18 @@
 import render, { meta } from '@generated/settings'
-import { logicSource } from '@generated/settings.logic'
 import { screenCss } from '@generated/settings.styles'
-import { createScreen } from '@/dc/createScreen'
+import { DCHost } from '@/dc/DCHost'
+import { ScreenStyle } from '@/dc/ScreenStyle'
+import { FixtureData } from './fixtures'
+import { createSettingsLogic } from './Logic'
 
-export default createScreen({ meta, render, logicSource, screenCss })
+// The typed view model replaces the original class: nothing here evaluates the design's logic source at runtime.
+const Logic = createSettingsLogic(new FixtureData())
+
+export default function SettingsScreen() {
+  return (
+    <>
+      <ScreenStyle id={meta.screen} css={screenCss} />
+      <DCHost meta={meta} Logic={Logic} render={render} />
+    </>
+  )
+}
