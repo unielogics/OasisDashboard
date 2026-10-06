@@ -23,5 +23,5 @@
     "plugins": [{ "name": "next" }]
   },
   "include": ["next-env.d.ts", "scripts/**/*", "tools/**/*", "src/**/*", "tests/**/*", "*.ts", "*.mjs"],
-  "exclude": ["node_modules", "parity-reports", "design", ".next", ".next-parity", ".generated-parity"]
+  "exclude": ["node_modules", "parity-reports", "design", ".next", ".next-parity", ".generated-parity", "**/.tmp-snippets"]
 }

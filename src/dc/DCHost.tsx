@@ -110,7 +110,15 @@ export class DCHost extends Component<DCHostProps, DCHostState> implements DCHos
         console.error(e)
         failure = `${meta.name}.renderVals(): ${msgOf(e)}`
       }
-      if (vals) body = render(vals, this.ctx)
+      if (vals) {
+        // A throwing template would take the whole root down (an error boundary only catches descendants).
+        try {
+          body = render(vals, this.ctx)
+        } catch (e) {
+          console.error(e)
+          failure = `${meta.name}: ${msgOf(e)}`
+        }
+      }
     }
     if (failure) body = <ErrorCard text={failure} />
     return (

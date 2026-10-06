@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { CompileError } from './errors'
-import { parsePath } from './grammar'
+import { parsePath, splitInterp } from './grammar'
 import { textOf, walkEls } from './parse'
 import type { ElNode, Node } from './parse'
 
@@ -174,19 +174,27 @@ export function applyPatches(nodes: Node[], cfg: PatchConfig, screen: string): N
   return nodes
 }
 
-/** Applies the copy map to static text and static attribute values (bound values are logic output). */
+/** Applies fn to the static parts of an interpolated string, leaving every {{ expr }} untouched. */
+const mapStatic = (value: string, fn: (s: string) => string): string =>
+  splitInterp(value)
+    .map((p, i) => (i & 1 ? `{{${p}}}` : fn(p)))
+    .join('')
+
+/**
+ * Applies the copy map to static text and static attribute values (static parts of interpolated strings
+ * included; bound values are logic output and are handled by the logic-scope entries).
+ */
 export function applyCopyToTree(nodes: Node[], entries: CopyEntry[]): void {
   const tpl = entries.filter((e) => e.scope === 'template')
   if (!tpl.length) return
-  // counts are verified over the concatenated static strings so one entry may match in many nodes
   const strings: { get(): string; set(v: string): void }[] = []
   const visit = (list: Node[]) => {
     for (const n of list) {
       if (n.kind === 'text') {
-        if (!n.value.includes('{{')) strings.push({ get: () => n.value, set: (v) => (n.value = v) })
+        strings.push({ get: () => n.value, set: (v) => (n.value = v) })
       } else {
         for (const a of n.attrs) {
-          if (!a.value.includes('{{') && !a.name.startsWith('sc-camel-on-') && a.name !== 'style') {
+          if (!a.name.startsWith('sc-camel-on-') && a.name !== 'style') {
             strings.push({ get: () => a.value, set: (v) => (a.value = v) })
           }
         }
@@ -197,11 +205,11 @@ export function applyCopyToTree(nodes: Node[], entries: CopyEntry[]): void {
   visit(nodes)
   for (const e of tpl) {
     let total = 0
-    for (const s of strings) total += s.get().split(e.from).length - 1
+    for (const s of strings) mapStatic(s.get(), (p) => ((total += p.split(e.from).length - 1), p))
     guard(
       total === e.count,
       `copy-map ${e.id} (template): expected ${e.count} occurrence(s) of ${JSON.stringify(e.from)}, found ${total}`,
     )
-    for (const s of strings) s.set(s.get().split(e.from).join(e.to))
+    for (const s of strings) s.set(mapStatic(s.get(), (p) => p.split(e.from).join(e.to)))
   }
 }

@@ -12,7 +12,7 @@ export default tseslint.config(
       'src/generated',
       '.generated-parity',
       '.next-parity',
-      'next-env.d.ts',
+      'next-env.d.ts', '**/.tmp-snippets',
       'coverage',
     ],
   },

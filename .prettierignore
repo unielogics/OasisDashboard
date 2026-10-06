@@ -7,3 +7,4 @@ docs/reference
 pnpm-lock.yaml
 .generated-parity
 .next-parity
+.tmp-snippets

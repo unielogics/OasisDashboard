@@ -16,7 +16,13 @@ export interface EmitOptions {
 export interface Bindings {
   screen: string
   roots: string[]
+  /** Paths used as an sc-for list (loop scope shown as `list[]`). */
   lists: string[]
+  /** Paths used as an sc-if condition. */
+  conds: string[]
+  /** Paths bound to event handlers or refs (functions / ref objects, never rendered). */
+  handlers: string[]
+  /** Every path the template reads, roots and loop-scoped dotted paths (`bays[].name`), digits as `[0]`. */
   paths: string[]
 }
 
@@ -131,6 +137,8 @@ export class Emitter {
   private readonly roots = new Set<string>()
   private readonly lists = new Set<string>()
   private readonly paths = new Set<string>()
+  private readonly conds = new Set<string>()
+  private readonly handlers = new Set<string>()
   private used = { Fragment: false, css: false, I: false, asArray: false, m: false, NOOP: false, R: false }
 
   constructor(private readonly opts: EmitOptions) {}
@@ -193,7 +201,7 @@ export class Emitter {
     this.used.R = true
     const entries = scope.map((l) => `${JSON.stringify(l.as)}: ${l.item}, $index: ${l.idx}`)
     const sc = scope.length ? `{ ...$v, ${entries.join(', ')} }` : '$v'
-    return `R(${sc}, ${JSON.stringify(src)})`
+    return `R(${sc}, ${JSON.stringify(src.trim())})`
   }
 
   // ---- styles ------------------------------------------------------------------------------------------------------
@@ -269,6 +277,10 @@ export class Emitter {
         }
       } else if (whole !== null) {
         const e = this.expr(whole, scope, where)
+        if (isEvent || key === 'ref') {
+          const bp = this.bindingPath(whole, scope)
+          if (bp !== null) this.handlers.add(bp)
+        }
         if (key === 'value' || key === 'checked') {
           if (FORM_TAGS.has(el.tag)) boundForm = true
           code = `{${e} === undefined ? ${key === 'checked' ? 'false' : '""'} : ${e}}`
@@ -336,8 +348,11 @@ export class Emitter {
         const raw = n.attrs.find((a) => a.name === 'value')?.value ?? ''
         const whole = wholeBinding(raw, `sc-if tpl ${n.tpl}`)
         let cond: string
-        if (whole !== null) cond = this.expr(whole, scope, `sc-if tpl ${n.tpl}`)
-        else if (raw.includes('{{')) this.fail(`sc-if tpl ${n.tpl}: value must be a single {{ }} binding`)
+        if (whole !== null) {
+          cond = this.expr(whole, scope, `sc-if tpl ${n.tpl}`)
+          const bp = this.bindingPath(whole, scope)
+          if (bp !== null) this.conds.add(bp)
+        } else if (raw.includes('{{')) this.fail(`sc-if tpl ${n.tpl}: value must be a single {{ }} binding`)
         else cond = raw ? 'true' : 'false'
         const kids = this.children(n.children, scope, ind + 1)
         if (!kids.length) return [`${pad}{${cond} ? <></> : null}`]
@@ -424,6 +439,8 @@ export class Emitter {
         screen: this.opts.screen,
         roots: [...this.roots].sort(),
         lists: [...this.lists].sort(),
+        conds: [...this.conds].sort(),
+        handlers: [...this.handlers].sort(),
         paths: [...this.paths].sort(),
       },
     }

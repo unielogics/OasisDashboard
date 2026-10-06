@@ -8,11 +8,13 @@ export interface PathExpr {
 
 const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 const DIGITS = /^\d+$/
+/** The runtime resolves these as literals, never as vals named `true` etc. */
+const LITERALS = new Set(['true', 'false', 'null', 'undefined'])
 
 export function parsePath(src: string): PathExpr | null {
   const parts = src.trim().split('.')
   const root = parts[0]!
-  if (!IDENT.test(root)) return null
+  if (!IDENT.test(root) || LITERALS.has(root)) return null
   for (const p of parts.slice(1)) if (!IDENT.test(p) && !DIGITS.test(p)) return null
   return { root, segs: parts.slice(1) }
 }
