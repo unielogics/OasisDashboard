@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.next-parity/
+.generated-parity/
+parity-reports/
+coverage/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log

@@ -1,0 +1,7 @@
+node_modules
+.next
+parity-reports
+design
+src/generated
+docs/reference
+pnpm-lock.yaml
