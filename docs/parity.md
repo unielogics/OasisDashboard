@@ -12,7 +12,7 @@ The three Claude Design prototypes are the source of truth. The harness renders 
 export PATH=$HOME/.local/bin:$PATH NODE_OPTIONS=--max-old-space-size=2048   # pnpm + a 2 GB heap on the shared box
 # Chromium is already installed in ~/.cache/ms-playwright; the harness sets PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-arm64 itself.
 
-pnpm parity:selftest              # harness self-tests: determinism + sensitivity gates (about 8 minutes; --quick for a 1 minute subset)
+pnpm parity:selftest              # harness self-tests: determinism + sensitivity gates (about 12 minutes; --quick for a 1 minute subset)
 pnpm parity --list                # the scenario catalogue
 pnpm parity --screen settings --scenario sections --theme dark
 pnpm parity --tag smoke           # one pass over the @smoke scenarios
