@@ -39,6 +39,11 @@ export const CHROMIUM_FLAGS = [
   '--force-color-profile=srgb',
   '--font-render-hinting=none',
   '--disable-lcd-text',
+  // Without this, a re-render only re-rasterises the invalidated rectangle ("partial raster") and rounded-corner
+  // antialiasing at the rectangle edge depends on which intermediate frames the compositor happened to produce, i.e. on
+  // machine load: ~5% of steps differed by 10-90 pixels between two identical runs. With full re-raster, 40/40 identical
+  // loads under CPU contention (see docs/parity.md).
+  '--disable-partial-raster',
 ]
 
 /** localStorage key every screen reads its theme from. */

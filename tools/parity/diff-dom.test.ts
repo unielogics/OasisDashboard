@@ -12,6 +12,12 @@ describe('normalizeHtml', () => {
     expect(renderTree(norm(html, false))).not.toContain('data-dc-tpl')
   })
 
+  it('ignores the port ready flag on #dc-root', () => {
+    expect(
+      diff('<div id="dc-root"><p>a</p></div>', '<div data-oasis-ready="1" id="dc-root"><p>a</p></div>'),
+    ).toEqual([])
+  })
+
   it('sorts attributes but keeps values (including style) byte for byte', () => {
     const a = norm('<div style="a: 1; b: 2" class="x" id="i"></div>')
     const b = norm('<div id="i" class="x" style="a: 1; b: 2"></div>')

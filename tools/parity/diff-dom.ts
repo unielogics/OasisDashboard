@@ -23,7 +23,8 @@ function convert(node: P5Node, keepTpl: boolean): DomNode | null {
       const attrs: Array<[string, string]> = []
       let tpl: string | null = null
       for (const a of el.attrs) {
-        if (a.name === 'data-sc-name') continue
+        // data-sc-name: the original derives it from the file name. data-oasis-ready: the port's ready flag on #dc-root.
+        if (a.name === 'data-sc-name' || a.name === 'data-oasis-ready') continue
         if (a.name === 'data-dc-tpl') {
           tpl = a.value
           if (!keepTpl) continue
@@ -45,7 +46,10 @@ function convert(node: P5Node, keepTpl: boolean): DomNode | null {
   }
 }
 
-/** Parses #dc-root's outerHTML through parse5. data-sc-name is always dropped; data-dc-tpl only when `keepTpl`. */
+/**
+ * Parses #dc-root's outerHTML through parse5. data-sc-name and the port's data-oasis-ready flag are always dropped;
+ * data-dc-tpl only when `keepTpl`.
+ */
 export function normalizeHtml(html: string, keepTpl: boolean): DomNode[] {
   const frag = parseFragment(html)
   return frag.childNodes.map((c) => convert(c as P5Node, keepTpl)).filter((c): c is DomNode => c !== null)

@@ -19,7 +19,12 @@ import type { ConsoleMsg } from './types'
 export async function launchBrowser(): Promise<Browser> {
   fs.mkdirSync(path.join(REPORTS_DIR, '.fontcache'), { recursive: true })
   return chromium.launch({
-    args: [...CHROMIUM_FLAGS, ...(process.env.PARITY_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])],
+    args: [
+      ...CHROMIUM_FLAGS,
+      ...(process.env.PARITY_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
+      // experiments only (space separated); anything that proves necessary belongs in CHROMIUM_FLAGS
+      ...(process.env.PARITY_EXTRA_FLAGS ? process.env.PARITY_EXTRA_FLAGS.split(/\s+/).filter(Boolean) : []),
+    ],
     env: { ...process.env, FONTCONFIG_FILE, TZ: TIMEZONE, LANG: 'en_US.UTF-8' } as Record<string, string>,
   })
 }
