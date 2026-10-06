@@ -264,8 +264,18 @@ export async function runUnit(ctx: RunContext, scenario: Scenario, theme: Theme)
     await orig.open(open)
     await port.open(open)
     const steps = [
-      { id: 'initial', full: true, run: undefined as undefined | ((a: Driver['actions']) => Promise<void>) },
-      ...scenario.steps.map((s) => ({ id: s.id, full: s.full ?? false, run: s.run })),
+      {
+        id: 'initial',
+        full: true,
+        keepPointer: false,
+        run: undefined as undefined | ((a: Driver['actions']) => Promise<void>),
+      },
+      ...scenario.steps.map((s) => ({
+        id: s.id,
+        full: s.full ?? false,
+        keepPointer: s.keepPointer ?? false,
+        run: s.run,
+      })),
     ]
     const seen = new Set<string>()
     for (const step of steps) {
@@ -275,7 +285,8 @@ export async function runUnit(ctx: RunContext, scenario: Scenario, theme: Theme)
         await step.run(orig.actions)
         await step.run(port.actions)
       }
-      const [sa, sb] = [await orig.snapshot(step.full), await port.snapshot(step.full)]
+      const pointer = { parkPointer: !step.keepPointer }
+      const [sa, sb] = [await orig.snapshot(step.full, pointer), await port.snapshot(step.full, pointer)]
       const unit: UnitCtx = { screen: scenario.screen, scenario: scenario.id, theme, step: step.id }
       const { step: stepResult, counts } = compareSnapshots(sa, sb, unit, ctx, path.join(dir, safe(step.id)))
       const problems = ctx.tracker.record(`${label}/${step.id}`, counts)

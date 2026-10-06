@@ -9,6 +9,8 @@ export interface ScenarioStep {
   run?: (a: Actions) => Promise<void>
   /** compare the full computed-style set (default: only the automatic "initial" step does) */
   full?: boolean
+  /** do not park the pointer before the snapshot: the step ends in the middle of a drag or swipe */
+  keepPointer?: boolean
 }
 
 export interface Scenario {

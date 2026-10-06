@@ -38,6 +38,10 @@ export interface Actions {
   /** Advance the paused fake clock by `ms` (timers due in that window fire), then settle. */
   runFor(ms: number): Promise<void>
   settle(): Promise<void>
+  /** A point inside the (single) element, in viewport coordinates; fx and fy are fractions of its box (default: the centre). */
+  point(target: Locator, fx?: number, fy?: number): Promise<{ x: number; y: number }>
+  /** Centre of the (single) element in viewport coordinates. */
+  center(target: Locator): Promise<{ x: number; y: number }>
   /** Dispatch a synthetic PointerEvent sequence (touch gestures cannot be produced by page.touchscreen). */
   pointerSequence(
     steps: PointerStep[],
@@ -58,7 +62,8 @@ export interface Driver {
   readonly page: Page
   readonly actions: Actions
   open(opts: OpenOptions): Promise<void>
-  snapshot(full: boolean): Promise<Snapshot>
+  /** `parkPointer: false` leaves the pointer where the scenario put it (needed in the middle of a drag or swipe). */
+  snapshot(full: boolean, opts?: { parkPointer?: boolean }): Promise<Snapshot>
   close(): Promise<void>
 }
 
@@ -102,10 +107,11 @@ abstract class PageDriver implements Driver {
     await this.page.evaluate(settleInPage)
   }
 
-  async snapshot(full: boolean): Promise<Snapshot> {
+  async snapshot(full: boolean, opts: { parkPointer?: boolean } = {}): Promise<Snapshot> {
     const { page } = this
-    // Park the pointer in a corner so hover styling cannot depend on where the last action ended.
-    await page.mouse.move(0, 0)
+    // Park the pointer in a corner so hover styling cannot depend on where the last action ended. Never mid-gesture:
+    // the move itself would feed the drag/swipe handlers.
+    if (opts.parkPointer !== false) await page.mouse.move(0, 0)
     await this.settle()
     const html = await page.evaluate(readRootHtml)
     const elements = decodeElements(
@@ -175,6 +181,15 @@ abstract class PageDriver implements Driver {
         await settle()
       },
       settle,
+      point: async (target, fx = 0.5, fy = 0.5) => {
+        const n = await target.count()
+        if (n !== 1)
+          throw new Error(`[${this.side}] expected exactly 1 match for ${String(target)}, found ${n}`)
+        const box = await target.boundingBox()
+        if (!box) throw new Error(`[${this.side}] ${String(target)} has no box`)
+        return { x: box.x + box.width * fx, y: box.y + box.height * fy }
+      },
+      center: (target) => actions.point(target),
       pointerSequence: async (steps, o) => {
         for (const s of steps) {
           if (s.wait) await ctx.clock.runFor(s.wait)

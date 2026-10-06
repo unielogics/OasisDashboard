@@ -30,7 +30,18 @@ const HOOK = `<script>(function () {
     if (root && root.querySelector('.sc-host')) { root.setAttribute('data-oasis-ready', '1'); return true; }
     return false;
   }
-  new MutationObserver(function (_m, obs) { if (mark()) obs.disconnect(); }).observe(document, { childList: true, subtree: true });
+  // The real port has no "Made with Claude Design" badge; keep it out of the screenshots of this stand-in as well.
+  function hideBadge() {
+    if (document.querySelector('style[data-mock-port]')) return;
+    var parent = document.head || document.documentElement;
+    if (!parent) return;
+    var s = document.createElement('style');
+    s.setAttribute('data-mock-port', '1');
+    s.textContent = '#__claude_design_branding{display:none!important}';
+    parent.appendChild(s);
+  }
+  hideBadge();
+  new MutationObserver(function (_m, obs) { hideBadge(); if (mark()) obs.disconnect(); }).observe(document, { childList: true, subtree: true });
 })();</script>`
 
 export interface MockPort {

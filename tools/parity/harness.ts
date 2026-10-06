@@ -1,7 +1,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Browser } from '@playwright/test'
-import { AllowlistTracker, loadAllowlist, swapsFor, type AllowEntry } from './allowlist'
+import {
+  AllowlistError,
+  AllowlistTracker,
+  checkAllowlistScopes,
+  loadAllowlist,
+  swapsFor,
+  type AllowEntry,
+} from './allowlist'
 import { launchBrowser } from './browser'
 import {
   ALLOWLIST_FILE,
@@ -15,7 +22,7 @@ import {
 } from './config'
 import { OriginalDriver, PortDriver, type Driver } from './drivers'
 import { runUnit, type RunContext } from './runner'
-import { selectScenarios, themesOf, validateScenarios, type ScenarioFilter } from './scenarios'
+import { ALL_SCENARIOS, selectScenarios, themesOf, validateScenarios, type ScenarioFilter } from './scenarios'
 import type { Scenario } from './scenarios/types'
 import { startOriginalServer, type OriginalServer, type ServeOptions } from './serve-original'
 import { loadTolerances, type Tolerances } from './tolerances'
@@ -68,6 +75,9 @@ export async function runHarness(opts: HarnessOptions): Promise<HarnessResult> {
   const scenarios = opts.scenarios ?? selectScenarios(opts.filter)
   validateScenarios(scenarios)
   const allowlist = opts.allowlist ?? loadAllowlist(ALLOWLIST_FILE)
+  const scopeProblems = checkAllowlistScopes(allowlist, ALL_SCENARIOS)
+  if (scopeProblems.length)
+    throw new AllowlistError(`allowlist scope errors:\n  ${scopeProblems.join('\n  ')}`)
   const tolerances = opts.tolerances ?? loadTolerances(TOLERANCES_FILE)
   const consoleBaseline = opts.consoleBaseline ?? loadConsoleBaseline()
   const outDir = opts.outDir ?? REPORTS_DIR

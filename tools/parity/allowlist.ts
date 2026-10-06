@@ -209,6 +209,35 @@ export function swapsFor(entries: readonly AllowEntry[], screen: Screen): SwapSp
   return out
 }
 
+/**
+ * Typos in `scope` would make an entry silently inert (it would never apply, so it could never be called stale). Every
+ * scope.scenarios glob must match a scenario of the entry's screen and every scope.steps glob a step of such a scenario
+ * (the automatic "initial" step included).
+ */
+export function checkAllowlistScopes(
+  entries: readonly AllowEntry[],
+  catalogue: ReadonlyArray<{ id: string; screen: Screen; steps: ReadonlyArray<{ id: string }> }>,
+): string[] {
+  const problems: string[] = []
+  for (const e of entries) {
+    if (e.swap || !e.scope) continue
+    const scenarios = catalogue.filter((s) => e.screen === '*' || s.screen === e.screen)
+    for (const g of e.scope.scenarios ?? []) {
+      if (!scenarios.some((s) => simpleGlob(g, s.id)))
+        problems.push(`${e.id}: scope.scenarios "${g}" matches no scenario on ${e.screen}`)
+    }
+    const inScope = scenarios.filter(
+      (s) => !e.scope!.scenarios || e.scope!.scenarios.some((g) => simpleGlob(g, s.id)),
+    )
+    for (const g of e.scope.steps ?? []) {
+      if (!inScope.some((s) => simpleGlob(g, 'initial') || s.steps.some((st) => simpleGlob(g, st.id)))) {
+        problems.push(`${e.id}: scope.steps "${g}" matches no step of the scenarios in scope`)
+      }
+    }
+  }
+  return problems
+}
+
 export interface UnitCtx {
   screen: Screen
   scenario: string

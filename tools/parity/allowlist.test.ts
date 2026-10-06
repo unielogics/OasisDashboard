@@ -3,6 +3,7 @@ import {
   AllowlistError,
   AllowlistTracker,
   applyAllowlist,
+  checkAllowlistScopes,
   entryApplies,
   globToRegExp,
   masksFor,
@@ -284,5 +285,30 @@ describe('swapsFor and masksFor', () => {
       swap: { find: 'a', replace: 'b', count: 1 },
     } as AllowEntry
     expect(() => swapsFor([bad], 'payments')).toThrow(AllowlistError)
+  })
+})
+
+describe('checkAllowlistScopes', () => {
+  const catalogue = [
+    { id: 'ranges', screen: 'payments' as const, steps: [{ id: 'range-today' }, { id: 'range-7d' }] },
+    { id: 'sections', screen: 'settings' as const, steps: [{ id: 'section-vip' }] },
+  ]
+  const mk = (scope: object, screen = 'payments') =>
+    validateAllowlist([{ id: 'e', screen, kind: 'text', ...base, matcher: { loc: 'a' }, scope }])
+
+  it('accepts scopes that name real scenarios and steps', () => {
+    expect(checkAllowlistScopes(mk({ scenarios: ['ranges'], steps: ['range-*'] }), catalogue)).toEqual([])
+    expect(checkAllowlistScopes(mk({ steps: ['initial'] }), catalogue)).toEqual([])
+    expect(checkAllowlistScopes(mk({ scenarios: ['sections'] }, '*'), catalogue)).toEqual([])
+  })
+
+  it('reports typos that would make an entry silently inert', () => {
+    expect(checkAllowlistScopes(mk({ scenarios: ['rangez'] }), catalogue)).toEqual([
+      'e: scope.scenarios "rangez" matches no scenario on payments',
+    ])
+    expect(checkAllowlistScopes(mk({ scenarios: ['sections'] }), catalogue)).toHaveLength(1)
+    expect(checkAllowlistScopes(mk({ scenarios: ['ranges'], steps: ['section-vip'] }), catalogue)).toEqual([
+      'e: scope.steps "section-vip" matches no step of the scenarios in scope',
+    ])
   })
 })
