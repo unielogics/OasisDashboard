@@ -11,6 +11,11 @@ import { cssToObj } from '../../../src/dc/css'
 import { bodyOf, compileSnippet, referenceMarkup, renderSnippet } from './helpers'
 import { root } from './original-runtime'
 
+beforeAll(() => {
+  // React warns about controlled inputs while the reference interpreter renders; the markup is what counts.
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
 afterAll(() =>
   fs.rmSync(path.join(root, 'tools/dc-compile/tests/.tmp-snippets'), { recursive: true, force: true }),
 )

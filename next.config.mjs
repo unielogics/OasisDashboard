@@ -9,6 +9,8 @@ const nextConfig = {
   // The original runtime has no StrictMode; double-mounting would also double the cc tick and gesture listeners.
   reactStrictMode: false,
   poweredByHeader: false,
+  // Always define the flag so production builds inline '' and drop the parity hook as dead code.
+  env: { NEXT_PUBLIC_PARITY: parity ? '1' : '' },
   // Parity builds go to their own directory (deploys refuse to ship .next-parity).
   distDir: process.env.DIST_DIR || '.next',
   // ESLint runs as its own step (pnpm lint).

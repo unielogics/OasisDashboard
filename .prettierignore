@@ -8,3 +8,4 @@ pnpm-lock.yaml
 .generated-parity
 .next-parity
 .tmp-snippets
+src/styles/fonts.css
