@@ -1,4 +1,113 @@
 {
   "version": 1,
-  "entries": []
+  "entries": [
+    {
+      "id": "D4-href-operations-cc",
+      "screen": "operations",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Command%20Center.dc.html",
+        "replace": "/operations",
+        "count": 1
+      }
+    },
+    {
+      "id": "D4-href-operations-pay",
+      "screen": "operations",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Payments.dc.html",
+        "replace": "/payments",
+        "count": 1
+      }
+    },
+    {
+      "id": "D4-href-operations-set",
+      "screen": "operations",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Settings.dc.html",
+        "replace": "/settings",
+        "count": 3
+      }
+    },
+    {
+      "id": "D4-href-payments-cc",
+      "screen": "payments",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Command%20Center.dc.html",
+        "replace": "/operations",
+        "count": 1
+      }
+    },
+    {
+      "id": "D4-href-payments-pay",
+      "screen": "payments",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Payments.dc.html",
+        "replace": "/payments",
+        "count": 1
+      }
+    },
+    {
+      "id": "D4-href-payments-set",
+      "screen": "payments",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Settings.dc.html",
+        "replace": "/settings",
+        "count": 1
+      }
+    },
+    {
+      "id": "D4-href-settings-cc",
+      "screen": "settings",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Command%20Center.dc.html",
+        "replace": "/operations",
+        "count": 1
+      }
+    },
+    {
+      "id": "D4-href-settings-pay",
+      "screen": "settings",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Payments.dc.html",
+        "replace": "/payments",
+        "count": 1
+      }
+    },
+    {
+      "id": "D4-href-settings-set",
+      "screen": "settings",
+      "kind": "attr",
+      "reason": "D4: the dc bundles link between screens by .dc.html file name; the port uses real routes (/operations, /payments, /settings).",
+      "swap": {
+        "attr": "href",
+        "find": "Oasis%20Settings.dc.html",
+        "replace": "/settings",
+        "count": 1
+      }
+    }
+  ]
 }

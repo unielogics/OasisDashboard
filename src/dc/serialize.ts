@@ -1,63 +1,76 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Stable, JSON-safe form of a renderVals() result for the parity harness (window.__oasisParity.getVals()).
-// Self-contained on purpose (no imports): the harness may stringify this function and run it inside the page that
-// hosts the ORIGINAL bundle so that both sides serialise with identical code.
-//
-//   function                       -> "[fn]"
-//   React element                  -> { $el: <tag | "Fragment" | "[component Name]">, key, props, children[] [, ref: "[ref]"] }
-//   createRef()-style { current }  -> "[ref]"
-//   DOM node                       -> "[node]"
-//   repeated object on the path    -> "[circular]"
-//   Date -> { $date: iso }, Map -> { $map: [[k, v]...] }, Set -> { $set: [v...] }, RegExp/symbol/bigint -> string
-// Plain objects keep their own-key insertion order (style objects: key order matters), undefined values are kept
-// as undefined (JSON.stringify then drops them, in arrays they become null).
-
+// Canonical copy of tools/parity/vals-serialize.ts (the parity harness contract). A unit test asserts both files stay identical.
+/**
+ * Serialises the object returned by a screen's renderVals() into the JSON-safe, ORDER-PRESERVING form that the
+ * parity harness diffs. The harness injects this function (via toString) into the original bundle's page, and the
+ * port's `window.__oasisParity.getVals()` MUST return exactly `serializeVals(renderVals())` so both sides agree.
+ *
+ * It is dependency-free and self-contained on purpose: everything it uses is declared inside the function body.
+ *
+ * Format
+ *   string | boolean | null      as is
+ *   finite number                as is
+ *   NaN / Infinity / -Infinity   the strings "NaN" / "Infinity" / "-Infinity"
+ *   undefined                    "[undefined]"
+ *   function                     "[fn]"
+ *   symbol / bigint              "[symbol]" / "<digits>n"
+ *   DOM node                     "[node]"
+ *   cycle                        "[circular]"
+ *   Date                         "[date] <ISO string>"
+ *   array                        array of serialised items
+ *   Map / Set                    { "$map": [[k, v], ...] } / { "$set": [v, ...] }
+ *   React element                { "$el": <tag name | "[fragment]" | "[component]">, "key": <string|null>,
+ *                                  "props": <serialised props>, "ref": "[ref]" (only when a ref is set) }
+ *   any other object             plain object, own enumerable string keys in insertion order
+ */
 export function serializeVals(root: unknown): unknown {
   const REACT_ELEMENT = Symbol.for('react.element')
   const REACT_FRAGMENT = Symbol.for('react.fragment')
-  const path: object[] = []
-  const walk = (v: any): any => {
-    if (v === null || v === undefined) return v
-    const t = typeof v
-    if (t === 'function') return '[fn]'
-    if (t === 'symbol') return String(v)
-    if (t === 'bigint') return String(v) + 'n'
-    if (t !== 'object') return v
+  const stack = new Set<object>()
+  function ser(v: unknown, depth: number): unknown {
+    if (v === null) return null
+    switch (typeof v) {
+      case 'string':
+      case 'boolean':
+        return v
+      case 'number':
+        return Number.isFinite(v) ? v : String(v)
+      case 'undefined':
+        return '[undefined]'
+      case 'function':
+        return '[fn]'
+      case 'symbol':
+        return '[symbol]'
+      case 'bigint':
+        return String(v) + 'n'
+    }
+    const o = v as Record<string, unknown>
+    if (depth > 60) return '[depth]'
     if (typeof Node !== 'undefined' && v instanceof Node) return '[node]'
-    if (path.includes(v)) return '[circular]'
-    path.push(v)
+    if (stack.has(o)) return '[circular]'
+    stack.add(o)
     try {
-      if (v.$$typeof === REACT_ELEMENT) {
-        const { children, ...props } = v.props ?? {}
-        const type =
-          typeof v.type === 'string'
-            ? v.type
-            : v.type === REACT_FRAGMENT
-              ? 'Fragment'
-              : `[component ${v.type?.displayName || v.type?.name || '?'}]`
-        const kids = children === undefined ? [] : Array.isArray(children) ? children : [children]
-        const out: Record<string, any> = {
-          $el: type,
-          key: v.key ?? null,
-          props: walk(props),
-          children: kids.map(walk),
+      if (Array.isArray(v)) return v.map((x) => ser(x, depth + 1))
+      if (v instanceof Date) return '[date] ' + (isNaN(v.getTime()) ? 'invalid' : v.toISOString())
+      if (v instanceof Map)
+        return { $map: Array.from(v.entries()).map(([k, x]) => [ser(k, depth + 1), ser(x, depth + 1)]) }
+      if (v instanceof Set) return { $set: Array.from(v.values()).map((x) => ser(x, depth + 1)) }
+      if (o.$$typeof === REACT_ELEMENT) {
+        const type = o.type
+        const out: Record<string, unknown> = {
+          $el: typeof type === 'string' ? type : type === REACT_FRAGMENT ? '[fragment]' : '[component]',
+          key: o.key === null || o.key === undefined ? null : String(o.key),
+          props: ser(o.props, depth + 1),
         }
-        if (v.ref) out.ref = '[ref]'
+        if (o.ref !== null && o.ref !== undefined) out.ref = '[ref]'
         return out
       }
-      if (Array.isArray(v)) return v.map(walk)
-      if (v instanceof Date) return { $date: Number.isNaN(v.getTime()) ? null : v.toISOString() }
-      if (v instanceof RegExp) return String(v)
-      if (v instanceof Map) return { $map: [...v.entries()].map(([k, x]) => [walk(k), walk(x)]) }
-      if (v instanceof Set) return { $set: [...v.values()].map(walk) }
-      const keys = Object.keys(v)
-      if (keys.length === 1 && keys[0] === 'current') return '[ref]'
-      const out: Record<string, any> = {}
-      for (const k of keys) out[k] = walk(v[k])
+      const out: Record<string, unknown> = {}
+      for (const k of Object.keys(o)) out[k] = ser(o[k], depth + 1)
       return out
     } finally {
-      path.pop()
+      stack.delete(o)
     }
   }
-  return walk(root)
+  return ser(root, 0)
 }

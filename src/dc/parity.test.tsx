@@ -60,7 +60,7 @@ describe('parity hook', () => {
       p: 1,
       label: 'x',
       onClick: '[fn]',
-      icon: { $el: 'i', key: null, props: { className: 'ic' }, children: [] },
+      icon: { $el: 'i', key: null, props: { className: 'ic' } },
       style: { zIndex: 1, color: 'red' },
     })
     expect(JSON.stringify(vals.style)).toBe('{"zIndex":1,"color":"red"}')

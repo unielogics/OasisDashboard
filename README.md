@@ -13,4 +13,6 @@ pnpm install
 PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-arm64 pnpm exec playwright install chromium   # once (Amazon Linux 2023 aarch64)
 pnpm check            # design:verify + lint + typecheck + tests
 pnpm parity:setup     # smoke-render the originals (screenshots in parity-reports/setup/)
+pnpm build:parity && pnpm start:parity &   # the port on :3100 (parity build)
+pnpm parity:all       # original vs port: DOM, computed style, pixels, renderVals, console (see docs/parity.md)
 ```
