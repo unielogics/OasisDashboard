@@ -2,39 +2,12 @@
 // below is wired to its endpoint with the DTOs of ./types; the screens switch over one by one (docs/data-layer.md,
 // "migration recipe"). Nothing here formats text or computes money; the server does.
 import type { ApiClient } from '../http/client'
-import type { DataPort, PaymentsPort } from './ports'
-import type { Cursor, InvoiceRow } from './types'
+import { createLivePaymentsPort } from './payments'
+import type { DataPort } from './ports'
 
 const enc = encodeURIComponent
 
 export function createLiveDataPort(c: ApiClient): DataPort {
-  const payments: PaymentsPort = {
-    summary: (range) => c.get('/payments/summary', { query: { range } }),
-    invoicePage: (q, cursor) =>
-      c.get<Cursor<InvoiceRow>>('/payments/invoices', {
-        query: { range: q.range, filter: q.filter, q: q.q, cursor, limit: 500 },
-      }),
-    async invoices(q) {
-      const out: InvoiceRow[] = []
-      let cursor: string | undefined
-      do {
-        const page = await payments.invoicePage(q, cursor)
-        out.push(...page.items)
-        cursor = page.nextCursor ?? undefined
-      } while (cursor)
-      return out
-    },
-    invoice: (id) => c.get(`/invoices/${enc(id)}`),
-    collect: (id, input, o) => c.post(`/invoices/${enc(id)}/payments`, input, o),
-    refund: (id, input, o) => c.post(`/invoices/${enc(id)}/refunds`, input, o),
-    approveRefund: (id, eventId, o) =>
-      c.post(`/invoices/${enc(id)}/refunds/${enc(eventId)}/approve`, undefined, o),
-    denyRefund: (id, eventId, o) => c.post(`/invoices/${enc(id)}/refunds/${enc(eventId)}/deny`, undefined, o),
-    adjust: (id, input, o) => c.post(`/invoices/${enc(id)}/adjustments`, input, o),
-    issueCredit: (id, input, o) => c.post(`/invoices/${enc(id)}/credits`, input, o),
-    voidPayment: (id, eventId, o) => c.post(`/invoices/${enc(id)}/void`, { eventId }, o),
-  }
-
   return {
     kind: 'live',
     catalog: {
@@ -82,7 +55,7 @@ export function createLiveDataPort(c: ApiClient): DataPort {
       thread: (id) => c.get(`/appointments/${enc(id)}/messages`),
       send: (id, input, o) => c.post(`/appointments/${enc(id)}/messages`, input, o),
     },
-    payments,
+    payments: createLivePaymentsPort(c),
     people: {
       employees: (q) => c.get('/employees', { query: { q: q?.q, role: q?.role } }),
       roles: () => c.get('/roles'),

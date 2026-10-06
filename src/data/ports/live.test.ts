@@ -77,15 +77,22 @@ describe('LiveDataPort wires every region to the documented endpoint', () => {
     await port.ops.toggleAddon('ap-1', 'addon-3', false, o)
     await port.ops.reschedule('ap-1', { start: '2026-06-13T15:00:00-04:00' }, o)
     await port.messages.send('ap-1', { text: 'On our way' }, o)
-    await port.payments.collect('INV-1', { method: 'cash', amountCents: 1000 }, o)
-    await port.payments.refund('INV-1', { amountCents: 500, reason: 'Goodwill', dest: 'original' }, o)
+    await port.payments.collect('INV-1', { method: 'cash' }, o)
+    await port.payments.refund(
+      'INV-1',
+      { mode: 'custom', amountCents: 500, reason: 'Goodwill', dest: 'card' },
+      o,
+    )
     await port.payments.approveRefund('INV-1', 'ev-1', o)
     await port.payments.denyRefund('INV-1', 'ev-1', o)
-    await port.payments.adjust('INV-1', { amountCents: -500, reason: 'Discount' }, o)
+    await port.payments.adjust('INV-1', { kind: 'discount', unit: '$', value: 500, reason: 'Loyalty' }, o)
     await port.payments.issueCredit('INV-1', { amountCents: 2000, reason: 'Referral', expiry: '90 days' }, o)
     await port.payments.voidPayment('INV-1', 'ev-2', o)
     await port.people.setRolePermission('r-1', 'pay.refund', true, o)
     await port.people.setRoleLimit('r-1', 'refund', null, o)
+    await port.payments.applyCredit('INV-1', o)
+    await port.payments.sendReceipt('INV-1', o)
+    await port.payments.confirmProcessor('ev-3', o)
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
       'PUT /api/v1/services/svc-1/checklist',
       'PUT /api/v1/settings/hours',
@@ -110,6 +117,9 @@ describe('LiveDataPort wires every region to the documented endpoint', () => {
       'POST /api/v1/invoices/INV-1/void',
       'PUT /api/v1/roles/r-1/permissions/pay.refund',
       'PUT /api/v1/roles/r-1/limits/refund',
+      'POST /api/v1/invoices/INV-1/credit-applications',
+      'POST /api/v1/invoices/INV-1/receipt',
+      'POST /api/v1/ledger-events/ev-3/confirm-processor',
     ])
     for (const c of calls) {
       expect(c.headers['X-CSRF-Token'], c.url).toBe('csrf-1')
@@ -124,6 +134,11 @@ describe('LiveDataPort wires every region to the documented endpoint', () => {
     expect(calls[20]!.body).toEqual({ eventId: 'ev-2' })
     expect(calls[21]!.body).toEqual({ granted: true })
     expect(calls[22]!.body).toEqual({ value: null })
+    // the Payments commands carry an object body (the server's strict schemas reject a missing one)
+    expect(calls[23]!.body).toEqual({})
+    expect(calls[24]!.body).toEqual({})
+    expect(calls[25]!.body).toEqual({})
+    expect(calls[16]!.body).toEqual({})
   })
 
   it('payments.invoices follows keyset cursors until the list is complete', async () => {
@@ -135,7 +150,7 @@ describe('LiveDataPort wires every region to the documented endpoint', () => {
     const { port, calls } = harness(
       (url) => pages[new URL(url, 'http://x').searchParams.get('cursor') ?? 'first'],
     )
-    const rows = await port.payments.invoices({ range: '30d', filter: 'unpaid', q: 'kim' })
+    const rows = await port.payments.invoices({ range: '30d', filter: 'unpaid', q: ' kim ' })
     expect(rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd'])
     expect(calls.map((c) => c.url)).toEqual([
       '/api/v1/payments/invoices?range=30d&filter=unpaid&q=kim&limit=500',

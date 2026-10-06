@@ -57,6 +57,18 @@
       "tpl": 6,
       "expectTag": "header",
       "htmlFile": "view-as-bar.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 154,
+      "expectTag": "sc-if",
+      "htmlFile": "pay-ledger-confirm.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 221,
+      "expectTag": "div",
+      "htmlFile": "pay-collect-link.html"
     }
   ]
 }
