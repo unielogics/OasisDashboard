@@ -13,6 +13,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Real timers, sockets and a shared 2-vCPU box: a few SSE/reconnect tests need more than vitest's 5 s default.
+    testTimeout: 20_000,
     exclude: [
       '**/node_modules/**',
       '.next/**',

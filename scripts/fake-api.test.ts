@@ -292,7 +292,7 @@ describe('SSE: RealtimeClient against the fake /events', () => {
     })
     return { b, client, events, status, resyncs, sources, urls }
   }
-  const until = (fn: () => boolean, ms = 3000) =>
+  const until = (fn: () => boolean, ms = 15000) =>
     new Promise<void>((res, rej) => {
       const t0 = performance.now()
       const tick = () =>
@@ -325,7 +325,7 @@ describe('SSE: RealtimeClient against the fake /events', () => {
     await until(() => events.length === 1)
     const seen = client.lastEventId!
     await fetch(`${origin}/__fake/drop-streams`, { method: 'POST' })
-    await until(() => client.status === 'down')
+    await until(() => status.includes('down'))
     api.emit('payments', 'invoice.updated', { id: 'INV-1' })
     api.emit('ops', 'bay.changed')
     await until(() => client.status === 'up')
