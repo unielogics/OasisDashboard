@@ -1,6 +1,17 @@
 import render, { meta } from '@generated/payments'
-import { logicSource } from '@generated/payments.logic'
 import { screenCss } from '@generated/payments.styles'
-import { createScreen } from '@/dc/createScreen'
+import { DCHost } from '@/dc/DCHost'
+import { ScreenStyle } from '@/dc/ScreenStyle'
+import { FixtureData } from './fixtures'
+import { createPaymentsLogic } from './Logic'
 
-export default createScreen({ meta, render, logicSource, screenCss })
+const Logic = createPaymentsLogic(new FixtureData())
+
+export default function PaymentsScreen() {
+  return (
+    <>
+      <ScreenStyle id={meta.screen} css={screenCss} />
+      <DCHost meta={meta} Logic={Logic} render={render} />
+    </>
+  )
+}
