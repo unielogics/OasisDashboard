@@ -39,8 +39,13 @@ function walk(n: Node, f: (e: El) => void) {
   for (const k of kids) walk(k, f)
   if (content) for (const k of content.childNodes) walk(k, f)
 }
-const textOf = (e: El) => (e.childNodes as { nodeName: string; value?: string }[]).map((c) => c.value ?? '').join('')
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+const textOf = (e: El) =>
+  (e.childNodes as { nodeName: string; value?: string }[]).map((c) => c.value ?? '').join('')
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 
 if (fs.existsSync(outDir) && !force) {
   console.error('design/extracted already exists; refusing to overwrite (use --force to regenerate).')
@@ -89,7 +94,8 @@ for (const s of SCREENS) {
   walk(frag as unknown as Node, (e) => {
     if (e.tagName === 'style') styles.push(textOf(e))
   })
-  if (styles.length !== 2) throw new Error(`${s.file}: expected 2 <style> blocks in helmet, got ${styles.length}`)
+  if (styles.length !== 2)
+    throw new Error(`${s.file}: expected 2 <style> blocks in helmet, got ${styles.length}`)
   const fontsCss = styles.find((c) => c.includes('@font-face'))
   const globalCss = styles.find((c) => !c.includes('@font-face'))
   if (!fontsCss || !globalCss) throw new Error(`${s.file}: could not classify helmet styles`)
@@ -136,7 +142,9 @@ for (const s of SCREENS) {
       fs.mkdirSync(path.join(outDir, 'fonts'), { recursive: true })
       fs.writeFileSync(path.join(outDir, 'fonts', f.file), buf)
     } else if (f.family !== family || f.subset !== subset) {
-      throw new Error(`${s.file}: font hash collision across (${family}/${subset}) and (${f.family}/${f.subset})`)
+      throw new Error(
+        `${s.file}: font hash collision across (${family}/${subset}) and (${f.family}/${f.subset})`,
+      )
     }
     perScreenUuidToFile.set(uuid, f.file)
   }
@@ -153,14 +161,21 @@ for (const s of SCREENS) {
     }
     runtimeWritten = true
   }
-  console.log(`extracted ${s.key}: template ${templateHtml.length} chars, logic ${logic.length} chars, ${perScreenUuidToFile.size} font refs`)
+  console.log(
+    `extracted ${s.key}: template ${templateHtml.length} chars, logic ${logic.length} chars, ${perScreenUuidToFile.size} font refs`,
+  )
 }
 
 fs.writeFileSync(
   path.join(outDir, 'fonts', 'manifest.json'),
   JSON.stringify(
     {
-      files: Object.fromEntries([...fontsByHash].map(([h, f]) => [f.file, { sha256: h, family: f.family, subset: f.subset, bytes: f.bytes }])),
+      files: Object.fromEntries(
+        [...fontsByHash].map(([h, f]) => [
+          f.file,
+          { sha256: h, family: f.family, subset: f.subset, bytes: f.bytes },
+        ]),
+      ),
       uuidToFilePerScreen: fontManifest,
     },
     null,

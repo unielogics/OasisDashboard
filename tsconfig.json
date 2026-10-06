@@ -4,6 +4,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "preserve",
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
@@ -11,8 +12,16 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "allowJs": false,
-    "types": ["node"]
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@generated/*": ["src/generated/*"]
+    },
+    "plugins": [{ "name": "next" }]
   },
-  "include": ["scripts/**/*", "tools/**/*", "src/**/*", "tests/**/*", "*.ts", "*.mjs"],
-  "exclude": ["node_modules", "parity-reports", "design", ".next", "src/generated"]
+  "include": ["next-env.d.ts", "scripts/**/*", "tools/**/*", "src/**/*", "tests/**/*", "*.ts", "*.mjs"],
+  "exclude": ["node_modules", "parity-reports", "design", ".next", ".next-parity", ".generated-parity"]
 }

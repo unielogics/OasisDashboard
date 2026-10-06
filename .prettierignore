@@ -5,3 +5,5 @@ design
 src/generated
 docs/reference
 pnpm-lock.yaml
+.generated-parity
+.next-parity
