@@ -12,6 +12,8 @@ export default tseslint.config(
       'src/generated',
       '.generated-parity',
       '.next-parity',
+      '.generated-live',
+      '.next-live',
       'next-env.d.ts', '**/.tmp-snippets',
       'coverage',
     ],

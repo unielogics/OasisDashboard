@@ -9,3 +9,7 @@ pnpm-lock.yaml
 .next-parity
 .tmp-snippets
 src/styles/fonts.css
+.generated-live
+.next-live
+src/data/http/schema.d.ts
+design-patches/live/partials

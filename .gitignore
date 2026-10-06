@@ -11,3 +11,5 @@ coverage/
 *.log
 .tsbuildinfo
 .tmp-snippets/
+.generated-live
+.next-live

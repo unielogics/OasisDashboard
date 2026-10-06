@@ -18,6 +18,8 @@ export default defineConfig({
       '.next/**',
       '.next-parity/**',
       '.generated-parity/**',
+      '.generated-live/**',
+      '.next-live/**',
       'design/**',
       'parity-reports/**',
     ],
