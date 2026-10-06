@@ -1,0 +1,7 @@
+<div data-live-menu="user" style="position:relative;">
+  <div sc-camel-on-click="{{ live.menu.toggle }}" style="display:flex;align-items:center;gap:9px;padding:4px 12px 4px 4px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer;">
+    <div style="width:36px;height:36px;border-radius:10px;background:var(--accentSoft);color:var(--accentInk);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;">{{= live.user.initials }}</div>
+    <div style="line-height:1.1;"><div style="font-weight:700;font-size:13px;">{{= live.user.short }}</div><div style="font-size:11px;color:var(--ink3);font-weight:600;">{{= live.user.roleTitle }}</div></div>
+  </div>
+  @include(user-menu.html)
+</div>

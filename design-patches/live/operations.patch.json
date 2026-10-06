@@ -1,0 +1,54 @@
+{
+  "ops": [
+    {
+      "op": "wrap",
+      "tpl": 44,
+      "expectTag": "div",
+      "expectTextStarts": "RM",
+      "htmlFile": "user-chip-wrap.html"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 44,
+      "expectTag": "div",
+      "name": "sc-camel-on-click",
+      "expect": null,
+      "value": "{{ live.menu.toggle }}"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 44,
+      "expectTag": "div",
+      "name": "style",
+      "expect": "display:flex;align-items:center;gap:9px;padding:4px 12px 4px 4px;background:var(--panel);border:1px solid var(--line);border-radius:13px;",
+      "value": "display:flex;align-items:center;gap:9px;padding:4px 12px 4px 4px;background:var(--panel);border:1px solid var(--line);border-radius:13px;cursor:pointer;"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 45,
+      "expectTag": "div",
+      "expect": "RM",
+      "with": "{{= live.user.initials }}"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 47,
+      "expectTag": "div",
+      "expect": "Rafael M.",
+      "with": "{{= live.user.short }}"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 48,
+      "expectTag": "div",
+      "expect": "Manager",
+      "with": "{{= live.user.roleTitle }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 6,
+      "expectTag": "header",
+      "htmlFile": "view-as-bar.html"
+    }
+  ]
+}

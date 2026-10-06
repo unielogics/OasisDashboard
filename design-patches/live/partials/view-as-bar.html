@@ -1,0 +1,7 @@
+<sc-if value="{{ live.viewAs.active }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:none;display:flex;align-items:center;gap:12px;padding:10px 26px;background:var(--accentSoft);border-bottom:1px solid var(--accentBrd);color:var(--accentInk);font-size:13px;font-weight:700;">
+    <span>Viewing as <span style="font-weight:800;">{{= live.viewAs.label }}</span> — actions use that role’s permissions</span>
+    <div style="flex:1;"></div>
+    <button sc-camel-on-click="{{ live.viewAs.exit }}" style="height:34px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink);">Exit</button>
+  </div>
+</sc-if>

@@ -1,0 +1,62 @@
+{
+  "ops": [
+    {
+      "op": "wrap-if",
+      "tpl": 21,
+      "expectTag": "div",
+      "expectTextStarts": "Preview as",
+      "cond": "live.canViewAs"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 21,
+      "expectTag": "div",
+      "name": "data-live-menu",
+      "expect": null,
+      "value": "viewas"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 22,
+      "expectTag": "button",
+      "name": "sc-camel-on-click",
+      "expect": "{{ toggleRoleMenu }}",
+      "value": "{{ live.viewAs.toggleMenu }}"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 23,
+      "expectTag": "span",
+      "expect": "{{ roleName }}",
+      "with": "{{= live.viewAs.label }}"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 26,
+      "expectTag": "sc-if",
+      "name": "value",
+      "expect": "{{ roleMenu }}",
+      "value": "{{ live.viewAs.menuOpen }}"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 28,
+      "expectTag": "sc-for",
+      "name": "list",
+      "expect": "{{ roleOpts }}",
+      "value": "{{ live.viewAs.options }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 33,
+      "expectTag": "button",
+      "htmlFile": "user-chip.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 6,
+      "expectTag": "header",
+      "htmlFile": "view-as-bar.html"
+    }
+  ]
+}

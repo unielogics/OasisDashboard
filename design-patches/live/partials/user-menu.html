@@ -1,0 +1,10 @@
+<sc-if value="{{ live.menu.open }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;right:0;top:52px;z-index:50;width:250px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowLg);padding:6px;">
+    <div style="padding:9px 10px 8px;">
+      <div style="font-weight:800;font-size:13.5px;">{{= live.user.name }}</div>
+      <div style="font-size:11.5px;font-weight:600;color:var(--ink3);margin-top:1px;">{{= live.user.email }}</div>
+    </div>
+    <div style="border-top:1px solid var(--line);margin:4px 6px;"></div>
+    <button sc-camel-on-click="{{ live.menu.signOut }}" style="display:flex;align-items:center;width:100%;padding:9px 10px;border-radius:10px;font-weight:800;font-size:13.5px;">Sign out</button>
+  </div>
+</sc-if>

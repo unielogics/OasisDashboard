@@ -3,7 +3,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { CompileError } from './errors'
 import { parsePath, splitInterp } from './grammar'
-import { textOf, walkEls } from './parse'
+import { parseTemplate, textOf, walkEls } from './parse'
 import type { ElNode, Node } from './parse'
 
 export interface CopyEntry {
@@ -22,6 +22,20 @@ export type PatchOp =
   | { op: 'set-attr'; tpl: number; expectTag?: string; name: string; expect: string | null; value: string }
   | { op: 'wrap-if'; tpl: number; expectTag?: string; expectTextStarts?: string; cond: string }
   | { op: 'remove'; tpl: number; expectTag?: string; expectTextStarts?: string }
+  /** Markup spliced next to the target. `html` (or `htmlFile`, a partial under design-patches/live/partials/) uses the template language. */
+  | ({
+      op: 'insert-after' | 'insert-before'
+      tpl: number
+      expectTag?: string
+      expectTextStarts?: string
+    } & Markup)
+  /** Wraps the target in markup that contains exactly one `<sc-slot></sc-slot>`; the target replaces the slot. */
+  | ({ op: 'wrap'; tpl: number; expectTag?: string; expectTextStarts?: string } & Markup)
+
+export interface Markup {
+  html?: string
+  htmlFile?: string
+}
 
 export interface PatchConfig {
   hrefMap: Record<string, string>
@@ -46,7 +60,30 @@ const readJson = (file: string): { raw: string; json: JsonFile } => {
   return { raw, json: JSON.parse(raw) as JsonFile }
 }
 
-export function loadPatchConfig(root: string, screen: string): PatchConfig {
+const INCLUDE_RE = /@include\(([\w.-]+)\)/g
+
+/** Reads a partial (design-patches/live/partials/<name>) with its @include(other.html) references expanded. */
+function readPartial(dir: string, name: string, seen: string[], raws: string[]): string {
+  guard(/^[\w.-]+$/.test(name), `partial name ${JSON.stringify(name)} is not a plain file name`)
+  guard(!seen.includes(name), `partial ${name} includes itself (${[...seen, name].join(' -> ')})`)
+  const file = path.join(dir, 'live', 'partials', name)
+  guard(fs.existsSync(file), `partial design-patches/live/partials/${name} does not exist`)
+  const raw = fs.readFileSync(file, 'utf8')
+  raws.push(name + '\0' + raw)
+  return raw.replace(INCLUDE_RE, (_, inner: string) =>
+    readPartial(dir, inner, [...seen, name], raws).replace(/\n$/, ''),
+  )
+}
+
+/**
+ * Loads the base patches (href map, copy map, `<screen>.patch.json`). The `live` variant appends
+ * `live/<screen>.patch.json`, whose ops may reference partials; prod and parity never read the live directory.
+ */
+export function loadPatchConfig(
+  root: string,
+  screen: string,
+  variant: 'prod' | 'parity' | 'live' = 'prod',
+): PatchConfig {
   const dir = path.join(root, 'design-patches')
   const href = readJson(path.join(dir, 'href-map.json'))
   const copy = readJson(path.join(dir, 'copy-map.json'))
@@ -54,12 +91,49 @@ export function loadPatchConfig(root: string, screen: string): PatchConfig {
   const h = crypto.createHash('sha256')
   h.update(href.raw).update('\0').update(copy.raw).update('\0').update(own.raw)
   const entries = (copy.json.entries ?? []).filter((e) => e.screen === screen)
+  let ops = own.json.ops ?? []
+  if (variant === 'live') {
+    const live = readJson(path.join(dir, 'live', `${screen}.patch.json`))
+    h.update('\0live\0').update(live.raw)
+    const raws: string[] = []
+    const liveOps = (live.json.ops ?? []).map((op): PatchOp => {
+      if (!('htmlFile' in op) || op.htmlFile === undefined) return op
+      guard(op.html === undefined, `${screen} ${op.op} tpl ${op.tpl}: give html or htmlFile, not both`)
+      return { ...op, html: readPartial(dir, op.htmlFile, [], raws), htmlFile: undefined } as PatchOp
+    })
+    for (const r of raws.sort()) h.update('\0').update(r)
+    ops = [...ops, ...liveOps]
+  }
   return {
     hrefMap: href.json.map ?? {},
     copyEntries: entries,
-    ops: own.json.ops ?? [],
+    ops,
     sha: h.digest('hex'),
   }
+}
+
+/** Parses patch markup into tree nodes: every node is synthetic (tpl -1) and its text may use `{{= path }}`. */
+export function parseMarkup(html: string, where: string): Node[] {
+  guard(typeof html === 'string' && html.trim() !== '', `${where}: markup is empty`)
+  let nodes: Node[]
+  try {
+    nodes = parseTemplate(html).nodes
+  } catch (e) {
+    throw new CompileError(`patch guard failed: ${where}: markup does not parse (${(e as Error).message})`, 3)
+  }
+  guard(nodes.length > 0, `${where}: markup has no content`)
+  const mark = (list: Node[]): void => {
+    for (const n of list) {
+      if (n.kind === 'text') n.allowRaw = true
+      else {
+        guard(n.tag !== 'sc-helmet', `${where}: markup must not contain a helmet`)
+        n.tpl = -1
+        mark(n.children)
+      }
+    }
+  }
+  mark(nodes)
+  return nodes
 }
 
 /** Replace `from` by `to`, requiring exactly `count` occurrences. Returns the new text. */
@@ -141,6 +215,50 @@ export function applyPatches(nodes: Node[], cfg: PatchConfig, screen: string): N
           children: [el],
         }
         list[i] = wrapper
+        break
+      }
+      case 'insert-after':
+      case 'insert-before': {
+        if (op.expectTextStarts !== undefined) {
+          guard(
+            textOf(el.children).trimStart().startsWith(op.expectTextStarts),
+            `${where}: text does not start with ${JSON.stringify(op.expectTextStarts)}`,
+          )
+        }
+        guard(op.html !== undefined, `${where}: needs html or htmlFile`)
+        const list = siblings(parent)
+        const i = list.indexOf(el)
+        list.splice(op.op === 'insert-after' ? i + 1 : i, 0, ...parseMarkup(op.html!, where))
+        break
+      }
+      case 'wrap': {
+        if (op.expectTextStarts !== undefined) {
+          guard(
+            textOf(el.children).trimStart().startsWith(op.expectTextStarts),
+            `${where}: text does not start with ${JSON.stringify(op.expectTextStarts)}`,
+          )
+        }
+        guard(op.html !== undefined, `${where}: needs html or htmlFile`)
+        const wrapped = parseMarkup(op.html!, where)
+        let slots = 0
+        let slotParent: ElNode | null = null
+        let slotIndex = -1
+        const find = (list: Node[], owner: ElNode | null): void => {
+          list.forEach((n, idx) => {
+            if (n.kind !== 'el') return
+            if (n.tag === 'sc-slot') {
+              slots++
+              slotParent = owner
+              slotIndex = idx
+            } else find(n.children, n)
+          })
+        }
+        find(wrapped, null)
+        guard(slots === 1, `${where}: wrap markup needs exactly one <sc-slot></sc-slot>, found ${slots}`)
+        const holder: Node[] = slotParent ? (slotParent as ElNode).children : wrapped
+        holder[slotIndex] = el
+        const list = siblings(parent)
+        list.splice(list.indexOf(el), 1, ...wrapped)
         break
       }
       case 'remove': {

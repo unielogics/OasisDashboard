@@ -6,14 +6,14 @@ import type { ScreenId } from './compile'
 import { CompileError } from './errors'
 
 const USAGE = `usage: tsx tools/dc-compile/index.ts [--screen operations|payments|settings|all] [--check]
-         [--variant=prod|parity] [--emit-tpl-ids] [--out <dir>] [--allow-complex-expr]
+         [--variant=prod|parity|live] [--emit-tpl-ids] [--out <dir>] [--allow-complex-expr]
 exit codes: 0 ok, 1 --check mismatch, 2 grammar / unknown attribute / unsupported construct, 3 patch guard failed`
 
 function main(argv: string[]): number {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
   let screen = 'all'
   let check = false
-  let variant: 'prod' | 'parity' = 'prod'
+  let variant: 'prod' | 'parity' | 'live' = 'prod'
   let tplIds = false
   let out = 'src/generated'
   let allowComplexExpr = false
@@ -35,8 +35,8 @@ function main(argv: string[]): number {
         break
       case '--variant': {
         const v = val()
-        if (v !== 'prod' && v !== 'parity')
-          throw new CompileError(`--variant must be prod or parity, got ${v}`)
+        if (v !== 'prod' && v !== 'parity' && v !== 'live')
+          throw new CompileError(`--variant must be prod, parity or live, got ${v}`)
         variant = v
         break
       }
