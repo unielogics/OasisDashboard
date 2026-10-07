@@ -78,3 +78,16 @@ payments` stays at zero diff). Provenance of every root and the wording tables: 
 | DV-221 | real-data   | toasts after a command are built from the server's answer (refund "Sent for approval" or "Refunded", adjust shows the server's new total, collect shows the amount applied, a payment link says when the client could not be texted)                                                    | open     |
 | DV-222 | real-data   | Export CSV downloads the real file (`GET /payments/export.csv` with the active range, filter and search); the toast keeps "CSV export started · N invoices" (singular fixed)                                                                                                            | open     |
 | DV-223 | wiring      | a refund by item lists only items that were not refunded yet (the server tracks them); adjust sends percent as basis points; the sheet's Idempotency-Key is created when it opens and reused until it succeeds                                                                          | open     |
+
+## Live parity (`pnpm parity:live`, docs/parity-live.md)
+
+Differences between the live screens on the real API and the original designs that the live parity run found and that
+are not a visual redesign. Each is listed in `parity/allowlist.live.json` (ids `L-<screen>-<nn>`) and the oracle is
+given the same behaviour before it renders. Ids in the DV-4xx range belong to this work. Owner sign-off is open.
+
+| id     | kind      | patch                                                                                                                                                                                                                                                  | sign-off |
+| ------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| DV-401 | real-data | Payments seed numbering: the design's generated history reuses `INV-20608`..`INV-20591` for a second invoice (review B11); the `parity-pay` seed numbers the generated invoices downward from 20608 skipping ids in use, so every invoice id is unique | open     |
+| DV-402 | bugfix    | Payments opens on the newest invoice of the list (the first row) and keeps showing it whatever the range, filter or search does, until another row is chosen; the design preselects the fixture literal `INV-20603`                                    | open     |
+| DV-403 | wiring    | live pages mirror the theme on `<html data-theme>` (boot script) so a dark user never sees a light flash; the body background and the two outer wrappers inherit the dark custom properties (no pixel changes)                                         | open     |
+| DV-404 | copy      | Payments permission line names every role of the person (`Within your $1,000 limit as Management + Accounting.`); the design's Rafael has one role in Payments and two in the Settings design, the live seed follows Settings                          | open     |
