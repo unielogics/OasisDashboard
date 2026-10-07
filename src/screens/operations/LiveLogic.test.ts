@@ -5,6 +5,7 @@
 // the design's gesture timings. The template itself is covered by LiveLogic.render.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/data/http/problem'
+import { qk } from '@/data/query'
 import { UploadError } from '@/data/ports/operations'
 import { FILES, FROZEN, clone, fixtures, makeLive, makeSession, stubPayments, stubPort } from './live-testkit'
 import type { Live } from './live-testkit'
@@ -472,6 +473,17 @@ describe('Messages', () => {
     expect(calls(l, 'sendMessage')).toHaveLength(1)
   })
 
+  it('a messages event (a text in, a delivery state, a STOP) refetches the open file so its chip and count follow', async () => {
+    const l = await boot()
+    await open(l, 'completed', 'messages')
+    const before = calls(l, 'appointment').filter((c) => c[1] === id('completed')).length
+    await l.qc.invalidateQueries({ queryKey: qk.messages() })
+    await flushed(l)
+    l.vals()
+    await flushed(l)
+    expect(calls(l, 'appointment').filter((c) => c[1] === id('completed')).length).toBeGreaterThan(before)
+  })
+
   it('an opted-out customer: the chip says so and the server refusal is the toast', async () => {
     const port = stubPort()
     const f = port.files.get(id('completed'))!
@@ -773,6 +785,58 @@ describe('New Appointment and Walk-in', () => {
     expect(body.source).toBe('walk_in')
     expect(body.start).toBeUndefined()
     expect(l.vals().newTitle).toBe('Walk-in Booking')
+  })
+
+  it('a walk-in with no free bay: the server refuses, a manager is asked for a reason and sends it as the override', async () => {
+    const l = await boot()
+    l.vals().openWalkin()
+    l.vals()
+    await flushed(l)
+    l.vals().nf.setName({ target: { value: 'Walk In' } })
+    l.vals().nf.setPhone({ target: { value: '3055550172' } })
+    expect(l.vals().nf.walkReason).toBe(false)
+    l.port.fail.set(
+      'book',
+      problem(409, 'SLOT_UNAVAILABLE', 'Slot unavailable', 'Would overbook a bay — override required'),
+    )
+    l.vals().createAppt()
+    await flushed(l)
+    expect(l.vals().toast).toEqual({
+      title: 'Slot unavailable',
+      desc: 'Would overbook a bay — override required',
+    })
+    expect(l.vals().newOpen).toBe(true)
+    expect(l.vals().nf.walkReason).toBe(true)
+    l.port.fail.clear()
+    l.vals().createAppt()
+    await flushed(l)
+    expect(l.vals().toast).toEqual({
+      title: 'Reason required',
+      desc: 'Say why this walk-in is being fitted in',
+    })
+    expect(calls(l, 'book')).toHaveLength(1)
+    l.vals().nf.setOverrideReason({ target: { value: 'Customer is on site' } })
+    l.vals().createAppt()
+    await flushed(l)
+    const body = calls(l, 'book')[1]![1] as any
+    expect(body).toMatchObject({ walkIn: true, override: { reason: 'Customer is on site' } })
+    expect(l.vals().newOpen).toBe(false)
+  })
+
+  it('a walk-in refused for a role that cannot override stays a plain refusal', async () => {
+    const l = await boot({ role: 'support' })
+    l.vals().openWalkin()
+    l.vals()
+    await flushed(l)
+    l.vals().nf.setName({ target: { value: 'Walk In' } })
+    l.vals().nf.setPhone({ target: { value: '3055550172' } })
+    l.port.fail.set(
+      'book',
+      problem(409, 'SLOT_UNAVAILABLE', 'Slot unavailable', 'Would overbook a bay — override required'),
+    )
+    l.vals().createAppt()
+    await flushed(l)
+    expect(l.vals().nf.walkReason).toBe(false)
   })
 
   it('an existing customer found by name fills the form and books by id', async () => {

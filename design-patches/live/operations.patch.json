@@ -143,6 +143,12 @@
       "htmlFile": "ops-new-hits.html"
     },
     {
+      "op": "insert-after",
+      "tpl": 668,
+      "expectTag": "div",
+      "htmlFile": "ops-new-walk-reason.html"
+    },
+    {
       "op": "wrap-if",
       "tpl": 677,
       "expectTag": "div",

@@ -183,6 +183,8 @@ async function scrapeBoard(page: Page): Promise<Board> {
   return page.evaluate(() => {
     const root = document.querySelector('#dc-root')!
     const t = (e: Node | null | undefined): string => (e?.textContent ?? '').replace(/\s+/g, ' ').trim()
+    // an element whose only children are the compiler's interpolation spans carries just text
+    const leaf = (e: Element): boolean => [...e.children].every((c) => c.classList.contains('sc-interp'))
     const all = <T extends Element = HTMLElement>(sel: string, from: ParentNode = root): T[] => [
       ...from.querySelectorAll<T>(sel),
     ]
@@ -196,7 +198,7 @@ async function scrapeBoard(page: Page): Promise<Board> {
       'Revenue today',
     ]
     const kpis = labels.map((label) => {
-      const l = all('div').find((d) => d.children.length === 0 && t(d) === label)
+      const l = all('div').find((d) => leaf(d) && t(d) === label)
       const tile = l?.parentElement
       const v = l?.nextElementSibling
       return { label, value: t(v?.children[0]), sub: t(v?.children[1]), ok: !!tile }
@@ -211,10 +213,7 @@ async function scrapeBoard(page: Page): Promise<Board> {
       ? all('div', tl)
           .filter(
             (d) =>
-              d.style.textTransform === 'uppercase' &&
-              d.children.length === 0 &&
-              d.style.letterSpacing === '0.07em' &&
-              t(d),
+              d.style.textTransform === 'uppercase' && leaf(d) && d.style.letterSpacing === '0.07em' && t(d),
           )
           .map((d) => t(d))
       : []
@@ -225,9 +224,12 @@ async function scrapeBoard(page: Page): Promise<Board> {
         }))
       : []
     const bayCol = sections.find((s) => t(s).startsWith('Active Bays'))
-    const inFacility = t(all('div', bayCol).find((d) => /in facility$/.test(t(d)) && d.children.length === 0))
+    const inFacility = t(all('div', bayCol).find((d) => /in facility$/.test(t(d)) && leaf(d)))
     const bays = bayCol
-      ? all('div[data-drop]', bayCol).map((d) => ({ name: t(d.querySelector('div')), text: t(d) }))
+      ? all('div[data-drop]', bayCol).map((d) => ({
+          name: t(all('div', d).find(leaf)),
+          text: t(d),
+        }))
       : []
     const arrivals = bayCol
       ? all('button', bayCol)
@@ -261,9 +263,7 @@ async function scrapeBoard(page: Page): Promise<Board> {
       [...main.querySelectorAll('div')].find((d) => t(d.firstElementChild) === 'Up Next') ?? root,
     ).map((b) => t(b))
     const staff: Board['staff'] = []
-    const emergency = t(
-      all('div').find((d) => t(d).startsWith('Emergency closure active') && d.children.length === 0),
-    )
+    const emergency = t(all('div').find((d) => t(d).startsWith('Emergency closure active') && leaf(d)))
     const toastEl = all('div').find((d) => d.style.position === 'fixed' && d.style.bottom === '26px')
     const bar = all('div').find(
       (d) => t(d.children[0]).startsWith('Viewing as') && d.style.borderBottom !== '',
@@ -680,14 +680,18 @@ async function compareFile(page: Page, id: string, name: string): Promise<void> 
       'Total',
     )
     ok(miss.length === 0, `file ${name}: payments`, miss)
+    // the header is set in capitals (innerText follows text-transform)
     ok(
-      t.includes(
-        o.pay.kind === 'pending'
-          ? 'Payment pending'
-          : o.pay.kind === 'paid'
-            ? 'Paid in full'
-            : usd(o.pay.balanceCents),
-      ),
+      t
+        .toLowerCase()
+        .includes(
+          (o.pay.kind === 'pending'
+            ? 'Payment pending'
+            : o.pay.kind === 'paid'
+              ? 'Paid in full'
+              : usd(o.pay.balanceCents)
+          ).toLowerCase(),
+        ),
       `file ${name}: payment state`,
       [t.slice(0, 300), o.pay],
     )
@@ -841,13 +845,29 @@ async function dragTo(
   from: ReturnType<Page['locator']>,
   to: ReturnType<Page['locator']>,
 ): Promise<void> {
+  await from.scrollIntoViewIfNeeded()
   const a = (await from.boundingBox())!
+  // the timeline's sticky heading can cover the top of a card: take hold of it below the middle
+  const gx = a.x + a.width / 2
+  const gy = a.y + a.height * 0.6
+  const grabbed = await from.evaluate(
+    (el, [x, y]) => el.contains(document.elementFromPoint(x as number, y as number)),
+    [gx, gy],
+  )
+  if (!grabbed) throw new Error('the drag handle is covered by another element at ' + gx + ',' + gy)
+  // aim at the middle of the part of the drop zone that is on screen (a pointer outside the viewport hits nothing)
   const b = (await to.boundingBox())!
-  await page.mouse.move(a.x + a.width / 2, a.y + 20)
+  const vh = page.viewportSize()!.height
+  const top = Math.max(b.y, 0)
+  const bottom = Math.min(b.y + b.height, vh - 40)
+  if (bottom <= top) throw new Error('the drop zone is outside the viewport')
+  const tx = b.x + b.width / 2
+  const ty = (top + bottom) / 2
+  await page.mouse.move(gx, gy)
   await page.mouse.down()
-  await page.mouse.move(a.x + a.width / 2 + 30, a.y + 30, { steps: 4 })
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 })
-  await page.mouse.move(b.x + b.width / 2 + 2, b.y + b.height / 2 + 2, { steps: 2 })
+  await page.mouse.move(gx + 30, gy + 10, { steps: 4 })
+  await page.mouse.move(tx, ty, { steps: 12 })
+  await page.mouse.move(tx + 2, ty + 2, { steps: 2 })
   await page.mouse.up()
 }
 
@@ -862,6 +882,14 @@ async function phaseWrite(browser: Browser): Promise<void> {
   const sup = await open(browser, EMAILS.superAdmin)
   const S = sup.page
   const statusOf = async (name: string): Promise<string> => findCard(await apiCards(A), name)?.status
+  // The stack's server clock is frozen, so the SMS device's 3 s pacing between sends would never pass: the device is set
+  // to send without a gap through the real settings route (the same one the Settings screen uses).
+  const devices = (await api(S, 'GET', '/integrations/sms/devices')).body as any
+  for (const d of devices.items)
+    ok(
+      (await api(S, 'PATCH', `/integrations/sms/devices/${d.id}`, { minIntervalMs: 0 })).status === 200,
+      `SMS device ${d.label}: send without a gap`,
+    )
 
   // 1. one job through every stage: Grace Adeyemi (booked, 11:00, $48.15 due)
   await openFile(A, 'Grace Adeyemi')
@@ -1075,7 +1103,16 @@ async function phaseWrite(browser: Browser): Promise<void> {
   )
   await A.locator('#dc-root button', { hasText: 'Timeline' }).first().click()
 
-  // 7. new appointment with real fields
+  // 7. new appointment with real fields, into the second open slot of the day
+  const expressSlots = async (): Promise<any[]> => {
+    const cat = (await api(A, 'GET', '/services')).body as any
+    const id = cat.packages.find((x: any) => x.name === 'Express Hand Wash').id
+    return ((await api(A, 'GET', `/availability?date=2026-06-13&serviceId=${id}&channel=desk`)).body as any)
+      .slots
+  }
+  const openSlots = (await expressSlots()).filter((x: any) => x.state === 'available')
+  ok(openSlots.length >= 2, 'the day has open slots for an Express Hand Wash', openSlots.length)
+  const danaSlot = openSlots[1]
   await A.locator('#dc-root button', { hasText: 'New Appointment' }).first().click()
   await A.waitForSelector('input[placeholder="Full name"]')
   await A.fill('input[placeholder="Full name"]', 'Dana Whitfield')
@@ -1084,8 +1121,9 @@ async function phaseWrite(browser: Browser): Promise<void> {
   await A.fill('input[placeholder="License plate"]', 'dw-2022')
   await A.locator('div[style*="z-index: 70"] button', { hasText: 'Express Hand Wash' }).first().click()
   await sleep(900)
-  const slotBtn = A.locator('div[style*="z-index: 70"] button', { hasText: /^4:00 PM$/ })
-  if (await slotBtn.count()) await slotBtn.first().click()
+  await A.locator('div[style*="z-index: 70"] button', { hasText: new RegExp('^' + danaSlot.time + '$') })
+    .first()
+    .click()
   await A.locator('div[style*="z-index: 70"] button', { hasText: 'Book Appointment' }).click()
   tt = await waitToast(A, 'booked')
   ok(tt.includes('Appointment booked'), 'New Appointment books and toasts the server text', tt)
@@ -1095,6 +1133,7 @@ async function phaseWrite(browser: Browser): Promise<void> {
     'the booking has the typed vehicle and the package',
     dana,
   )
+  ok(dana?.time === danaSlot.time, 'the booking is in the slot that was picked', [dana?.time, danaSlot.time])
   const danaFile = (await api(A, 'GET', `/appointments/${dana.id}`)).body
   ok(
     danaFile.vehicle.plate === 'DW-2022' && danaFile.customer.smsOptedIn === true,
@@ -1105,16 +1144,80 @@ async function phaseWrite(browser: Browser): Promise<void> {
     !!(await until(async () => (await scrapeBoard(B)).cards.find((c) => c.name === 'Dana Whitfield'))),
     'second browser: the new card without a reload',
   )
-  // walk-in
+  // walk-in: the next slot of the grid has no free bay, so the server refuses and the manager gives a reason
   await A.locator('#dc-root button', { hasText: 'Walk-in' }).first().click()
   await A.waitForSelector('input[placeholder="Full name"]')
   await A.fill('input[placeholder="Full name"]', 'Walt Inwood')
   await A.fill('input[placeholder="Phone number"]', '(305) 555-0172')
   await A.fill('input[placeholder="Year / Make / Model"]', '2019 Subaru Outback')
+  const walkMark = a.requests.length
+  await A.locator('div[style*="z-index: 70"] button', { hasText: 'Check in walk-in' }).click()
+  tt = await waitToast(A, 'Slot unavailable')
+  ok(
+    tt.includes('Slot unavailable') && tt.includes('Would overbook a bay'),
+    "a walk-in with no free bay shows the server's refusal",
+    tt,
+  )
+  ok(
+    (await A.locator('input[placeholder="Override reason (required)"]').count()) === 1,
+    'the manager is offered the override reason',
+  )
+  await A.locator('div[style*="z-index: 70"] button', { hasText: 'Check in walk-in' }).click()
+  tt = await waitToast(A, 'Reason required')
+  ok(
+    tt.includes('Say why this walk-in is being fitted in') &&
+      a.requests.slice(walkMark).filter((r) => r === 'POST /api/v1/appointments').length === 1,
+    'no reason, no second request',
+    tt,
+  )
+  await A.fill('input[placeholder="Override reason (required)"]', 'Customer is on site')
   await A.locator('div[style*="z-index: 70"] button', { hasText: 'Check in walk-in' }).click()
   tt = await waitToast(A, 'booked')
   const walk = await until(async () => findCard(await apiCards(A), 'Walt Inwood'))
-  ok(!!walk && walk.status === 'arrived', 'a walk-in is booked as arrived', walk?.status)
+  ok(
+    tt.includes('Appointment booked') && !!walk && walk.status === 'booked',
+    'with a reason the walk-in is booked',
+    [tt, walk?.status],
+  )
+  // a slot that would overbook a bay: the manager may take it, with a reason
+  const blockedSlot = (await expressSlots()).find((x: any) => x.state === 'blocked' && x.overridable)
+  ok(!!blockedSlot, 'a slot that would overbook a bay is offered to the manager as an override')
+  if (blockedSlot) {
+    const mark = a.requests.length
+    await A.locator('#dc-root button', { hasText: 'New Appointment' }).first().click()
+    await A.waitForSelector('input[placeholder="Full name"]')
+    await A.fill('input[placeholder="Full name"]', 'Olive Override')
+    await A.fill('input[placeholder="Phone number"]', '(305) 555-0188')
+    await A.fill('input[placeholder="Year / Make / Model"]', '2018 Honda Civic')
+    await A.locator('div[style*="z-index: 70"] button', { hasText: 'Express Hand Wash' }).first().click()
+    await sleep(900)
+    await A.locator('div[style*="z-index: 70"] button', {
+      hasText: new RegExp('^' + blockedSlot.time + '$'),
+    })
+      .first()
+      .click()
+    ok(
+      (await A.locator('input[placeholder="Override reason (required)"]').count()) === 1,
+      'picking a greyed slot asks for the override reason',
+    )
+    await A.locator('div[style*="z-index: 70"] button', { hasText: 'Book Appointment' }).click()
+    tt = await waitToast(A, 'Reason required')
+    ok(
+      tt.includes('Reason required') &&
+        !a.requests.slice(mark).some((r) => r.startsWith('POST /api/v1/appointments')),
+      'no reason, no request',
+      tt,
+    )
+    await A.fill('input[placeholder="Override reason (required)"]', 'Owner approved, customer is waiting')
+    await A.locator('div[style*="z-index: 70"] button', { hasText: 'Book Appointment' }).click()
+    tt = await waitToast(A, 'booked')
+    const olive = await until(async () => findCard(await apiCards(A), 'Olive Override'))
+    ok(
+      tt.includes('Appointment booked') && olive?.time === blockedSlot.time,
+      'with a reason the greyed slot is booked',
+      [tt, olive?.time, blockedSlot.time],
+    )
+  }
   // a booking without a name is stopped before the API
   const before = a.requests.length
   await A.locator('#dc-root button', { hasText: 'New Appointment' }).first().click()
@@ -1132,9 +1235,10 @@ async function phaseWrite(browser: Browser): Promise<void> {
   await openFile(A, 'Dana Whitfield')
   await tab(A, 'Messages')
   const composer = modal(A).locator('input[placeholder="Type a message…"]')
-  await composer.fill('Hi Dana, your Tesla slot is confirmed for 4:00 PM.')
+  const hello = `Hi Dana, your Tesla slot is confirmed for ${danaSlot.time}.`
+  await composer.fill(hello)
   ok(
-    (await fileText(A)).includes('50 characters · 1 text'),
+    (await fileText(A)).includes(`${hello.length} characters · 1 text`),
     'the composer counts characters and texts',
     (await fileText(A)).slice(-200),
   )
@@ -1163,9 +1267,11 @@ async function phaseWrite(browser: Browser): Promise<void> {
   await modal(A).getByRole('button', { name: 'Being cleaned', exact: true }).click()
   await waitToast(A, 'Message sent')
   ok(
-    (await api(A, 'GET', `/appointments/${dana.id}/messages`)).body.items.some(
-      (m: any) => m.text === 'Your vehicle is now being cleaned.',
-    ),
+    !!(await until(async () =>
+      (await api(A, 'GET', `/appointments/${dana.id}/messages`)).body.items.some(
+        (m: any) => m.text === 'Your vehicle is now being cleaned.',
+      ),
+    )),
     "a pill sends the server's quick reply",
   )
   // 9. inbound STOP through the dev route: the chip flips on a second browser without a reload
@@ -1193,8 +1299,11 @@ async function phaseWrite(browser: Browser): Promise<void> {
     'the first browser sees the opt-out too',
   )
   const sendReq = a.requests.length
-  await composer.fill('Are you still coming?')
-  await composer.press('Enter')
+  // the box stays usable (the staff may try; the server refuses) and its placeholder says why it will not go
+  const blockedBox = modal(A).locator('input[placeholder^="Customer opted out"]')
+  ok((await blockedBox.count()) === 1, "the composer's placeholder says the customer opted out")
+  await blockedBox.fill('Are you still coming?')
+  await blockedBox.press('Enter')
   tt = await waitToast(A, 'opted out')
   ok(
     a.requests.slice(sendReq).some((r) => r.startsWith('POST') && r.includes('/messages')) &&
@@ -1256,8 +1365,9 @@ async function phaseWrite(browser: Browser): Promise<void> {
   })
   ok(!!m1, 'ticking a task is saved', m0.done)
   ok(
-    (await fileText(A)).includes(`${m0.done + 1} of ${m0.total} tasks complete`),
+    !!(await until(async () => (await fileText(A)).includes(`${m0.done + 1} of ${m0.total} tasks complete`))),
     'the file shows the new count',
+    (await fileText(A)).slice(0, 300),
   )
   await modal(A).getByRole('button', { name: 'Check all', exact: true }).first().click()
   const m2 = await until(async () => {
@@ -1315,12 +1425,13 @@ async function phaseWrite(browser: Browser): Promise<void> {
     'the API reads Payment pending',
     ef.overview.pay,
   )
-  t = await fileText(A)
   ok(
-    t.includes('Payment pending') && !t.includes('Payment complete'),
-    'the file says Payment pending, not Paid',
-    t.slice(0, 300),
+    !!(await until(async () => (await fileText(A)).includes('Payment pending'))),
+    'the file says Payment pending',
+    (await fileText(A)).slice(0, 300),
   )
+  t = await fileText(A)
+  ok(!t.includes('Payment complete'), 'and not Paid', t.slice(0, 300))
   await closeFile(A)
   let eb = await scrapeBoard(A)
   ok(
@@ -1456,7 +1567,10 @@ async function phaseRoles(browser: Browser): Promise<void> {
   n = sup.requests.length
   await SP.locator('div[style*="z-index: 60"] button', { hasText: 'Send payment link' }).click()
   ok(
-    (await fileText(SP)).includes('Squarespace invoice or checkout URL'),
+    !!(await until(
+      async () =>
+        (await SP.locator('input[placeholder="Squarespace invoice or checkout URL"]').count()) === 1,
+    )),
     'Support: the payment-link input opens',
   )
   await SP.fill('input[placeholder="Squarespace invoice or checkout URL"]', 'https://evil.example/pay')

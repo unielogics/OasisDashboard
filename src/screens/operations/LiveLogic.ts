@@ -340,6 +340,16 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       )
     }
     this.offs.push(this.deps.store.subscribe(() => this.forceUpdate()))
+    // a text in or out, a delivery state or a STOP (all `messages` events) also changes what the open file shows: its
+    // message count, the unread dot and the customer's SMS chip
+    this.offs.push(
+      this.deps.queryClient.getQueryCache().subscribe((e) => {
+        if (e.type !== 'updated' || e.action.type !== 'invalidate' || e.query.queryKey[0] !== 'messages')
+          return
+        const id = this.state.selectedId
+        if (id) void this.deps.queryClient.invalidateQueries({ queryKey: qk.ops('file', id) })
+      }),
+    )
     this.tickTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return
       this.setState((s) => ({ tick: s.tick + 1 }))
@@ -845,6 +855,9 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     try {
       const r = await this.cmd.book(bookingRequest(form, walkIn), this.bookAction)
       if (r?.ok) this.setState({ newOpen: false, form: emptyForm() })
+      // a walk-in takes the next slot of the grid: when no bay is free there, a manager may fit it in with a reason
+      else if (r && walkIn && r.error.code === 'SLOT_UNAVAILABLE' && this.can('sched.override'))
+        this.setForm({ override: true })
     } finally {
       this.sending = false
       this.setState({ busy: this.state.busy.filter((b) => b !== 'book') })
@@ -1240,6 +1253,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       hasHits: hits.length > 0,
       isWalkin: walkIn,
       showSlots: !walkIn,
+      walkReason: walkIn && f.override,
       dateLabel: dayLabel(date, today),
       prevDate: () =>
         this.setForm({ date: date > today ? addDays(date, -1) : date, slot: null, override: false }),

@@ -35,6 +35,11 @@ describe('the booking form', () => {
     expect(checkForm({ ...base, slot: null }, true)).toBeNull()
     expect(checkForm({ ...base, override: true }, false)?.title).toBe('Reason required')
     expect(checkForm({ ...base, override: true, overrideReason: 'Regular' }, false)).toBeNull()
+    expect(checkForm({ ...base, override: true }, true)?.desc).toBe('Say why this walk-in is being fitted in')
+    expect(bookingRequest({ ...base, override: true, overrideReason: 'On site' }, true)).toMatchObject({
+      walkIn: true,
+      override: { reason: 'On site' },
+    })
     expect(checkForm({ ...base, name: '', phone: '', customerId: 'c1' }, false)).toBeNull()
   })
   it('builds the body for a new customer, a found customer, a walk-in and an override', () => {

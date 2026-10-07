@@ -74,8 +74,11 @@ export function checkForm(f: NewForm, walkIn: boolean): FormProblem | null {
   if (!f.customerId && digits(f.phone).length < 10)
     return { title: 'Add a phone number', desc: 'A 10-digit phone number is needed to text the customer' }
   if (!walkIn && !f.slot) return { title: 'Pick a time', desc: 'Choose one of the available slots' }
-  if (!walkIn && f.override && !f.overrideReason.trim())
-    return { title: 'Reason required', desc: 'Say why this slot is being overridden' }
+  if (f.override && !f.overrideReason.trim())
+    return {
+      title: 'Reason required',
+      desc: walkIn ? 'Say why this walk-in is being fitted in' : 'Say why this slot is being overridden',
+    }
   return null
 }
 
@@ -98,7 +101,7 @@ export function bookingRequest(f: NewForm, walkIn: boolean): BookingReq {
     }
   if (walkIn) body.walkIn = true
   else body.start = f.slot!
-  if (!walkIn && f.override) body.override = { reason: f.overrideReason.trim() }
+  if (f.override) body.override = { reason: f.overrideReason.trim() }
   return body
 }
 

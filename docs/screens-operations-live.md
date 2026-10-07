@@ -15,7 +15,7 @@ src/screens/operations/LiveLogic.ts     LiveOperationsLogic + createLiveOperatio
 src/screens/operations/live/commands.ts OpsCommands: one method per control (permission, Idempotency-Key, server toast)
 src/screens/operations/Screen.tsx       `LIVE ? createLiveOperationsLogic() : OperationsLogic`
 src/screens/operations/live-testkit.ts  stub ports over responses captured from the API (live/__fixtures__), not shipped
-design-patches/live/operations.patch.json + partials/ops-*.html   the live template patches (DEVIATIONS.md DV-401..419)
+design-patches/live/operations.patch.json + partials/ops-*.html   the live template patches (DEVIATIONS.md DV-401..421)
 scripts/e2e-operations.ts               the Playwright run on a live stack (pnpm e2e:operations)
 ```
 
@@ -145,6 +145,11 @@ Management + Accounting, `sofia` Support + Crew, `marco` Crew, `daniel` Accounti
 stack with `--host <tailnet ip> --origin http://<tailnet ip>:3223`. A stack started with `--freeze` freezes the
 **server** clock; the page's own clock keeps running from the server's time at load, so bay timers move.
 
+The stack's server clock never advances, which stalls anything that waits on it. The SMS device's 3 s pacing between sends
+is the one the run meets: the write phase first sets the simulator device to send without a gap through the real settings
+route (`PATCH /integrations/sms/devices/:id {minIntervalMs: 0}`). With `HOOKS_PORT=0` no delivery receipts arrive, so a
+text reads `Sent` (the simulator took it), never `Delivered`; the check accepts either.
+
 Backend (branch `ws/d9-be`) changes this screen needed: see "Backend changes" below.
 
 ## Backend changes (`ws/d9-be`)
@@ -156,8 +161,47 @@ Backend (branch `ws/d9-be`) changes this screen needed: see "Backend changes" be
   the design members, so the seeded board has real balances (Pending payments `$1,298.53`, Revenue today `$1,487.48`).
 - `/dev-storage/*` (the simulator object store of `STORAGE_PROVIDER=fs`) is mounted outside production: the presigned
   photo POST and the signed thumbnails 404ed before.
+- The `parity-ops` seed also holds the design day's automatic texts (booking thanks, confirmation, in progress, ready) as
+  delivered history, so the Messages tab is not empty (DV-421).
+
+## What the e2e run checks
+
+`pnpm e2e:operations` (Playwright, the pinned parity browser) runs four phases against a stack started as above:
+
+| phase  | checks   | what it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| visual | 15 pairs | the original bundle and the live page in the same state (clock pinned to 10:36, light theme): board, Bay Board, Staff, Calendar day/week/month, the New Appointment sheet and the eight tabs of a file; PNGs of both and a pixel diff in `parity-reports/e2e-operations/`                                                                                                                                                                                                                                                                                                             |
+| read   | 212      | every figure of the board, bay board, pickup column, alerts, calendar and the eight tabs of every appointment against the API, and again after a reload                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| write  | 153      | a job through every stage to pickup and cash collection, drag and menu assignment, reschedule by drag (and the refused one), the add-on 409, new appointment into a picked slot, a greyed slot with an override reason, a walk-in refused for no free bay and booked with a reason, an SMS through the SMS Gate simulator, a quick reply, an inbound STOP on a second browser, a photo upload (HEIC refused), checklist, a membership credit, a card payment that reads `Payment pending` until Accounting confirms it and then `Paid` on both browsers, a reload that equals the API |
+| roles  | 38       | Crew, Support, Accounting and a Super Admin viewing as Crew: what each may do, the design's toast and no request for what they may not                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+
+Every phase also fails on a page error and on any 5xx; the 4xx it prints are the ones the scenarios provoke (busy bay,
+full hour, add-on after payment, a walk-in without a bay, an opted-out customer, HEIC).
+
+### Original against live: every difference
+
+The two renders differ by 0.2 to 4.7 % of pixels (board 4.66, Bay Board 0.81, Staff 0.25, Calendar 0.23 to 0.33, New
+Appointment 4.14, file tabs 0.19 to 3.34). Each difference is one of these; none is an unexplained layout change.
+
+| where               | original                                             | live                                                                                                   | class                                                                               |
+| ------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| KPI strip           | `12 booked`, `3.5h`, `$1,299`, `$1,488`              | `7 booked`, `2.8h`, `$1,298.53`, `$1,487.48`                                                           | real data, cents shown when not whole (DV-401)                                      |
+| card and file money | `$114 due`, `$228 due`, `$165`, tax `$11`            | `$113.75`, `$228.20`, `$164.78`, tax `$10.78`                                                          | real data in cents (DV-401)                                                         |
+| arrivals strip      | `Simulate arrival`                                   | `Check in`                                                                                             | the real arrive command (DV-412)                                                    |
+| Bay 1               | `27:00`, est. completion `11:15 AM`                  | `27:02`, `11:24 AM`                                                                                    | server start instant and the synced clock; the design's time was a literal (DV-414) |
+| header chip         | `Manager`                                            | `Management`                                                                                           | the session's role name, from the shared chrome (not this screen)                   |
+| contact line        | `WhatsApp opted-in`, `(305) 778-3321`                | `SMS opted-in`, `(305) 555-0104`                                                                       | SMS only (DV-404); the seed's own phone numbers                                     |
+| New Appointment     | static slots, `WhatsApp`                             | a date row, the day's bay-aware slots, `SMS`                                                           | DV-402, DV-404                                                                      |
+| Payments tab        | one `Mark Paid` button                               | `Card` / `Cash` choice first                                                                           | DV-408                                                                              |
+| Membership tab      | retention `Watch · 1 missed visit`, no credit button | the server's label (`Loyal · low risk` on the seeded visits) and `Apply credit`                        | DV-415                                                                              |
+| Messages tab        | static bubbles                                       | the real thread, `Queued`/`Sent`/`Delivered` under each bubble, the day on older ones                  | DV-405, DV-421                                                                      |
+| input boxes         | static boxes                                         | real inputs (the first draft rendered them bold in the system font; fixed with `font-family: inherit`) | DV-403; bug fixed                                                                   |
+| greyed slots        | greyed only when nobody may take them                | greyed whenever the slot would overbook a bay, pickable with an override reason for managers           | DV-402; bug fixed                                                                   |
 
 ## Known limits
+
+- A walk-in takes the next slot of the grid like any booking. When no bay is free there the server refuses it; a manager is
+  then asked for a reason and sends it as the override (DV-420). Support cannot override and sees the server's refusal.
 
 - The calendar `Outside hours` row, the date row of the sheet, the composer counter and the tender choice are the only new
   elements; each is listed in DEVIATIONS.md.
