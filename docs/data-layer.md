@@ -161,8 +161,14 @@ The per-user server preference is the source of truth (`PUT /me/preferences`). `
 pre-hydration cache: `_app` renders an inline script in `<head>` (live variant) that sets `<html data-theme>` before first
 paint; the session load overwrites the cache with the server value before any screen mounts; the cache is cleared on
 sign-out. A toggle inside a screen is optimistic (the class flips, the bridge reports it) then saved; a failed save
-restores the previous theme and says so. Note for the CSP: that script needs a nonce or a hash, `loadLogic` needs
-`script-src 'unsafe-eval'` until the classes are converted, and SSE needs `connect-src 'self'`.
+restores the previous theme and says so. Response headers and the CSP are set in `next.config.mjs` (`headers()`): every
+page gets `X-Frame-Options: DENY`, nosniff, `Referrer-Policy: no-referrer`, COOP and HSTS; the live variant in production also
+gets the CSP (`script-src 'self'` plus the sha256 of that inline script, no `unsafe-eval`, `connect-src 'self'` for the API and
+SSE plus `*.amazonaws.com` for presigned photo URLs, `frame-ancestors 'none'`). The hash in `next.config.mjs` must be the sha256
+of `THEME_BOOT_SCRIPT`: `tests/security/headers.test.ts` fails with the new value when the script changes. The live bundles contain
+no `eval` or `new Function` (only the fixture and parity builds evaluate the original logic with `loadLogic`), so they need no
+`unsafe-eval`; `style-src` keeps `'unsafe-inline'` because the designs style by attribute. `scripts/e2e-security.ts` is the browser
+check (headers, framing, CSP violations, hostile names, storage, open redirect, session end).
 
 ## The live variant (`--variant=live`)
 
