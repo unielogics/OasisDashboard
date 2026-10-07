@@ -1,0 +1,23 @@
+<sc-if value="{{ secLoading }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:26px;">
+    <div style="font-size:14px;font-weight:700;color:var(--ink3);">Loading settings…</div>
+  </div>
+</sc-if>
+<sc-if value="{{ secFailed }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:26px;">
+    <div style="max-width:440px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:36px;box-shadow:var(--shadow);">
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px;">Settings couldn’t load</div>
+      <div style="font-size:14px;font-weight:600;color:var(--ink2);margin-top:8px;line-height:1.5;">Check your connection and try again.</div>
+      <button sc-camel-on-click="{{ retryLoad }}" style="margin-top:18px;height:46px;padding:0 18px;background:var(--accent);color:#fff;border-radius:13px;font-weight:700;font-size:14px;">Try again</button>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ secLocked }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:26px;">
+    <div style="max-width:440px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:36px;box-shadow:var(--shadow);">
+      <div style="width:60px;height:60px;border-radius:18px;background:var(--panel3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><svg width="28" height="28" sc-camel-view-box="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2" stroke="var(--ink2)" stroke-width="2"></rect><path d="M8 10V7a4 4 0 018 0v3" stroke="var(--ink2)" stroke-width="2"></path></svg></div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px;">{{ lockedTitle }}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--ink2);margin-top:8px;line-height:1.5;">{{ lockedBody }}</div>
+    </div>
+  </div>
+</sc-if>

@@ -3,6 +3,7 @@
 // "migration recipe"). Nothing here formats text or computes money; the server does.
 import type { ApiClient } from '../http/client'
 import type { DataPort, PaymentsPort } from './ports'
+import { createSettingsApi } from './settings-api'
 import type { Cursor, InvoiceRow } from './types'
 
 const enc = encodeURIComponent
@@ -83,6 +84,7 @@ export function createLiveDataPort(c: ApiClient): DataPort {
       send: (id, input, o) => c.post(`/appointments/${enc(id)}/messages`, input, o),
     },
     payments,
+    settings: createSettingsApi(c),
     people: {
       employees: (q) => c.get('/employees', { query: { q: q?.q, role: q?.role } }),
       roles: () => c.get('/roles'),

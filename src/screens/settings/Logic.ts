@@ -21,6 +21,7 @@ import {
   ORDER,
   PERMS,
   SECTION_META,
+  SECTION_READ_PERMISSION,
   SERVICE_NOTE,
   SKILLS,
   DAY_ABBR,
@@ -42,6 +43,7 @@ import {
   employeeStatusStyle,
   hourRows,
   hoursDirty,
+  rebaseHours,
   hoursText,
   initialsOf,
   limKey,
@@ -65,7 +67,7 @@ import {
   statusLabel,
   step,
   sw,
-  taskOps,
+  applyTaskOp,
   validateDraft,
   visibleEmployees,
   withLimit,
@@ -84,6 +86,7 @@ import type {
   RuleKey,
   SectionKey,
   SettingsState,
+  TaskOp,
   Vip,
   VipKey,
 } from '@/lib/settings'
@@ -113,14 +116,6 @@ const SECTION_PARTS: Record<SectionKey, SyncPartName[]> = {
   vip: ['vip'],
   arrival: ['arrival'],
   services: ['services'],
-}
-
-/** The permission each section needs before it is shown at all (the live variant; the design gates nothing). */
-const SECTION_READ: Partial<Record<SectionKey, PermissionKey>> = {
-  emergency: 'set.emergency',
-  employees: 'team.view',
-  roles: 'team.view',
-  vip: 'cli.member',
 }
 
 export class SettingsLogic extends DCLogic<SettingsState> {
@@ -288,9 +283,8 @@ export class SettingsLogic extends DCLogic<SettingsState> {
     }
     const hours = fresh('hours', m.hours)
     if (hours) {
-      const dirty = hoursDirty(s.hours, s.savedHours)
       patch.savedHours = JSON.stringify(hours.hours)
-      patch.hours = dirty ? s.hours : hours.hours
+      patch.hours = rebaseHours(s.hours, s.savedHours, hours.hours)
       patch.rules = hours.rules
     }
     const closures = fresh('closures', m.closures)
@@ -353,6 +347,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       this.liveOff = null
     }
     clearTimeout(this.toastTimer)
+    this.data.flush()
   }
 
   // view models --------------------------------------------------------------------------------------------------------
@@ -463,7 +458,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
           this.persist('vip', this.data.removeVipClient(n))
         },
       })),
-      vipCount: v.clients.length + ' clients',
+      vipCount: v.clients.length + (this.data.live && v.clients.length === 1 ? ' client' : ' clients'),
       vipNew: s.vipNew,
       vipNewSet: (e: InputEvent) => this.setState({ vipNew: e.target.value }),
       addVip: () => {
@@ -611,7 +606,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
 
     // emergency
     const em = s.em
-    const preview = data.emergencyPreview(em)
+    const preview = data.emergencyPreview(em, sec === 'emergency' && !gate && !em.active)
     const counters = data.emergencyCounters(em)
     const access = data.emergencyAccess()
     const setEm = (p: Partial<SettingsState['em']>) => this.setState((st) => ({ em: { ...st.em, ...p } }))
@@ -720,22 +715,25 @@ export class SettingsLogic extends DCLogic<SettingsState> {
     const isPkg = s.svcKind === 'pkg'
     const src = isPkg ? s.packages : s.addons
     const sel = src[s.svcSel] ? s.svcSel : Object.keys(src)[0]!
-    const item = src[sel]!
-    const setTasks = (fn: (t: string[]) => string[]) => {
+    const item = src[sel] ?? { price: 0, dur: 0, tasks: [] }
+    const setTasks = (op: TaskOp) => {
       if (!this.allowed('set.services')) return
       const kind = s.svcKind
       this.setState((st) => {
         const key = isPkg ? 'packages' : 'addons'
-        const coll = { ...st[key], [sel]: { ...st[key][sel]!, tasks: fn([...st[key][sel]!.tasks]) } }
+        const coll = {
+          ...st[key],
+          [sel]: { ...st[key][sel]!, tasks: applyTaskOp([...st[key][sel]!.tasks], op) },
+        }
         return { [key]: coll } as unknown as Partial<SettingsState>
       })
       const now = (isPkg ? this.state.packages : this.state.addons)[sel]!
-      this.persist('services', data.saveChecklist(kind, sel, now.tasks))
+      this.persist('services', data.saveChecklist(kind, sel, now.tasks, op))
     }
     const addTask = () => {
       const t = s.newTask.trim()
       if (!t) return
-      setTasks((T) => taskOps.add(T, t))
+      setTasks({ kind: 'add', label: t })
       this.setState({ newTask: '' })
     }
     const tasks = item.tasks.map((t, i) => ({
@@ -743,11 +741,11 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       label: t,
       edit: (e: InputEvent) => {
         const v = e.target.value
-        setTasks((T) => taskOps.edit(T, i, v))
+        setTasks({ kind: 'edit', i, label: v })
       },
-      up: () => setTasks((T) => taskOps.up(T, i)),
-      down: () => setTasks((T) => taskOps.down(T, i)),
-      remove: () => setTasks((T) => taskOps.remove(T, i)),
+      up: () => setTasks({ kind: 'up', i }),
+      down: () => setTasks({ kind: 'down', i }),
+      remove: () => setTasks({ kind: 'remove', i }),
     }))
     const svcList = Object.keys(src).map((k) => ({
       name: k,
@@ -780,7 +778,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         opts.map((o) => ({
           label: o,
           onClick: () => this.setDraft((d) => ({ ...d, [k]: o })),
-          style: seg(dft[k] === o),
+          style: seg(dft[k] === o && !(k === 'payType' && dft.payHidden)),
         }))
       const tab = (k: SettingsState['drTab']) => drawerTabStyle(s.drTab === k)
       const effOn = effectiveCount(s.rc, dft)
@@ -807,7 +805,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         types: segs('type', ['Full-time', 'Part-time', 'Contractor']),
         pays: segs('payType', ['Hourly', 'Commission', 'Salary']),
         rate: dft.rate,
-        ratePh: rateHint(dft.payType),
+        ratePh: dft.payHidden ? 'Pay hidden' : rateHint(dft.payType),
         setRate: (e: InputEvent) => {
           const v = e.target.value
           this.setDraft((d) => ({ ...d, rate: v }))
@@ -942,7 +940,11 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         this.closeAction.renew()
         this.setState((st) => ({ confirm: false, em: { ...st.em, active: true, summary: r.value.summary } }))
         this.flash(
-          'Shop closed · ' + (em.notify ? r.value.notified + ' customers notified' : 'no messages sent'),
+          'Shop closed · ' +
+            (em.notify
+              ? r.value.notified +
+                (data.live && r.value.notified === 1 ? ' customer notified' : ' customers notified')
+              : 'no messages sent'),
         )
       })
     }
@@ -1094,10 +1096,10 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         emOpt('crew', 'Alert on-shift crew', 'Push notification to the team'),
       ],
       emAffected: preview.affected,
-      emAffectedCount: preview.count + ' customers',
+      emAffectedCount: preview.count + (data.live && preview.count === 1 ? ' customer' : ' customers'),
       emHistory: s.emHistory,
       confirmOpen: s.confirm,
-      confirmText: confirmText(em, preview.count),
+      confirmText: confirmText(em, preview.count, data.live),
       askClose: () => {
         if (!this.allowed('set.emergency')) return
         this.setState({ confirm: true })
@@ -1196,6 +1198,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   ): Vals {
     const meta = SECTION_META[sec]
     return {
+      secOpen: !gate,
       secLoading: gate === 'loading',
       secFailed: gate === 'failed',
       secLocked: gate === 'locked',
@@ -1208,15 +1211,14 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       emPreviewLabel: 'Preview · SMS to ' + (preview.first || 'a customer'),
       hasCandidates: this.candidates.length > 0,
       candidates: this.candidates.map((c) => ({
-        name: c.name,
-        detail: c.detail,
+        label: c.detail ? c.name + ' \u00b7 ' + c.detail : c.name,
         onClick: () => this.pickCandidate(c),
       })),
     }
   }
 
   private lockedBody(sec: SectionKey): string {
-    const key = SECTION_READ[sec]
+    const key = SECTION_READ_PERMISSION[sec]
     return key
       ? 'Ask an administrator to give your role the “' +
           (ALL_PERM_ITEMS.find((i) => i[0] === key)?.[1] ?? key) +

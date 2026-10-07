@@ -1,0 +1,1273 @@
+{
+  "generatedAt": "2026-10-06T23:12:44.115Z",
+  "hours": {
+    "days": [
+      {
+        "weekday": 0,
+        "day": "Sunday",
+        "open": true,
+        "from": "9:00 AM",
+        "to": "3:00 PM",
+        "fromMin": 540,
+        "toMin": 900,
+        "len": "6 hrs",
+        "lenMinutes": 360
+      },
+      {
+        "weekday": 1,
+        "day": "Monday",
+        "open": true,
+        "from": "8:00 AM",
+        "to": "6:00 PM",
+        "fromMin": 480,
+        "toMin": 1080,
+        "len": "10 hrs",
+        "lenMinutes": 600
+      },
+      {
+        "weekday": 2,
+        "day": "Tuesday",
+        "open": true,
+        "from": "8:00 AM",
+        "to": "6:00 PM",
+        "fromMin": 480,
+        "toMin": 1080,
+        "len": "10 hrs",
+        "lenMinutes": 600
+      },
+      {
+        "weekday": 3,
+        "day": "Wednesday",
+        "open": true,
+        "from": "8:00 AM",
+        "to": "6:00 PM",
+        "fromMin": 480,
+        "toMin": 1080,
+        "len": "10 hrs",
+        "lenMinutes": 600
+      },
+      {
+        "weekday": 4,
+        "day": "Thursday",
+        "open": true,
+        "from": "8:00 AM",
+        "to": "6:00 PM",
+        "fromMin": 480,
+        "toMin": 1080,
+        "len": "10 hrs",
+        "lenMinutes": 600
+      },
+      {
+        "weekday": 5,
+        "day": "Friday",
+        "open": true,
+        "from": "8:00 AM",
+        "to": "6:00 PM",
+        "fromMin": 480,
+        "toMin": 1080,
+        "len": "10 hrs",
+        "lenMinutes": 600
+      },
+      {
+        "weekday": 6,
+        "day": "Saturday",
+        "open": true,
+        "from": "8:00 AM",
+        "to": "5:00 PM",
+        "fromMin": 480,
+        "toMin": 1020,
+        "len": "9 hrs",
+        "lenMinutes": 540
+      }
+    ],
+    "weekHours": "65 hrs",
+    "weekMinutes": 3900,
+    "version": 1
+  },
+  "rules": {
+    "slot": 30,
+    "buffer": 10,
+    "cutoff": 60,
+    "onlineLeadMinutes": 30,
+    "allowOverrun": true,
+    "autoPlanBay": true
+  },
+  "federalAuto": true,
+  "closures": {
+    "upcoming": [
+      {
+        "id": "01a1137a-ba98-7722-bb53-1f600702b964",
+        "date": "2026-11-26",
+        "mon": "NOV",
+        "day": "26",
+        "dow": "THU",
+        "name": "Thanksgiving",
+        "type": "closed",
+        "from": null,
+        "to": null,
+        "fromMin": null,
+        "toMin": null,
+        "notify": true,
+        "source": "federal",
+        "emergency": false,
+        "federalKey": "thanksgiving",
+        "typeLabel": "Closed all day",
+        "past": false,
+        "affectedCount": 0,
+        "subLine": "Online booking blocked \u00b7 0 existing bookings to move"
+      },
+      {
+        "id": "01a1137a-ba9a-7d06-b874-0e799d5b90d8",
+        "date": "2026-12-24",
+        "mon": "DEC",
+        "day": "24",
+        "dow": "THU",
+        "name": "Christmas Eve",
+        "type": "reduced",
+        "from": "8:00 AM",
+        "to": "1:00 PM",
+        "fromMin": 480,
+        "toMin": 780,
+        "notify": true,
+        "source": "manual",
+        "emergency": false,
+        "federalKey": null,
+        "typeLabel": "Reduced \u00b7 8:00 AM \u2013 1:00 PM",
+        "past": false,
+        "affectedCount": 0,
+        "subLine": "Slots outside reduced hours hidden \u00b7 0 bookings affected"
+      },
+      {
+        "id": "01a1137a-ba9b-79ea-a0db-2df023c9b18c",
+        "date": "2026-12-25",
+        "mon": "DEC",
+        "day": "25",
+        "dow": "FRI",
+        "name": "Christmas Day",
+        "type": "closed",
+        "from": null,
+        "to": null,
+        "fromMin": null,
+        "toMin": null,
+        "notify": true,
+        "source": "federal",
+        "emergency": false,
+        "federalKey": "christmas",
+        "typeLabel": "Closed all day",
+        "past": false,
+        "affectedCount": 0,
+        "subLine": "Online booking blocked \u00b7 0 existing bookings to move"
+      }
+    ],
+    "past": [
+      {
+        "id": "01a1137a-ba97-7607-ac89-f26b0aacecf3",
+        "date": "2026-09-07",
+        "mon": "SEP",
+        "day": "7",
+        "dow": "MON",
+        "name": "Labor Day",
+        "type": "reduced",
+        "from": "10:00 AM",
+        "to": "2:00 PM",
+        "fromMin": 600,
+        "toMin": 840,
+        "notify": true,
+        "source": "federal",
+        "emergency": false,
+        "federalKey": "labor_day",
+        "typeLabel": "Reduced \u00b7 10:00 AM \u2013 2:00 PM",
+        "past": true,
+        "affectedCount": null,
+        "subLine": null
+      },
+      {
+        "id": "01a1137a-ba95-70e5-a149-c080025ab0e9",
+        "date": "2026-07-04",
+        "mon": "JUL",
+        "day": "4",
+        "dow": "SAT",
+        "name": "Independence Day",
+        "type": "closed",
+        "from": null,
+        "to": null,
+        "fromMin": null,
+        "toMin": null,
+        "notify": true,
+        "source": "federal",
+        "emergency": false,
+        "federalKey": "independence_day",
+        "typeLabel": "Closed all day",
+        "past": true,
+        "affectedCount": null,
+        "subLine": null
+      },
+      {
+        "id": "01a1137a-ba93-7d8d-990f-a167501f0980",
+        "date": "2026-06-03",
+        "mon": "JUN",
+        "day": "3",
+        "dow": "WED",
+        "name": "Weather closure",
+        "type": "closed",
+        "from": null,
+        "to": null,
+        "fromMin": null,
+        "toMin": null,
+        "notify": true,
+        "source": "emergency",
+        "emergency": true,
+        "federalKey": null,
+        "typeLabel": "Emergency",
+        "past": true,
+        "affectedCount": null,
+        "subLine": null
+      },
+      {
+        "id": "01a1137a-ba91-7e57-9588-4ef5720d009f",
+        "date": "2026-05-25",
+        "mon": "MAY",
+        "day": "25",
+        "dow": "MON",
+        "name": "Memorial Day",
+        "type": "closed",
+        "from": null,
+        "to": null,
+        "fromMin": null,
+        "toMin": null,
+        "notify": true,
+        "source": "federal",
+        "emergency": false,
+        "federalKey": "memorial_day",
+        "typeLabel": "Closed all day",
+        "past": true,
+        "affectedCount": null,
+        "subLine": null
+      }
+    ]
+  },
+  "emergency": {
+    "active": false,
+    "summary": null,
+    "counters": null,
+    "current": null,
+    "strip": {
+      "openNow": false,
+      "text": "Closed now \u00b7 Tuesday 8:00 AM \u2013 6:00 PM \u00b7 0 appointments left today, 0 vehicles on site",
+      "todayHours": "Tuesday 8:00 AM \u2013 6:00 PM",
+      "closedReason": null,
+      "appointmentsRemaining": 0,
+      "vehiclesOnSite": 0,
+      "date": "2026-10-06",
+      "openMin": 480,
+      "closeMin": 1080
+    },
+    "history": [
+      {
+        "id": "01a1137a-ba87-71bc-87df-5519f1433149",
+        "date": "Jun 3, 2026",
+        "reason": "Severe weather",
+        "detail": "Full day \u00b7 7 customers notified \u00b7 6 rebooked",
+        "affectedCount": 7,
+        "notifiedCount": 7,
+        "rebookedCount": 6
+      },
+      {
+        "id": "01a1137a-ba8c-7bc5-8445-9057262471c3",
+        "date": "Feb 18, 2026",
+        "reason": "Power outage",
+        "detail": "11:20 AM \u2013 3:00 PM \u00b7 4 notified",
+        "affectedCount": 4,
+        "notifiedCount": 4,
+        "rebookedCount": 0
+      }
+    ],
+    "canClose": true,
+    "closeRoleNames": ["Management", "Super Admin"],
+    "requirement": "Requires Management or Super Admin",
+    "options": {
+      "reasons": [
+        {
+          "key": "severe_weather",
+          "label": "Severe weather",
+          "phrase": "severe weather"
+        },
+        {
+          "key": "power_outage",
+          "label": "Power outage",
+          "phrase": "a power outage"
+        },
+        {
+          "key": "equipment_failure",
+          "label": "Equipment failure",
+          "phrase": "an equipment failure"
+        },
+        {
+          "key": "staff_shortage",
+          "label": "Staff shortage",
+          "phrase": "a staffing issue"
+        },
+        {
+          "key": "other",
+          "label": "Other",
+          "phrase": "unforeseen circumstances"
+        }
+      ],
+      "defaultMessage": "Hi {first}, due to {reason} Oasis Auto Spa is closed {until}. We\u2019re sorry for the inconvenience. Pick a new time here: {link}",
+      "sample": {
+        "first": "Liam",
+        "link": "oasis.spa/r/8KQ2"
+      }
+    }
+  },
+  "vip": {
+    "release": 48,
+    "windowVip": 30,
+    "windowStd": 14,
+    "sameDay": 2,
+    "waitlist": true,
+    "offerMin": 15,
+    "standing": true,
+    "autoConfirm": true,
+    "cadences": ["weekly", "biweekly", "monthly"],
+    "cadenceOptions": [
+      {
+        "key": "weekly",
+        "label": "Weekly"
+      },
+      {
+        "key": "biweekly",
+        "label": "Every 2 weeks"
+      },
+      {
+        "key": "triweekly",
+        "label": "Every 3 weeks"
+      },
+      {
+        "key": "monthly",
+        "label": "Monthly"
+      }
+    ],
+    "holds": [
+      {
+        "id": "01a1137a-ba9e-7f01-8802-3742bac18dac",
+        "weekday": 5,
+        "day": "Friday",
+        "timeMin": 960,
+        "time": "4:00 PM",
+        "label": "Friday \u00b7 4:00 PM"
+      },
+      {
+        "id": "01a1137a-ba9e-7f01-8802-373f316152fc",
+        "weekday": 6,
+        "day": "Saturday",
+        "timeMin": 480,
+        "time": "8:00 AM",
+        "label": "Saturday \u00b7 8:00 AM"
+      },
+      {
+        "id": "01a1137a-ba9e-7f01-8802-3740f0a4486f",
+        "weekday": 6,
+        "day": "Saturday",
+        "timeMin": 540,
+        "time": "9:00 AM",
+        "label": "Saturday \u00b7 9:00 AM"
+      },
+      {
+        "id": "01a1137a-ba9e-7f01-8802-3741bbe0d08c",
+        "weekday": 6,
+        "day": "Saturday",
+        "timeMin": 600,
+        "time": "10:00 AM",
+        "label": "Saturday \u00b7 10:00 AM"
+      },
+      {
+        "id": "01a1137a-ba9e-7f01-8802-37439fe939c0",
+        "weekday": 0,
+        "day": "Sunday",
+        "timeMin": 540,
+        "time": "9:00 AM",
+        "label": "Sunday \u00b7 9:00 AM"
+      }
+    ],
+    "counts": {
+      "clients": 4,
+      "holds": 5
+    },
+    "version": 1,
+    "clients": [
+      {
+        "customerId": "01a1137a-baaf-7919-941f-d29d6e153908",
+        "fullName": "Jonathan Franco",
+        "addedAt": "2026-10-06T23:09:32.742Z"
+      },
+      {
+        "customerId": "01a1137a-bab5-7521-9e16-99f051f4fa4f",
+        "fullName": "Liam Chen",
+        "addedAt": "2026-10-06T23:09:32.742Z"
+      },
+      {
+        "customerId": "01a1137a-babc-772d-b434-decf5b8f670b",
+        "fullName": "Aisha Rahman",
+        "addedAt": "2026-10-06T23:09:32.743Z"
+      },
+      {
+        "customerId": "01a1137a-bac1-700e-9c20-66b29999838b",
+        "fullName": "Elena Volkov",
+        "addedAt": "2026-10-06T23:09:32.744Z"
+      }
+    ]
+  },
+  "arrival": {
+    "on": true,
+    "radius": 300,
+    "prepAt": 15,
+    "autoArrive": true,
+    "welcome": true,
+    "crew": true,
+    "vipFirst": true,
+    "version": 1
+  },
+  "services": {
+    "packages": [
+      {
+        "id": "01a1137a-ba20-7db1-8197-bc04091fc408",
+        "kind": "package",
+        "name": "Express Hand Wash",
+        "shortName": "Express Hand Wash",
+        "shortNameOverride": null,
+        "priceCents": 4500,
+        "durationMin": 35,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 10,
+        "tags": ["express", "handwash"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 5,
+        "tasks": [
+          {
+            "id": "01a1137a-ba22-7cb6-bd46-7574de119ef3",
+            "label": "Exterior rinse",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba22-7cb6-bd46-7575f6882284",
+            "label": "Hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba22-7cb6-bd46-757625f04d6c",
+            "label": "Wheel cleaning",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba22-7cb6-bd46-7577139d0e05",
+            "label": "Hand dry & towel",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba22-7cb6-bd46-75785dd62208",
+            "label": "Glass & windows",
+            "position": 4
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba24-75f3-852b-50a18122c116",
+        "kind": "package",
+        "name": "Premium Hand Wash + Interior",
+        "shortName": "Premium Hand Wash",
+        "shortNameOverride": null,
+        "priceCents": 12900,
+        "durationMin": 75,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 20,
+        "tags": ["premium", "handwash"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 7,
+        "tasks": [
+          {
+            "id": "01a1137a-ba26-7872-b87d-48f3b7d0d200",
+            "label": "Exterior pre-rinse",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba26-7872-b87d-48f43f005e45",
+            "label": "Two-bucket hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba26-7872-b87d-48f59d605fba",
+            "label": "Wheel & tire cleaning",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba26-7872-b87d-48f6fe5bb787",
+            "label": "Tire shine",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba26-7872-b87d-48f7680d688f",
+            "label": "Interior vacuum",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba26-7872-b87d-48f8369da4a1",
+            "label": "Dashboard & console wipe",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba26-7872-b87d-48f92b8295fc",
+            "label": "Streak-free windows",
+            "position": 6
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba27-72c2-9b4a-9ed9c02ff29a",
+        "kind": "package",
+        "name": "Premium Hand Wash + Interior Refresh",
+        "shortName": "Premium Hand Wash",
+        "shortNameOverride": null,
+        "priceCents": 13900,
+        "durationMin": 75,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 30,
+        "tags": ["premium", "handwash"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 8,
+        "tasks": [
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef3bc7169639",
+            "label": "Exterior pre-rinse",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef3ce4ec31fa",
+            "label": "Two-bucket hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef3dbf2412ba",
+            "label": "Wheel & tire cleaning",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef3ebb9fd2ee",
+            "label": "Tire shine",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef3f815e9e19",
+            "label": "Interior vacuum",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef401afd8102",
+            "label": "Dashboard & vents wipe",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef41727e7d33",
+            "label": "Leather seat refresh",
+            "position": 6
+          },
+          {
+            "id": "01a1137a-ba29-70d1-a778-ef426ced6b46",
+            "label": "Streak-free windows",
+            "position": 7
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba2a-7f44-99e9-8e681327a8bb",
+        "kind": "package",
+        "name": "Executive Detail",
+        "shortName": "Executive Detail",
+        "shortNameOverride": null,
+        "priceCents": 26000,
+        "durationMin": 90,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 40,
+        "tags": ["executive"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 10,
+        "tasks": [
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e21cd53994",
+            "label": "Foam pre-soak",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e30aff1425",
+            "label": "Two-bucket hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e46b938c0b",
+            "label": "Clay bar treatment",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e5555eaad6",
+            "label": "Wheel & caliper detail",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e66cdad2c0",
+            "label": "Tire dressing",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e7de16a809",
+            "label": "Full interior vacuum",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e8c0a69810",
+            "label": "Leather conditioning",
+            "position": 6
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64e9f0285202",
+            "label": "Dashboard & vents detail",
+            "position": 7
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64eaf6b3cc43",
+            "label": "Streak-free glass",
+            "position": 8
+          },
+          {
+            "id": "01a1137a-ba2c-7b80-9f5e-64eb94538791",
+            "label": "Spray sealant",
+            "position": 9
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba2e-76ba-a0c6-0bace0aaab3b",
+        "kind": "package",
+        "name": "Executive Detail + Ceramic",
+        "shortName": "Executive Detail",
+        "shortNameOverride": null,
+        "priceCents": 42000,
+        "durationMin": 120,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 50,
+        "tags": ["executive", "ceramic"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 9,
+        "tasks": [
+          {
+            "id": "01a1137a-ba30-729a-be0d-a208cb7ebd4e",
+            "label": "Foam pre-soak",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a209c3794288",
+            "label": "Two-bucket hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a20a3ced6858",
+            "label": "Iron decontamination",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a20ba77a36d8",
+            "label": "Clay bar treatment",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a20c8a699751",
+            "label": "Ceramic spray coat",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a20d6cb9f1f9",
+            "label": "Wheel & caliper detail",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a20eb9847b5c",
+            "label": "Full interior detail",
+            "position": 6
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a20f980b477f",
+            "label": "Leather conditioning",
+            "position": 7
+          },
+          {
+            "id": "01a1137a-ba30-729a-be0d-a2105cfd447c",
+            "label": "Streak-free glass",
+            "position": 8
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba31-7882-b360-989eac3f248f",
+        "kind": "package",
+        "name": "Full Detail",
+        "shortName": "Full Detail",
+        "shortNameOverride": null,
+        "priceCents": 32000,
+        "durationMin": 120,
+        "active": true,
+        "bookableDesk": false,
+        "sort": 60,
+        "tags": ["detail"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 10,
+        "tasks": [
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cebff6b51fc8",
+            "label": "Engine bay degrease",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec083932931",
+            "label": "Foam pre-soak",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec1ef5d2ef4",
+            "label": "Hand wash",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec2f35eda46",
+            "label": "Clay bar",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec3956ebe31",
+            "label": "Wheel deep clean",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec4fe51ead4",
+            "label": "Carpet shampoo",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec554337817",
+            "label": "Full interior vacuum",
+            "position": 6
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec626ca0c47",
+            "label": "Leather treatment",
+            "position": 7
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec748a8c45a",
+            "label": "Glass polish",
+            "position": 8
+          },
+          {
+            "id": "01a1137a-ba33-7b96-aed9-cec8b35de02d",
+            "label": "Wax & seal",
+            "position": 9
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba34-74d0-8e83-17a79ffe08a6",
+        "kind": "package",
+        "name": "Ceramic Maintenance + Wax",
+        "shortName": "Ceramic Maintenance",
+        "shortNameOverride": null,
+        "priceCents": 18000,
+        "durationMin": 60,
+        "active": true,
+        "bookableDesk": false,
+        "sort": 70,
+        "tags": ["ceramic"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 7,
+        "tasks": [
+          {
+            "id": "01a1137a-ba36-784f-b05b-ca96b0c8ba26",
+            "label": "Pre-rinse",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba36-784f-b05b-ca97f8b10354",
+            "label": "pH-neutral hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba36-784f-b05b-ca9875da8a4d",
+            "label": "Ceramic boost spray",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba36-784f-b05b-ca995049dad1",
+            "label": "Hand-applied wax",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba36-784f-b05b-ca9af59b7c6a",
+            "label": "Wheel cleaning",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba36-784f-b05b-ca9b451129cd",
+            "label": "Tire dressing",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba36-784f-b05b-ca9c27db978d",
+            "label": "Glass treatment",
+            "position": 6
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba37-70ac-9a34-57d13610f848",
+        "kind": "package",
+        "name": "Exotic Detail Package",
+        "shortName": "Exotic Detail Package",
+        "shortNameOverride": null,
+        "priceCents": 65000,
+        "durationMin": 150,
+        "active": true,
+        "bookableDesk": false,
+        "sort": 80,
+        "tags": ["exotic"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 9,
+        "tasks": [
+          {
+            "id": "01a1137a-ba38-794b-9468-cb425a3006fb",
+            "label": "Waterless decon",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba38-794b-9468-cb43a6e39eb2",
+            "label": "Two-bucket hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba38-794b-9468-cb44965a2f42",
+            "label": "Paint correction pass",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba38-794b-9468-cb45d84ab609",
+            "label": "Ceramic seal",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba39-74a1-bd96-9603313c80d2",
+            "label": "Wheel & caliper detail",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba39-74a1-bd96-96047e4518ec",
+            "label": "Full interior detail",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba39-74a1-bd96-9605b012c523",
+            "label": "Leather conditioning",
+            "position": 6
+          },
+          {
+            "id": "01a1137a-ba39-74a1-bd96-960693279dbc",
+            "label": "Glass & trim restore",
+            "position": 7
+          },
+          {
+            "id": "01a1137a-ba39-74a1-bd96-96079d835349",
+            "label": "Photographic handover",
+            "position": 8
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba3a-70d0-983d-5befcb89e4eb",
+        "kind": "package",
+        "name": "Family Wash + Pet Hair",
+        "shortName": "Family Wash",
+        "shortNameOverride": null,
+        "priceCents": 9500,
+        "durationMin": 50,
+        "active": true,
+        "bookableDesk": false,
+        "sort": 90,
+        "tags": ["handwash", "family"],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 7,
+        "tasks": [
+          {
+            "id": "01a1137a-ba3b-7064-8bb2-b2f6306dadde",
+            "label": "Exterior rinse",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba3b-7064-8bb2-b2f7ecfa3a95",
+            "label": "Hand wash",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba3b-7064-8bb2-b2f850234baa",
+            "label": "Pet hair removal",
+            "position": 2
+          },
+          {
+            "id": "01a1137a-ba3b-7064-8bb2-b2f93ae2aa2a",
+            "label": "Interior vacuum",
+            "position": 3
+          },
+          {
+            "id": "01a1137a-ba3b-7064-8bb2-b2fa8f92b9b1",
+            "label": "Dashboard wipe",
+            "position": 4
+          },
+          {
+            "id": "01a1137a-ba3b-7064-8bb2-b2fbf8790ed0",
+            "label": "Windows",
+            "position": 5
+          },
+          {
+            "id": "01a1137a-ba3b-7064-8bb2-b2fc315f194e",
+            "label": "Odor neutralize",
+            "position": 6
+          }
+        ]
+      }
+    ],
+    "addons": [
+      {
+        "id": "01a1137a-ba3d-7a34-869d-4f65d33023ba",
+        "kind": "addon",
+        "name": "Interior deep clean",
+        "shortName": "Interior deep clean",
+        "shortNameOverride": null,
+        "priceCents": 6000,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 10,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 3,
+        "tasks": [
+          {
+            "id": "01a1137a-ba41-7371-95af-5bd6db244ffc",
+            "label": "Deep vacuum seats & carpets",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba41-7371-95af-5bd7b5415146",
+            "label": "Steam clean vents & cupholders",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba41-7371-95af-5bd88e4f8c2e",
+            "label": "Wipe door jambs & panels",
+            "position": 2
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba42-7159-be0b-8304514f5d3c",
+        "kind": "addon",
+        "name": "Pet hair removal",
+        "shortName": "Pet hair removal",
+        "shortNameOverride": null,
+        "priceCents": 3500,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 20,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 3,
+        "tasks": [
+          {
+            "id": "01a1137a-ba43-7309-938f-3c0aef313804",
+            "label": "Rubber-brush pet hair",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba43-7309-938f-3c0b68b06fd7",
+            "label": "Lint-roll upholstery",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba43-7309-938f-3c0c154e3cd4",
+            "label": "Vacuum seat seams",
+            "position": 2
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba44-7edc-952b-f3de37edfaac",
+        "kind": "addon",
+        "name": "Leather conditioning",
+        "shortName": "Leather conditioning",
+        "shortNameOverride": null,
+        "priceCents": 4500,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 30,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 3,
+        "tasks": [
+          {
+            "id": "01a1137a-ba46-7583-8e44-7f202299679a",
+            "label": "Clean leather surfaces",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba46-7583-8e44-7f218b663f96",
+            "label": "Apply conditioner",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba46-7583-8e44-7f22559c84f6",
+            "label": "Buff to matte finish",
+            "position": 2
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba47-7082-9f31-37b89553285c",
+        "kind": "addon",
+        "name": "Wax",
+        "shortName": "Wax",
+        "shortNameOverride": null,
+        "priceCents": 4000,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 40,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 2,
+        "tasks": [
+          {
+            "id": "01a1137a-ba48-7a63-927a-ccc7ab976863",
+            "label": "Apply carnauba wax",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba48-7a63-927a-ccc834d82015",
+            "label": "Buff off haze",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba49-75e0-a090-2369ae5dd281",
+        "kind": "addon",
+        "name": "Clay bar",
+        "shortName": "Clay bar",
+        "shortNameOverride": null,
+        "priceCents": 5000,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 50,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 3,
+        "tasks": [
+          {
+            "id": "01a1137a-ba4b-776e-ae0b-e2cb58584e08",
+            "label": "Lubricate panels",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba4b-776e-ae0b-e2cc8e6f8ddf",
+            "label": "Clay bar paint",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba4b-776e-ae0b-e2cd2541ae8a",
+            "label": "Wipe residue",
+            "position": 2
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba4c-7136-bee8-ac85d7cd8a6d",
+        "kind": "addon",
+        "name": "Odor removal",
+        "shortName": "Odor removal",
+        "shortNameOverride": null,
+        "priceCents": 3000,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 60,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 2,
+        "tasks": [
+          {
+            "id": "01a1137a-ba4d-79a6-acf6-25231b2d618f",
+            "label": "Enzyme treatment on fabrics",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba4d-79a6-acf6-2524645df1ff",
+            "label": "Odor neutralizer cycle",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba4f-7275-ba1f-a17e2c8414b7",
+        "kind": "addon",
+        "name": "Engine bay cleaning",
+        "shortName": "Engine bay cleaning",
+        "shortNameOverride": null,
+        "priceCents": 5500,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 70,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 3,
+        "tasks": [
+          {
+            "id": "01a1137a-ba50-70ea-b558-2a69e1104a7d",
+            "label": "Cover electricals",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba51-7a66-ae11-2e28773726ae",
+            "label": "Degrease engine bay",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba51-7a66-ae11-2e292af82bc8",
+            "label": "Dress plastics",
+            "position": 2
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba54-7b50-8005-dfc952fa76c8",
+        "kind": "addon",
+        "name": "Ceramic maintenance",
+        "shortName": "Ceramic maintenance",
+        "shortNameOverride": null,
+        "priceCents": 12000,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 80,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 2,
+        "tasks": [
+          {
+            "id": "01a1137a-ba55-7f45-b570-c09338793b5f",
+            "label": "Ceramic boost spray",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba55-7f45-b570-c094bcd98c69",
+            "label": "Buff & level coating",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba58-7378-9e03-2d4c95a02518",
+        "kind": "addon",
+        "name": "Rain repellent",
+        "shortName": "Rain repellent",
+        "shortNameOverride": null,
+        "priceCents": 2500,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 90,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 2,
+        "tasks": [
+          {
+            "id": "01a1137a-ba59-7954-90cd-2bfb7595239d",
+            "label": "Clean glass",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba59-7954-90cd-2bfcb4f69d7c",
+            "label": "Apply rain repellent to windshield",
+            "position": 1
+          }
+        ]
+      },
+      {
+        "id": "01a1137a-ba5b-7d5d-924d-3021c251ffd4",
+        "kind": "addon",
+        "name": "Wheel deep clean",
+        "shortName": "Wheel deep clean",
+        "shortNameOverride": null,
+        "priceCents": 4000,
+        "durationMin": 0,
+        "active": true,
+        "bookableDesk": true,
+        "sort": 100,
+        "tags": [],
+        "sqspSku": null,
+        "version": 1,
+        "taskCount": 3,
+        "tasks": [
+          {
+            "id": "01a1137a-ba60-77eb-957a-5598bf14bc08",
+            "label": "Remove wheel fallout",
+            "position": 0
+          },
+          {
+            "id": "01a1137a-ba60-77eb-957a-5599de879f0a",
+            "label": "Clean barrels & calipers",
+            "position": 1
+          },
+          {
+            "id": "01a1137a-ba60-77eb-957a-559ae6214696",
+            "label": "Seal wheel faces",
+            "position": 2
+          }
+        ]
+      }
+    ]
+  },
+  "counts": {
+    "employees": 7
+  },
+  "omitted": []
+}

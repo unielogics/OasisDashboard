@@ -41,7 +41,7 @@
       "op": "replace-text",
       "tpl": 28,
       "expectTag": "div",
-      "expect": "Management · Accounting",
+      "expect": "Management \u00b7 Accounting",
       "with": "{{= live.user.roleTitle }}"
     },
     {
@@ -49,6 +49,45 @@
       "tpl": 6,
       "expectTag": "header",
       "htmlFile": "view-as-bar.html"
+    },
+    {
+      "op": "wrap-if",
+      "tpl": 85,
+      "expectTag": "div",
+      "cond": "secOpen"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 77,
+      "expectTag": "div",
+      "htmlFile": "settings-gate.html"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 213,
+      "expectTag": "div",
+      "expect": "Open now \u00b7 Saturday 8:00 AM \u2013 5:00 PM \u00b7 6 appointments left today, 3 vehicles on site",
+      "with": "{{= emStrip }}"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 258,
+      "expectTag": "div",
+      "expect": "Requires Management or Super Admin \u00b7 you have access",
+      "with": "{{= emRequirement }}"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 237,
+      "expectTag": "div",
+      "expect": "Preview \u00b7 WhatsApp to Liam",
+      "with": "{{= emPreviewLabel }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 359,
+      "expectTag": "div",
+      "htmlFile": "settings-vip-candidates.html"
     }
   ]
 }

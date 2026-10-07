@@ -159,3 +159,11 @@ export const DEFAULT_EMERGENCY_MESSAGE =
 export const PREVIEW_SAMPLE = { first: 'Liam', link: 'oasis.spa/r/8KQ2' } as const
 
 export const CADENCES = ['Weekly', 'Every 2 weeks', 'Every 3 weeks', 'Monthly'] as const
+
+/** The permission a section needs before the live screen shows it at all; the others are readable by anyone signed in. */
+export const SECTION_READ_PERMISSION: Partial<Record<SectionKey, string>> = {
+  emergency: 'set.emergency',
+  employees: 'team.view',
+  roles: 'team.view',
+  vip: 'cli.member',
+}

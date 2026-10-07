@@ -1,0 +1,453 @@
+{
+  "roles": [
+    {
+      "id": "01a1137a-b376-73ea-b3f0-7fd42e672fa1",
+      "key": "super",
+      "name": "Super Admin",
+      "description": "Owner level. Everything, including billing.",
+      "locked": true,
+      "custom": false,
+      "peopleCount": 1,
+      "permissionCount": 27,
+      "version": 1
+    },
+    {
+      "id": "01a1137a-b37e-743a-b326-de97aea34537",
+      "key": "mgmt",
+      "name": "Management",
+      "description": "Runs the shop day to day.",
+      "locked": false,
+      "custom": false,
+      "peopleCount": 1,
+      "permissionCount": 26,
+      "version": 1
+    },
+    {
+      "id": "01a1137a-b385-756b-a5f8-260e29231227",
+      "key": "acct",
+      "name": "Accounting",
+      "description": "Payments, refunds, credits and reports.",
+      "locked": false,
+      "custom": false,
+      "peopleCount": 2,
+      "permissionCount": 13,
+      "version": 1
+    },
+    {
+      "id": "01a1137a-b38a-7d81-85cc-bafccc053232",
+      "key": "support",
+      "name": "Customer Support",
+      "description": "Front desk, bookings and messaging.",
+      "locked": false,
+      "custom": false,
+      "peopleCount": 1,
+      "permissionCount": 13,
+      "version": 1
+    },
+    {
+      "id": "01a1137a-b38d-72f2-9e87-78fc0e414031",
+      "key": "crew",
+      "name": "Crew",
+      "description": "Bay work: jobs, checklists, photos.",
+      "locked": false,
+      "custom": false,
+      "peopleCount": 4,
+      "permissionCount": 4,
+      "version": 1
+    }
+  ],
+  "permissions": [
+    {
+      "key": "sched.view",
+      "module": "Schedule & jobs",
+      "label": "View schedule & calendar",
+      "hasLimit": false,
+      "sort": 1,
+      "limitKind": null
+    },
+    {
+      "key": "sched.edit",
+      "module": "Schedule & jobs",
+      "label": "Create & edit appointments",
+      "hasLimit": false,
+      "sort": 2,
+      "limitKind": null
+    },
+    {
+      "key": "sched.cancel",
+      "module": "Schedule & jobs",
+      "label": "Cancel & mark no-shows",
+      "hasLimit": false,
+      "sort": 3,
+      "limitKind": null
+    },
+    {
+      "key": "sched.override",
+      "module": "Schedule & jobs",
+      "label": "Override bay capacity",
+      "hasLimit": false,
+      "sort": 4,
+      "limitKind": null
+    },
+    {
+      "key": "jobs.status",
+      "module": "Schedule & jobs",
+      "label": "Move jobs between stages",
+      "hasLimit": false,
+      "sort": 5,
+      "limitKind": null
+    },
+    {
+      "key": "jobs.checklist",
+      "module": "Schedule & jobs",
+      "label": "Complete checklists & photos",
+      "hasLimit": false,
+      "sort": 6,
+      "limitKind": null
+    },
+    {
+      "key": "cli.view",
+      "module": "Clients",
+      "label": "View client files",
+      "hasLimit": false,
+      "sort": 7,
+      "limitKind": null
+    },
+    {
+      "key": "cli.contact",
+      "module": "Clients",
+      "label": "See phone & email",
+      "hasLimit": false,
+      "sort": 8,
+      "limitKind": null
+    },
+    {
+      "key": "cli.edit",
+      "module": "Clients",
+      "label": "Edit client & vehicle details",
+      "hasLimit": false,
+      "sort": 9,
+      "limitKind": null
+    },
+    {
+      "key": "cli.export",
+      "module": "Clients",
+      "label": "Export client data",
+      "hasLimit": false,
+      "sort": 10,
+      "limitKind": null
+    },
+    {
+      "key": "cli.member",
+      "module": "Clients",
+      "label": "Manage memberships & VIP",
+      "hasLimit": false,
+      "sort": 11,
+      "limitKind": null
+    },
+    {
+      "key": "pay.collect",
+      "module": "Payments",
+      "label": "Collect payments",
+      "hasLimit": false,
+      "sort": 12,
+      "limitKind": null
+    },
+    {
+      "key": "pay.refund",
+      "module": "Payments",
+      "label": "Issue refunds",
+      "hasLimit": true,
+      "sort": 13,
+      "limitKind": "refund"
+    },
+    {
+      "key": "pay.adjust",
+      "module": "Payments",
+      "label": "Apply adjustments & discounts",
+      "hasLimit": true,
+      "sort": 14,
+      "limitKind": "adjust"
+    },
+    {
+      "key": "pay.credit",
+      "module": "Payments",
+      "label": "Issue account credits",
+      "hasLimit": true,
+      "sort": 15,
+      "limitKind": "credit"
+    },
+    {
+      "key": "pay.void",
+      "module": "Payments",
+      "label": "Void transactions",
+      "hasLimit": false,
+      "sort": 16,
+      "limitKind": null
+    },
+    {
+      "key": "pay.reports",
+      "module": "Payments",
+      "label": "View payment reports",
+      "hasLimit": false,
+      "sort": 17,
+      "limitKind": null
+    },
+    {
+      "key": "msg.send",
+      "module": "Messaging",
+      "label": "Message customers",
+      "hasLimit": false,
+      "sort": 18,
+      "limitKind": null
+    },
+    {
+      "key": "msg.auto",
+      "module": "Messaging",
+      "label": "Edit automations & templates",
+      "hasLimit": false,
+      "sort": 19,
+      "limitKind": null
+    },
+    {
+      "key": "msg.broadcast",
+      "module": "Messaging",
+      "label": "Send offers & broadcasts",
+      "hasLimit": false,
+      "sort": 20,
+      "limitKind": null
+    },
+    {
+      "key": "team.view",
+      "module": "Team",
+      "label": "View team",
+      "hasLimit": false,
+      "sort": 21,
+      "limitKind": null
+    },
+    {
+      "key": "team.edit",
+      "module": "Team",
+      "label": "Add & edit employees",
+      "hasLimit": false,
+      "sort": 22,
+      "limitKind": null
+    },
+    {
+      "key": "team.roles",
+      "module": "Team",
+      "label": "Assign roles & permissions",
+      "hasLimit": false,
+      "sort": 23,
+      "limitKind": null
+    },
+    {
+      "key": "set.hours",
+      "module": "Settings",
+      "label": "Working hours & holidays",
+      "hasLimit": false,
+      "sort": 24,
+      "limitKind": null
+    },
+    {
+      "key": "set.emergency",
+      "module": "Settings",
+      "label": "Emergency closing",
+      "hasLimit": false,
+      "sort": 25,
+      "limitKind": null
+    },
+    {
+      "key": "set.services",
+      "module": "Settings",
+      "label": "Services, pricing & checklists",
+      "hasLimit": false,
+      "sort": 26,
+      "limitKind": null
+    },
+    {
+      "key": "set.billing",
+      "module": "Settings",
+      "label": "Billing & integrations",
+      "hasLimit": false,
+      "sort": 27,
+      "limitKind": null
+    }
+  ],
+  "matrix": {
+    "01a1137a-b376-73ea-b3f0-7fd42e672fa1": {
+      "sched.view": true,
+      "sched.edit": true,
+      "sched.cancel": true,
+      "sched.override": true,
+      "jobs.status": true,
+      "jobs.checklist": true,
+      "cli.view": true,
+      "cli.contact": true,
+      "cli.edit": true,
+      "cli.export": true,
+      "cli.member": true,
+      "pay.collect": true,
+      "pay.refund": true,
+      "pay.adjust": true,
+      "pay.credit": true,
+      "pay.void": true,
+      "pay.reports": true,
+      "msg.send": true,
+      "msg.auto": true,
+      "msg.broadcast": true,
+      "team.view": true,
+      "team.edit": true,
+      "team.roles": true,
+      "set.hours": true,
+      "set.emergency": true,
+      "set.services": true,
+      "set.billing": true
+    },
+    "01a1137a-b37e-743a-b326-de97aea34537": {
+      "sched.view": true,
+      "sched.edit": true,
+      "sched.cancel": true,
+      "sched.override": true,
+      "jobs.status": true,
+      "jobs.checklist": true,
+      "cli.view": true,
+      "cli.contact": true,
+      "cli.edit": true,
+      "cli.export": true,
+      "cli.member": true,
+      "pay.collect": true,
+      "pay.refund": true,
+      "pay.adjust": true,
+      "pay.credit": true,
+      "pay.void": true,
+      "pay.reports": true,
+      "msg.send": true,
+      "msg.auto": true,
+      "msg.broadcast": true,
+      "team.view": true,
+      "team.edit": true,
+      "team.roles": true,
+      "set.hours": true,
+      "set.emergency": true,
+      "set.services": true,
+      "set.billing": false
+    },
+    "01a1137a-b385-756b-a5f8-260e29231227": {
+      "sched.view": true,
+      "sched.edit": false,
+      "sched.cancel": false,
+      "sched.override": false,
+      "jobs.status": false,
+      "jobs.checklist": false,
+      "cli.view": true,
+      "cli.contact": true,
+      "cli.edit": false,
+      "cli.export": true,
+      "cli.member": true,
+      "pay.collect": true,
+      "pay.refund": true,
+      "pay.adjust": true,
+      "pay.credit": true,
+      "pay.void": true,
+      "pay.reports": true,
+      "msg.send": false,
+      "msg.auto": false,
+      "msg.broadcast": false,
+      "team.view": true,
+      "team.edit": false,
+      "team.roles": false,
+      "set.hours": false,
+      "set.emergency": false,
+      "set.services": false,
+      "set.billing": true
+    },
+    "01a1137a-b38a-7d81-85cc-bafccc053232": {
+      "sched.view": true,
+      "sched.edit": true,
+      "sched.cancel": true,
+      "sched.override": false,
+      "jobs.status": false,
+      "jobs.checklist": false,
+      "cli.view": true,
+      "cli.contact": true,
+      "cli.edit": true,
+      "cli.export": false,
+      "cli.member": true,
+      "pay.collect": true,
+      "pay.refund": true,
+      "pay.adjust": true,
+      "pay.credit": true,
+      "pay.void": false,
+      "pay.reports": false,
+      "msg.send": true,
+      "msg.auto": false,
+      "msg.broadcast": false,
+      "team.view": true,
+      "team.edit": false,
+      "team.roles": false,
+      "set.hours": false,
+      "set.emergency": false,
+      "set.services": false,
+      "set.billing": false
+    },
+    "01a1137a-b38d-72f2-9e87-78fc0e414031": {
+      "sched.view": true,
+      "sched.edit": false,
+      "sched.cancel": false,
+      "sched.override": false,
+      "jobs.status": true,
+      "jobs.checklist": true,
+      "cli.view": true,
+      "cli.contact": false,
+      "cli.edit": false,
+      "cli.export": false,
+      "cli.member": false,
+      "pay.collect": false,
+      "pay.refund": false,
+      "pay.adjust": false,
+      "pay.credit": false,
+      "pay.void": false,
+      "pay.reports": false,
+      "msg.send": false,
+      "msg.auto": false,
+      "msg.broadcast": false,
+      "team.view": false,
+      "team.edit": false,
+      "team.roles": false,
+      "set.hours": false,
+      "set.emergency": false,
+      "set.services": false,
+      "set.billing": false
+    }
+  },
+  "limits": {
+    "01a1137a-b376-73ea-b3f0-7fd42e672fa1": {
+      "refund": null,
+      "adjust": null,
+      "credit": null
+    },
+    "01a1137a-b37e-743a-b326-de97aea34537": {
+      "refund": 100000,
+      "adjust": 50000,
+      "credit": 50000
+    },
+    "01a1137a-b385-756b-a5f8-260e29231227": {
+      "refund": 50000,
+      "adjust": 25000,
+      "credit": 25000
+    },
+    "01a1137a-b38a-7d81-85cc-bafccc053232": {
+      "refund": 5000,
+      "adjust": 2500,
+      "credit": 5000
+    },
+    "01a1137a-b38d-72f2-9e87-78fc0e414031": {
+      "refund": 2500,
+      "adjust": 2500,
+      "credit": 2500
+    }
+  },
+  "limitChoicesCents": [2500, 5000, 10000, 25000, 50000, 100000, null],
+  "rbacVersion": 3
+}

@@ -1,0 +1,238 @@
+{
+  "items": [
+    {
+      "id": "01a1137a-b392-742b-8415-1ffc1f84498d",
+      "first": "Amara",
+      "last": "Okoye",
+      "name": "Amara O.",
+      "fullName": "Amara Okoye",
+      "initials": "AO",
+      "title": "Owner",
+      "phone": "(305) 555-0101",
+      "phoneE164": "+13055550101",
+      "email": "amara@oasisautospa.com",
+      "status": "active",
+      "statusLabel": "Active",
+      "employmentType": "full_time",
+      "payType": "salary",
+      "rateText": "",
+      "skills": ["Exotic vehicles"],
+      "avatarColor": "#0E7A63",
+      "roles": [
+        {
+          "id": "01a1137a-b376-73ea-b3f0-7fd42e672fa1",
+          "key": "super",
+          "name": "Super Admin"
+        }
+      ],
+      "exceptionCount": 0,
+      "daysPerWeek": 6,
+      "hasLogin": true,
+      "version": 1,
+      "createdAt": "2026-10-06T23:09:30.897Z",
+      "deactivatedAt": null
+    },
+    {
+      "id": "01a1137a-b505-7de4-aaed-f5e4212d1435",
+      "first": "Rafael",
+      "last": "Mendes",
+      "name": "Rafael M.",
+      "fullName": "Rafael Mendes",
+      "initials": "RM",
+      "title": "General Manager",
+      "phone": "(305) 555-0140",
+      "phoneE164": "+13055550140",
+      "email": "rafael@oasisautospa.com",
+      "status": "active",
+      "statusLabel": "Active",
+      "employmentType": "full_time",
+      "payType": "salary",
+      "rateText": "",
+      "skills": [],
+      "avatarColor": "#2563EB",
+      "roles": [
+        {
+          "id": "01a1137a-b37e-743a-b326-de97aea34537",
+          "key": "mgmt",
+          "name": "Management"
+        },
+        {
+          "id": "01a1137a-b385-756b-a5f8-260e29231227",
+          "key": "acct",
+          "name": "Accounting"
+        }
+      ],
+      "exceptionCount": 0,
+      "daysPerWeek": 6,
+      "hasLogin": true,
+      "version": 1,
+      "createdAt": "2026-10-06T23:09:30.898Z",
+      "deactivatedAt": null
+    },
+    {
+      "id": "01a1137a-b642-7dbc-a570-e157821048d7",
+      "first": "Marco",
+      "last": "Ruiz",
+      "name": "Marco R.",
+      "fullName": "Marco Ruiz",
+      "initials": "MR",
+      "title": "Lead Detailer",
+      "phone": "(786) 555-0172",
+      "phoneE164": "+17865550172",
+      "email": "marco@oasisautospa.com",
+      "status": "active",
+      "statusLabel": "Active",
+      "employmentType": "full_time",
+      "payType": "commission",
+      "rateText": "30",
+      "skills": ["Paint correction", "Ceramic coating", "Exotic vehicles"],
+      "avatarColor": "#7A3B8A",
+      "roles": [
+        {
+          "id": "01a1137a-b38d-72f2-9e87-78fc0e414031",
+          "key": "crew",
+          "name": "Crew"
+        }
+      ],
+      "exceptionCount": 0,
+      "daysPerWeek": 6,
+      "hasLogin": true,
+      "version": 1,
+      "createdAt": "2026-10-06T23:09:30.899Z",
+      "deactivatedAt": null
+    },
+    {
+      "id": "01a1137a-b732-717a-9fc4-ec33db6889a0",
+      "first": "Lena",
+      "last": "Kim",
+      "name": "Lena K.",
+      "fullName": "Lena Kim",
+      "initials": "LK",
+      "title": "Detailer",
+      "phone": "(305) 555-0119",
+      "phoneE164": "+13055550119",
+      "email": "lena@oasisautospa.com",
+      "status": "active",
+      "statusLabel": "Active",
+      "employmentType": "full_time",
+      "payType": "hourly",
+      "rateText": "22",
+      "skills": ["Interior detailing"],
+      "avatarColor": "#C2740B",
+      "roles": [
+        {
+          "id": "01a1137a-b38d-72f2-9e87-78fc0e414031",
+          "key": "crew",
+          "name": "Crew"
+        }
+      ],
+      "exceptionCount": 0,
+      "daysPerWeek": 6,
+      "hasLogin": true,
+      "version": 1,
+      "createdAt": "2026-10-06T23:09:30.900Z",
+      "deactivatedAt": null
+    },
+    {
+      "id": "01a1137a-b825-74a2-9460-eb73c9a47e73",
+      "first": "Sofia",
+      "last": "Duarte",
+      "name": "Sofia D.",
+      "fullName": "Sofia Duarte",
+      "initials": "SD",
+      "title": "Front Desk",
+      "phone": "(786) 555-0133",
+      "phoneE164": "+17865550133",
+      "email": "sofia@oasisautospa.com",
+      "status": "active",
+      "statusLabel": "Active",
+      "employmentType": "full_time",
+      "payType": "hourly",
+      "rateText": "21",
+      "skills": ["Front desk"],
+      "avatarColor": "#0D9488",
+      "roles": [
+        {
+          "id": "01a1137a-b38a-7d81-85cc-bafccc053232",
+          "key": "support",
+          "name": "Customer Support"
+        },
+        {
+          "id": "01a1137a-b38d-72f2-9e87-78fc0e414031",
+          "key": "crew",
+          "name": "Crew"
+        }
+      ],
+      "exceptionCount": 1,
+      "daysPerWeek": 6,
+      "hasLogin": true,
+      "version": 1,
+      "createdAt": "2026-10-06T23:09:30.901Z",
+      "deactivatedAt": null
+    },
+    {
+      "id": "01a1137a-b91c-7c9c-beca-0f3e16530807",
+      "first": "Daniel",
+      "last": "Price",
+      "name": "Daniel P.",
+      "fullName": "Daniel Price",
+      "initials": "DP",
+      "title": "Bookkeeper",
+      "phone": "(305) 555-0188",
+      "phoneE164": "+13055550188",
+      "email": "daniel@oasisautospa.com",
+      "status": "active",
+      "statusLabel": "Active",
+      "employmentType": "part_time",
+      "payType": "hourly",
+      "rateText": "34",
+      "skills": [],
+      "avatarColor": "#B45309",
+      "roles": [
+        {
+          "id": "01a1137a-b385-756b-a5f8-260e29231227",
+          "key": "acct",
+          "name": "Accounting"
+        }
+      ],
+      "exceptionCount": 0,
+      "daysPerWeek": 3,
+      "hasLogin": true,
+      "version": 1,
+      "createdAt": "2026-10-06T23:09:30.902Z",
+      "deactivatedAt": null
+    },
+    {
+      "id": "01a1137a-ba10-7732-937e-9a27f96a8a9d",
+      "first": "Kevin",
+      "last": "Tran",
+      "name": "Kevin T.",
+      "fullName": "Kevin Tran",
+      "initials": "KT",
+      "title": "Detailer",
+      "phone": "(786) 555-0151",
+      "phoneE164": "+17865550151",
+      "email": "kevin@oasisautospa.com",
+      "status": "invited",
+      "statusLabel": "Invite sent",
+      "employmentType": "full_time",
+      "payType": "hourly",
+      "rateText": "19",
+      "skills": [],
+      "avatarColor": "#6B7280",
+      "roles": [
+        {
+          "id": "01a1137a-b38d-72f2-9e87-78fc0e414031",
+          "key": "crew",
+          "name": "Crew"
+        }
+      ],
+      "exceptionCount": 0,
+      "daysPerWeek": 5,
+      "hasLogin": false,
+      "version": 1,
+      "createdAt": "2026-10-06T23:09:30.903Z",
+      "deactivatedAt": null
+    }
+  ]
+}

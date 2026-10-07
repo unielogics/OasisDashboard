@@ -36,6 +36,7 @@ import type {
   ServiceItem,
   Slot,
 } from './types'
+import type { SettingsApi } from './settings-api'
 
 export interface CatalogPort {
   services(): Promise<Catalog>
@@ -129,6 +130,8 @@ export interface DataPort {
   messages: MessagesPort
   payments: PaymentsPort
   people: PeoplePort
+  /** The Settings screen's typed endpoints (docs/screens-settings.md). */
+  settings: SettingsApi
 }
 
 /** Thrown by a port region that has no implementation in this mode (the verbatim class still owns that data). */

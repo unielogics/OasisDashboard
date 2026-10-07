@@ -45,3 +45,13 @@ export function copyMondayToWeekdays(hours: HoursDay[]): HoursDay[] {
   })
   return out
 }
+
+/**
+ * The server's hours changed while the screen may hold unsaved edits: take the server's day wherever the person did not
+ * touch it, keep their day where they did (compared with the saved week they started from).
+ */
+export function rebaseHours(local: HoursDay[], savedJson: string, server: HoursDay[]): HoursDay[] {
+  if (!hoursDirty(local, savedJson)) return server
+  const saved = JSON.parse(savedJson) as HoursDay[]
+  return server.map((sd, d) => (JSON.stringify(local[d]) === JSON.stringify(saved[d]) ? sd : local[d]!))
+}

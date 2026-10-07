@@ -32,6 +32,7 @@ import type {
   SectionKey,
   SettingsState,
   SvcKind,
+  TaskOp,
   Theme,
   Vip,
   VipKey,
@@ -196,7 +197,7 @@ export interface SettingsData {
   emergencyStrip(): string
   emergencyCounters(em: Emergency): EmergencyCounters
   /** Who would be affected and the message as it would read (the previous answer while a new one is on its way). */
-  emergencyPreview(em: Emergency): EmergencyPreview
+  emergencyPreview(em: Emergency, visible: boolean): EmergencyPreview
   close(em: Emergency, idempotencyKey: string): MaybeAsync<Outcome<ClosedResult>>
   reopen(em: Emergency): MaybeAsync<Outcome<EmergencyHistoryItem>>
 
@@ -222,7 +223,10 @@ export interface SettingsData {
   addVipClientById(id: string): MaybeAsync<VipClientResult>
   removeVipClient(name: string): MaybeAsync<boolean>
 
+  /** Sends what is still waiting to be saved (the screen is going away). */
+  flush(): void
+
   // services -------------------------------------------------------------------------------------------------------
-  /** Stores the whole ordered checklist of one package or add-on. */
-  saveChecklist(kind: SvcKind, name: string, tasks: string[]): MaybeAsync<boolean>
+  /** Stores the whole ordered checklist of one package or add-on; `op` is the edit that produced `tasks`. */
+  saveChecklist(kind: SvcKind, name: string, tasks: string[], op: TaskOp): MaybeAsync<boolean>
 }

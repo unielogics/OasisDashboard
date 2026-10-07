@@ -1,0 +1,320 @@
+{
+  "id": "01a1137a-b825-74a2-9460-eb73c9a47e73",
+  "first": "Sofia",
+  "last": "Duarte",
+  "name": "Sofia D.",
+  "fullName": "Sofia Duarte",
+  "initials": "SD",
+  "title": "Front Desk",
+  "phone": "(786) 555-0133",
+  "phoneE164": "+17865550133",
+  "email": "sofia@oasisautospa.com",
+  "status": "active",
+  "statusLabel": "Active",
+  "employmentType": "full_time",
+  "payType": "hourly",
+  "rateText": "21",
+  "skills": ["Front desk"],
+  "avatarColor": "#0D9488",
+  "roles": [
+    {
+      "id": "01a1137a-b38a-7d81-85cc-bafccc053232",
+      "key": "support",
+      "name": "Customer Support"
+    },
+    {
+      "id": "01a1137a-b38d-72f2-9e87-78fc0e414031",
+      "key": "crew",
+      "name": "Crew"
+    }
+  ],
+  "exceptionCount": 1,
+  "daysPerWeek": 6,
+  "hasLogin": true,
+  "version": 1,
+  "createdAt": "2026-10-06T23:09:30.901Z",
+  "deactivatedAt": null,
+  "schedule": [
+    {
+      "weekday": 0,
+      "on": false,
+      "fromMin": 540,
+      "toMin": 900,
+      "from": "9:00 AM",
+      "to": "3:00 PM"
+    },
+    {
+      "weekday": 1,
+      "on": true,
+      "fromMin": 480,
+      "toMin": 1080,
+      "from": "8:00 AM",
+      "to": "6:00 PM"
+    },
+    {
+      "weekday": 2,
+      "on": true,
+      "fromMin": 480,
+      "toMin": 1080,
+      "from": "8:00 AM",
+      "to": "6:00 PM"
+    },
+    {
+      "weekday": 3,
+      "on": true,
+      "fromMin": 480,
+      "toMin": 1080,
+      "from": "8:00 AM",
+      "to": "6:00 PM"
+    },
+    {
+      "weekday": 4,
+      "on": true,
+      "fromMin": 480,
+      "toMin": 1080,
+      "from": "8:00 AM",
+      "to": "6:00 PM"
+    },
+    {
+      "weekday": 5,
+      "on": true,
+      "fromMin": 480,
+      "toMin": 1080,
+      "from": "8:00 AM",
+      "to": "6:00 PM"
+    },
+    {
+      "weekday": 6,
+      "on": true,
+      "fromMin": 480,
+      "toMin": 1020,
+      "from": "8:00 AM",
+      "to": "5:00 PM"
+    }
+  ],
+  "overrides": {
+    "sched.override": "allow"
+  },
+  "effectivePermissions": [
+    {
+      "key": "sched.view",
+      "module": "Schedule & jobs",
+      "label": "View schedule & calendar",
+      "on": true,
+      "src": "via Customer Support + Crew",
+      "ov": null
+    },
+    {
+      "key": "sched.edit",
+      "module": "Schedule & jobs",
+      "label": "Create & edit appointments",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "sched.cancel",
+      "module": "Schedule & jobs",
+      "label": "Cancel & mark no-shows",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "sched.override",
+      "module": "Schedule & jobs",
+      "label": "Override bay capacity",
+      "on": true,
+      "src": "Exception \u00b7 allowed",
+      "ov": "allow"
+    },
+    {
+      "key": "jobs.status",
+      "module": "Schedule & jobs",
+      "label": "Move jobs between stages",
+      "on": true,
+      "src": "via Crew",
+      "ov": null
+    },
+    {
+      "key": "jobs.checklist",
+      "module": "Schedule & jobs",
+      "label": "Complete checklists & photos",
+      "on": true,
+      "src": "via Crew",
+      "ov": null
+    },
+    {
+      "key": "cli.view",
+      "module": "Clients",
+      "label": "View client files",
+      "on": true,
+      "src": "via Customer Support + Crew",
+      "ov": null
+    },
+    {
+      "key": "cli.contact",
+      "module": "Clients",
+      "label": "See phone & email",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "cli.edit",
+      "module": "Clients",
+      "label": "Edit client & vehicle details",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "cli.export",
+      "module": "Clients",
+      "label": "Export client data",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "cli.member",
+      "module": "Clients",
+      "label": "Manage memberships & VIP",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "pay.collect",
+      "module": "Payments",
+      "label": "Collect payments",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "pay.refund",
+      "module": "Payments",
+      "label": "Issue refunds",
+      "on": true,
+      "src": "via Customer Support \u00b7 \u2264 $50",
+      "ov": null,
+      "limit": 5000
+    },
+    {
+      "key": "pay.adjust",
+      "module": "Payments",
+      "label": "Apply adjustments & discounts",
+      "on": true,
+      "src": "via Customer Support \u00b7 \u2264 $25",
+      "ov": null,
+      "limit": 2500
+    },
+    {
+      "key": "pay.credit",
+      "module": "Payments",
+      "label": "Issue account credits",
+      "on": true,
+      "src": "via Customer Support \u00b7 \u2264 $50",
+      "ov": null,
+      "limit": 5000
+    },
+    {
+      "key": "pay.void",
+      "module": "Payments",
+      "label": "Void transactions",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "pay.reports",
+      "module": "Payments",
+      "label": "View payment reports",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "msg.send",
+      "module": "Messaging",
+      "label": "Message customers",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "msg.auto",
+      "module": "Messaging",
+      "label": "Edit automations & templates",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "msg.broadcast",
+      "module": "Messaging",
+      "label": "Send offers & broadcasts",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "team.view",
+      "module": "Team",
+      "label": "View team",
+      "on": true,
+      "src": "via Customer Support",
+      "ov": null
+    },
+    {
+      "key": "team.edit",
+      "module": "Team",
+      "label": "Add & edit employees",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "team.roles",
+      "module": "Team",
+      "label": "Assign roles & permissions",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "set.hours",
+      "module": "Settings",
+      "label": "Working hours & holidays",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "set.emergency",
+      "module": "Settings",
+      "label": "Emergency closing",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "set.services",
+      "module": "Settings",
+      "label": "Services, pricing & checklists",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    },
+    {
+      "key": "set.billing",
+      "module": "Settings",
+      "label": "Billing & integrations",
+      "on": false,
+      "src": "Not included in assigned roles",
+      "ov": null
+    }
+  ],
+  "allowedCount": 16
+}

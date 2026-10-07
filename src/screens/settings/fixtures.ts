@@ -48,7 +48,7 @@ import type {
   SettingsSeed,
   VipClientResult,
 } from './data'
-import type { LimitKind, LimitValue, RuleKey, SectionKey, SvcKind, VipKey } from '@/lib/settings'
+import type { LimitKind, LimitValue, RuleKey, SectionKey, SvcKind, TaskOp, VipKey } from '@/lib/settings'
 
 /** The design freezes "today" at Saturday 2026-06-13. */
 export const FIXTURE_TODAY = '2026-06-13'
@@ -520,6 +520,7 @@ export class FixtureData implements SettingsData {
     }
   }
 
+  flush(): void {}
   sync(): ServerSync | null {
     return null
   }
@@ -592,7 +593,7 @@ export class FixtureData implements SettingsData {
       booking: em.pause ? 'Paused' : 'Open',
     }
   }
-  emergencyPreview(em: Emergency): EmergencyPreview {
+  emergencyPreview(em: Emergency, _visible: boolean): EmergencyPreview {
     const affected = fixtureAffected(REMAINING, em)
     return {
       affected,
@@ -679,7 +680,7 @@ export class FixtureData implements SettingsData {
   }
 
   // services -------------------------------------------------------------------------------------------------------
-  saveChecklist(_kind: SvcKind, _name: string, _tasks: string[]): boolean {
+  saveChecklist(_kind: SvcKind, _name: string, _tasks: string[], _op: TaskOp): boolean {
     const { packages: p, addons: a } = this.getState()
     this.save('oasis-checklists', {
       packages: Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v.tasks])),

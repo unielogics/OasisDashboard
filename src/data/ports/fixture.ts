@@ -6,6 +6,7 @@ import { dayInfo } from '@/lib/dates'
 import { dayCount } from '@/lib/calendar'
 import { addDays, diffDays } from '@/lib/tz'
 import type { DataPort } from './ports'
+import type { SettingsApi } from './settings-api'
 import { PortUnavailableError } from './ports'
 import { DESIGN_SLOTS, fixtureClosures, fixtureHoursDays, fixtureServices } from './fixtures'
 import type { CalendarDay, ClosureItem, EmergencyState, HoursSettings } from './types'
@@ -171,6 +172,9 @@ export function createFixtureDataPort(opts: FixtureOptions = {}): DataPort {
       issueCredit: async () => unavailable('payments.issueCredit'),
       voidPayment: async () => unavailable('payments.voidPayment'),
     },
+    settings: new Proxy({} as SettingsApi, {
+      get: (_t, name) => async () => unavailable('settings.' + String(name)),
+    }),
     people: {
       employees: async () => unavailable('people.employees'),
       roles: async () => unavailable('people.roles'),

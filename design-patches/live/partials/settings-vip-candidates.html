@@ -1,0 +1,10 @@
+<sc-if value="{{ hasCandidates }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:12px 0 2px;">
+    <div style="font-size:12px;font-weight:700;color:var(--ink3);margin-bottom:8px;">More than one client matches that name. Pick the right one:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <sc-for list="{{ candidates }}" as="k" hint-placeholder-count="2">
+        <button sc-camel-on-click="{{ k.onClick }}" style="height:40px;padding:0 14px;border-radius:11px;font-size:13px;font-weight:700;background:var(--panel);color:var(--ink2);border:1px solid var(--line);">{{ k.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>

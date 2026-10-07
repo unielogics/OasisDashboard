@@ -43,9 +43,14 @@ export function fixtureAffected(
 export function confirmText(
   em: Pick<Emergency, 'notify' | 'pause' | 'reason' | 'dur' | 'until' | 'through'>,
   affectedCount: number,
+  fixSingular = false,
 ): string {
+  const customers =
+    fixSingular && affectedCount === 1
+      ? '1 customer will be messaged'
+      : affectedCount + ' customers will be messaged'
   return (
-    (em.notify ? affectedCount + ' customers will be messaged' : 'No customers will be messaged') +
+    (em.notify ? customers : 'No customers will be messaged') +
     (em.pause ? ', online booking pauses' : '') +
     ' and the closure shows on the Operations screen. Reason: ' +
     em.reason.toLowerCase() +
