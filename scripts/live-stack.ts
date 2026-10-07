@@ -2,11 +2,14 @@
 //
 //   pnpm tsx scripts/live-stack.ts up --name settings [--profile design[,parity-pay]] [--api-port 4010] [--web-port 3210]
 //        [--backend ~/oasis/backend] [--dev-password oasis-dev-pass-1234] [--freeze 2026-06-13T10:36:00-04:00] [--skip-build]
+//        [--host 127.0.0.1] [--origin http://100.x.y.z:3240[,https://...]]
 //   pnpm tsx scripts/live-stack.ts down --name settings [--drop]
 //   pnpm tsx scripts/live-stack.ts status --name settings
 //
 // `up` (re)creates the schema e2e_<name> in the backend's DATABASE_URL, migrates and seeds it, starts the API
 // (src/server.ts) on --api-port (jobs off, SMS dispatch inline, hooks listener off), builds the live dashboard with API_ORIGIN pointing at it and serves it on --web-port.
+// The web server binds to --host (loopback unless told otherwise; pass a tailnet IP to review from another machine) and the
+// API accepts --origin as extra browser origins (CSRF origin check), so a remote browser can sign in.
 // It prints a JSON summary and writes .live-stack/<name>.json (ports, pids, URLs, logs). Seeded logins are
 // <first name>@oasisautospa.com (rafael, amara, sofia, marco, lena, daniel) with the dev password.
 // Use one name, one API port and one web port per agent/worktree so concurrent stacks never collide.
@@ -64,7 +67,9 @@ function readEnvFile(file: string): Record<string, string> {
 function run(label: string, command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): void {
   const r = spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 600_000 })
   if (r.status !== 0) {
-    console.error(`[live-stack] ${label} failed (exit ${r.status})\n${(r.stdout ?? '') + (r.stderr ?? '')}`.slice(-4000))
+    console.error(
+      `[live-stack] ${label} failed (exit ${r.status})\n${(r.stdout ?? '') + (r.stderr ?? '')}`.slice(-4000),
+    )
     process.exit(1)
   }
 }
@@ -117,10 +122,12 @@ async function up(): Promise<void> {
   const apiPort = Number(flag('--api-port', '4010'))
   const webPort = Number(flag('--web-port', '3210'))
   const devPassword = flag('--dev-password', 'oasis-dev-pass-1234')!
+  const webHost = flag('--host', '127.0.0.1')!
+  const extraOrigins = (flag('--origin') ?? '').split(',').filter(Boolean)
   const profiles = flag('--profile', 'design')!.split(',').filter(Boolean)
   const frozen = flag('--freeze') ?? null
   const apiUrl = `http://127.0.0.1:${apiPort}`
-  const webUrl = `http://127.0.0.1:${webPort}`
+  const webUrl = `http://${webHost}:${webPort}`
 
   if (fs.existsSync(stateFile)) await down(false)
   fs.mkdirSync(stateDir, { recursive: true })
@@ -158,8 +165,8 @@ async function up(): Promise<void> {
       COOKIE_SECURE: 'false',
       SESSION_SECRET: randomBytes(32).toString('base64'),
       PUBLIC_API_URL: apiUrl,
-      PUBLIC_DASHBOARD_URL: webUrl,
-      ALLOWED_ORIGINS: `${webUrl},http://localhost:${webPort}`,
+      PUBLIC_DASHBOARD_URL: extraOrigins[0] ?? webUrl,
+      ALLOWED_ORIGINS: [webUrl, `http://localhost:${webPort}`, ...extraOrigins].join(','),
       PGBOSS_SCHEMA: `pgboss_${name}`,
     },
   })
@@ -176,7 +183,7 @@ async function up(): Promise<void> {
     cwd: root,
     detached: true,
     stdio: ['ignore', webFd, webFd],
-    env: { ...base, API_ORIGIN: apiUrl, PORT: String(webPort) },
+    env: { ...base, API_ORIGIN: apiUrl, PORT: String(webPort), WEB_HOST: webHost },
   })
   web.unref()
   await waitFor(`${webUrl}/login`, 90_000, (s) => s === 200)
@@ -208,7 +215,8 @@ async function down(announce = true): Promise<void> {
   const s = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as State
   kill(s.webPid)
   kill(s.apiPid)
-  for (let i = 0; i < 20 && (alive(s.webPid) || alive(s.apiPid)); i++) await new Promise((r) => setTimeout(r, 250))
+  for (let i = 0; i < 20 && (alive(s.webPid) || alive(s.apiPid)); i++)
+    await new Promise((r) => setTimeout(r, 250))
   fs.rmSync(stateFile)
   if (has('--drop')) {
     const be = readEnvFile(path.join(backend, '.env'))
