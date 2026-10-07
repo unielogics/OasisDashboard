@@ -29,6 +29,8 @@ export interface RunContext {
   /** normalised console messages the original is known to emit, per screen */
   consoleBaseline: Partial<Record<Screen, string[]>>
   tracker: AllowlistTracker
+  /** live mode: forgive last-digit noise between long computed decimals in renderVals (docs/parity-live.md) */
+  floatNoise?: { relative: number }
   outDir: string
   log?: (line: string) => void
 }
@@ -70,7 +72,7 @@ export function compareSnapshots(
   a: Snapshot,
   b: Snapshot,
   unit: UnitCtx,
-  ctx: Pick<RunContext, 'allowlist' | 'tolerances' | 'consoleBaseline'>,
+  ctx: Pick<RunContext, 'allowlist' | 'tolerances' | 'consoleBaseline' | 'floatNoise'>,
   stepDir: string,
 ): Comparison {
   fs.mkdirSync(stepDir, { recursive: true })
@@ -117,7 +119,11 @@ export function compareSnapshots(
 
   // (d) renderVals
   {
-    const raw = diffVals(a.vals, b.vals)
+    const forgiven: string[] = []
+    const raw = diffVals(a.vals, b.vals, {
+      floatNoise: ctx.floatNoise,
+      onForgiven: (loc) => forgiven.push(loc),
+    })
     const r = applyAllowlist(raw, ctx.allowlist, unit)
     addCounts(r.counts)
     const artifacts: string[] = []
@@ -130,7 +136,13 @@ export function compareSnapshots(
       writeJson(path.join(stepDir, 'vals.diff.json'), { remaining: r.remaining, allowed: r.allowed })
       artifacts.push('vals.diff.json')
     }
-    checks.vals = summarize('vals', raw, r.remaining, r.allowed, artifacts)
+    checks.vals = summarize('vals', raw, r.remaining, r.allowed, artifacts, {
+      ...(forgiven.length
+        ? {
+            note: `${forgiven.length} last-digit float differences forgiven: ${forgiven.slice(0, 6).join(', ')}`,
+          }
+        : {}),
+    })
   }
 
   // (c) pixels

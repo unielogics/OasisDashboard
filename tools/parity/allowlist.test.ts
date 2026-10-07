@@ -195,6 +195,36 @@ describe('applyAllowlist', () => {
   })
 })
 
+describe('computed-style entries (live mode)', () => {
+  const entry: AllowEntry = {
+    id: 'cs',
+    screen: '*',
+    kind: 'computed-style',
+    ...base,
+    expect: { min: 0 },
+    matcher: { loc: ['body', 'root>div[0]'], name: '--*' },
+  }
+
+  it('is accepted, and limited to the style check', () => {
+    expect(() => validateAllowlist([entry])).not.toThrow()
+    expect(() => validateAllowlist([{ ...entry, scope: { checks: ['dom'] } }])).toThrow(
+      /cannot cover check "dom"/,
+    )
+  })
+
+  it('excuses a computed property on the named element and nothing else', () => {
+    const styleDiffs: Diff[] = [
+      { check: 'style', kind: 'style', loc: 'root>div[0]', name: '--bg', orig: '#fff', port: '#000' },
+      { check: 'style', kind: 'style', loc: 'root>div[0]', name: 'color', orig: 'red', port: 'blue' },
+      { check: 'style', kind: 'style', loc: 'root>div[0]>div[1]', name: '--bg', orig: '#fff', port: '#000' },
+      { check: 'style', kind: 'rect', loc: 'root>div[0]', name: 'rect', orig: '0,0,1,1', port: '0,0,2,1' },
+    ]
+    const r = applyAllowlist(styleDiffs, [entry], unit)
+    expect(r.allowed.map((d) => d.name)).toEqual(['--bg'])
+    expect(r.remaining).toHaveLength(3)
+  })
+})
+
 describe('AllowlistTracker', () => {
   const entries = validateAllowlist([
     { id: 'used', screen: 'payments', kind: 'text', ...base, matcher: { loc: 'a' } },

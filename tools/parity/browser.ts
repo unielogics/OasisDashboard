@@ -43,6 +43,15 @@ export interface ParityContextOptions {
   /** hide the "Made with Claude Design" badge that the original bundles append to <body> */
   hideBranding: boolean
   touch?: boolean
+  /**
+   * `paused` (default): the fake clock is installed and paused at FIXED_NOW; time only moves through clock.runFor.
+   * `fixed` (live mode): Date is pinned to `fixedNow` but timers keep running, because the live screens need real timers
+   * (react-query batching, requestAnimationFrame, SSE back-off) to reach their ready state.
+   */
+  clock?: 'paused' | 'fixed'
+  fixedNow?: string
+  /** cookies of an already signed-in session (live mode) */
+  cookies?: Parameters<BrowserContext['addCookies']>[0]
 }
 
 export interface ParityContext {
@@ -98,12 +107,18 @@ export async function newParityContext(browser: Browser, opts: ParityContextOpti
   )
   // Pin the clock: install slightly before the target, then pause AT the target so the page boots at exactly FIXED_NOW.
   // From here time only moves through ctx.clock.runFor().
-  const t0 = new Date(FIXED_NOW)
-  if (Number.isNaN(t0.getTime())) throw new Error(`PARITY_FIXED_NOW is not a valid instant: ${FIXED_NOW}`)
-  if (!/(Z|[+-]\d\d:?\d\d)$/.test(FIXED_NOW))
-    throw new Error(`PARITY_FIXED_NOW needs an explicit UTC offset: ${FIXED_NOW}`)
-  await ctx.clock.install({ time: new Date(t0.getTime() - 1000) })
-  await ctx.clock.pauseAt(t0)
+  const nowText = opts.fixedNow ?? FIXED_NOW
+  const t0 = new Date(nowText)
+  if (Number.isNaN(t0.getTime())) throw new Error(`PARITY_FIXED_NOW is not a valid instant: ${nowText}`)
+  if (!/(Z|[+-]\d\d:?\d\d)$/.test(nowText))
+    throw new Error(`PARITY_FIXED_NOW needs an explicit UTC offset: ${nowText}`)
+  if (opts.clock === 'fixed') {
+    await ctx.clock.setFixedTime(t0)
+  } else {
+    await ctx.clock.install({ time: new Date(t0.getTime() - 1000) })
+    await ctx.clock.pauseAt(t0)
+  }
+  if (opts.cookies?.length) await ctx.addCookies(opts.cookies)
 
   const page = await ctx.newPage()
   let msgs: ConsoleMsg[] = []

@@ -1,5 +1,5 @@
 import type { Browser, Locator, Page } from '@playwright/test'
-import { newParityContext, type ParityContext } from './browser'
+import { newParityContext, type ParityContext, type ParityContextOptions } from './browser'
 import {
   collectElements,
   CURATED_PROPS,
@@ -71,7 +71,7 @@ function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-abstract class PageDriver implements Driver {
+export abstract class PageDriver implements Driver {
   abstract readonly side: Side
   protected pc!: ParityContext
   protected opened!: OpenOptions
@@ -84,20 +84,38 @@ abstract class PageDriver implements Driver {
   }
 
   protected abstract hideBranding: boolean
+  /** pair elements by DOM position only (set when the other side has no data-dc-tpl) */
+  protected ignoreTpl = false
   protected abstract allowedOrigins(): string[]
   protected abstract urlFor(opts: OpenOptions): string
   protected abstract waitReady(): Promise<void>
   protected abstract readVals(): Promise<JsonValue>
 
+  /** Runs before the context is created (live mode signs in here); the result is merged into the context options. */
+  protected async prepare(_opts: OpenOptions): Promise<Partial<ParityContextOptions>> {
+    return {}
+  }
+
+  /** Runs once the page exists and before the first navigation (live mode attaches its request tracking here). */
+  protected async attach(): Promise<void> {}
+
+  /** Moves time forward; the originals run on a paused fake clock, live mode waits in real time. */
+  protected async advance(ms: number): Promise<void> {
+    await this.pc.ctx.clock.runFor(ms)
+  }
+
   async open(opts: OpenOptions): Promise<void> {
     this.opened = opts
+    const extra = await this.prepare(opts)
     this.pc = await newParityContext(this.browser, {
       theme: opts.theme,
       allowedOrigins: this.allowedOrigins(),
       hideBranding: this.hideBranding,
       touch: opts.touch,
+      ...extra,
     })
     this.actions = this.buildActions(opts)
+    await this.attach()
     await this.page.goto(this.urlFor(opts), { waitUntil: 'load', timeout: 45_000 })
     await this.waitReady()
     await this.settle()
@@ -115,7 +133,12 @@ abstract class PageDriver implements Driver {
     await this.settle()
     const html = await page.evaluate(readRootHtml)
     const elements = decodeElements(
-      await page.evaluate(collectElements, { props: CURATED_PROPS, full, pseudoProps: PSEUDO_PROP_LIST }),
+      await page.evaluate(collectElements, {
+        props: CURATED_PROPS,
+        full,
+        pseudoProps: PSEUDO_PROP_LIST,
+        ignoreTpl: this.ignoreTpl,
+      }),
       CURATED_PROPS,
     )
     const vals = await this.readVals()
@@ -143,7 +166,7 @@ abstract class PageDriver implements Driver {
 
   private buildActions(opts: OpenOptions): Actions {
     const page = this.pc.page
-    const ctx = this.pc.ctx
+    const advance = (ms: number) => this.advance(ms)
     const settle = () => this.settle()
     const scoped = (selector: string) => page.locator(`#dc-root ${selector}`)
     const pick = (loc: Locator, nth?: number) => (nth === undefined ? loc : loc.nth(nth))
@@ -177,7 +200,7 @@ abstract class PageDriver implements Driver {
         await settle()
       },
       runFor: async (ms) => {
-        await ctx.clock.runFor(ms)
+        await advance(ms)
         await settle()
       },
       settle,
@@ -192,7 +215,7 @@ abstract class PageDriver implements Driver {
       center: (target) => actions.point(target),
       pointerSequence: async (steps, o) => {
         for (const s of steps) {
-          if (s.wait) await ctx.clock.runFor(s.wait)
+          if (s.wait) await advance(s.wait)
           await page.evaluate(
             ({ s: step, pointerType, pointerId }) => {
               const target = document.elementFromPoint(step.x, step.y) ?? document.body
@@ -228,8 +251,10 @@ export class OriginalDriver extends PageDriver {
     browser: Browser,
     private readonly server: OriginalServer,
     readonly side: Side = 'orig',
+    opts: { ignoreTpl?: boolean } = {},
   ) {
     super(browser)
+    this.ignoreTpl = opts.ignoreTpl ?? false
   }
 
   protected allowedOrigins(): string[] {
@@ -250,7 +275,17 @@ export class OriginalDriver extends PageDriver {
    * instance carries `.logic`. Calling renderVals() again is what the runtime does on every render.
    */
   protected async readVals(): Promise<JsonValue> {
-    const expr = `(() => {
+    return readValsViaFiber(this.page)
+  }
+}
+
+/**
+ * Finds the screen's logic instance through React (the `.sc-host` div is rendered by the host component, whose instance
+ * carries `.logic`) and returns `serializeVals(renderVals())`. Used for the original bundles and for the live build,
+ * which has no `window.__oasisParity` hook.
+ */
+export async function readValsViaFiber(page: Page): Promise<JsonValue> {
+  const expr = `(() => {
       const ser = ${serializeVals.toString()};
       const host = document.querySelector('#dc-root .sc-host');
       if (!host) throw new Error('no .sc-host');
@@ -263,8 +298,7 @@ export class OriginalDriver extends PageDriver {
       }
       throw new Error('logic instance not found behind .sc-host');
     })()`
-    return JSON.parse((await this.page.evaluate(expr)) as string) as JsonValue
-  }
+  return JSON.parse((await page.evaluate(expr)) as string) as JsonValue
 }
 
 /** Loads the Next production build (NEXT_PUBLIC_PARITY=1) and reads renderVals through window.__oasisParity. */
