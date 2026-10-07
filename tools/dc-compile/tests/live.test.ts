@@ -255,6 +255,10 @@ describe('live variant of the three screens', () => {
   const PAYMENTS_OWN =
     /^(d\.ledger\[\]\.(awaiting|confirm|confirmStyle|confirmNote)|sh\.(needsUrl|urlRaw|setUrl|hasUrlError|urlError))$/
 
+  // The Operations wave adds the New Appointment sheet's inputs (`nf.*`) and the file's live controls (`sel.*`: composer,
+  // tender choice, Payment pending, SMS chip, photo file inputs) that its live view model owns (DV-402..DV-408, DV-420).
+  const OPERATIONS_OWN = /^(nf|sel)\.[A-Za-z]+(\[\]\.[A-Za-z]+(\[\]\.[A-Za-z]+)?)?$/
+
   it('only the chip, view-as and bar bindings differ: every live binding is under live.*', () => {
     for (const s of SCREENS) {
       const p = JSON.parse(text(prod.perScreen[s]![`${s}.bindings.json`])) as Bindings
@@ -265,7 +269,9 @@ describe('live variant of the three screens', () => {
         expect(a, s).toMatch(
           s === 'payments'
             ? new RegExp(`${/^live\.|^r\.(name|lim|style|onClick)$/.source}|${PAYMENTS_OWN.source}`)
-            : /^live\.|^r\.(name|lim|style|onClick)$/,
+            : s === 'operations'
+              ? new RegExp(`${/^live\.|^r\.(name|lim|style|onClick)$/.source}|${OPERATIONS_OWN.source}`)
+              : /^live\.|^r\.(name|lim|style|onClick)$/,
         )
       expect(l.roots).toContain('live')
     }
