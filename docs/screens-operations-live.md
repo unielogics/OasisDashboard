@@ -3,9 +3,10 @@
 The live variant (`pnpm build:live`) renders the Operations template from the real API. The server is the single source of
 truth for every status, price, balance, KPI, alert, availability slot and activity line: `LiveOperationsLogic` keeps UI
 state only (view, range, search, selection, tab, the New Appointment form, the composer), the gesture engine and the 1 s
-tick. The fixture class (`Logic.ts`) is untouched, so the parity and default builds are byte for byte what they were
-(`pnpm parity --screen operations`: zero diff; the parity bundle contains none of the live code, checked by grepping
-`.next-parity/static` for `LiveOperationsLogic`, `oasis-last-tender`, `ops/snapshot` and `dev-storage`).
+tick. The fixture class (`Logic.ts`) is untouched and is what every non-live build runs (`LIVE` is false there), and the
+live template patches are applied only by the live compile: `pnpm parity --screen operations` is zero diff. Like Payments'
+and Settings' live logic, `LiveLogic.ts` is still bundled into the parity build as unreachable code (the `LIVE ? … : …`
+switch in `Screen.tsx` is the repo's convention and the bundler keeps the import); nothing in it runs there.
 
 ```
 src/data/ports/operations-schema.d.ts   generated from the backend openapi (scripts/gen-operations-schema.ts), Operations paths only
