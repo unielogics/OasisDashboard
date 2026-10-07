@@ -1125,6 +1125,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       dark: ui.dark,
       today,
       tomorrow: addDays(today, 1),
+      tz: ui.tz,
       tab: s.modalTab,
       composer: s.composer,
       payTender: s.payTender,

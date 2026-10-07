@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AppointmentFile } from '@/data/ports/operations'
 import { dateAt, monthGrid, navigate, offsetOf, summaryRange, weekdayOf } from './calendar'
-import { deliveryText, nextHint, smsChip, smsSegments, whenLabel } from './file'
+import { deliveryText, messageTime, nextHint, smsChip, smsSegments, whenLabel } from './file'
 import { opsMoney, plural } from './fmt'
 import { bookingRequest, checkForm, emptyForm, parseVehicle, slotChoice } from './newAppt'
 import { applyChecklist } from './optimistic'
@@ -155,6 +155,16 @@ describe('labels', () => {
       ' · Canceled',
     ])
     expect(deliveryText({ direction: 'in', from: 'customer', status: 'received' } as any)).toBe('')
+  })
+  it('older bubbles carry their day, in the business timezone', () => {
+    const at = (iso: string) => ({ at: iso, time: '4:02 PM' })
+    const tz = 'America/New_York'
+    expect(messageTime(at('2026-06-13T14:00:00.000Z'), '2026-06-13', tz)).toBe('4:02 PM')
+    expect(messageTime(at('2026-06-12T20:02:00.000Z'), '2026-06-13', tz)).toBe('Yesterday 4:02 PM')
+    expect(messageTime(at('2026-06-11T13:12:00.000Z'), '2026-06-13', tz)).toBe('Jun 11 · 4:02 PM')
+    // 11 PM Eastern is already the next UTC day
+    expect(messageTime(at('2026-06-14T03:30:00.000Z'), '2026-06-13', tz)).toBe('4:02 PM')
+    expect(messageTime({ at: '', time: '9:00 AM' }, '2026-06-13', tz)).toBe('9:00 AM')
   })
   it('the chip beside the phone number', () => {
     expect(smsChip({ smsOptedIn: true, smsOptedOut: false } as any)).toEqual({

@@ -5,7 +5,7 @@ truth for every status, price, balance, KPI, alert, availability slot and activi
 state only (view, range, search, selection, tab, the New Appointment form, the composer), the gesture engine and the 1 s
 tick. The fixture class (`Logic.ts`) is untouched, so the parity and default builds are byte for byte what they were
 (`pnpm parity --screen operations`: zero diff; the parity bundle contains none of the live code, checked by grepping
-`.next-parity/static` for `LiveOperationsLogic`, `oa-last-tender` and `/ops/snapshot`).
+`.next-parity/static` for `LiveOperationsLogic`, `oasis-last-tender`, `ops/snapshot` and `dev-storage`).
 
 ```
 src/data/ports/operations-schema.d.ts   generated from the backend openapi (scripts/gen-operations-schema.ts), Operations paths only
@@ -42,7 +42,7 @@ customerId)`, `qk.ops('customers', q)`, `qk.ops('catalog')` and `qk.messages('th
 
 S = the server supplies the value (a field of a response), D = derived in the browser from server values and the synced
 clock, U = UI state. Style objects are the design's literals (the fixture class's), built in `lib/operations/live` and
-compared with the fixture class by `board.test.ts`/`file.test.ts`.
+compared with the fixture class by `LiveLogic.styles.test.ts` (light and dark, every region and every tab of the file).
 
 | Root                                                                                                      | Source                                                                                                                                                                                      |
 | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

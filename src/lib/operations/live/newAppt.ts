@@ -172,18 +172,19 @@ export function slotVMs(
     .map((s) => {
       const c = slotChoice(s, o.canOverride, o.releaseHours)
       const held = s.state === 'vip_held'
-      const off = !!c.why && !held
+      // greyed = would overbook a bay (or closed, cut off): the design's look, whether or not this person can override it
+      const off = s.state !== 'available' && !held
       const on = pickedStart === s.start
       const style: Style = {
         height: '42px',
         borderRadius: '11px',
         fontSize: '13px',
         fontWeight: 700,
-        cursor: off ? 'not-allowed' : 'pointer',
-        background: off ? 'var(--panel3)' : on ? 'var(--accent)' : 'var(--panel)',
-        color: off ? 'var(--ink3)' : on ? '#fff' : 'var(--ink)',
-        border: '1px solid ' + (on && !off ? 'var(--accent)' : 'var(--line)'),
-        opacity: off ? 0.6 : 1,
+        cursor: off && !c.override ? 'not-allowed' : 'pointer',
+        background: on ? 'var(--accent)' : off ? 'var(--panel3)' : 'var(--panel)',
+        color: on ? '#fff' : off ? 'var(--ink3)' : 'var(--ink)',
+        border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'),
+        opacity: off && !on ? 0.6 : 1,
       }
       return {
         label: held ? s.time + ' · VIP' : s.time,
@@ -240,6 +241,7 @@ export const inputStyle: Style = {
   fontSize: '14px',
   color: 'var(--ink)',
   fontWeight: 600,
+  fontFamily: 'inherit',
   outline: 'none',
 }
 

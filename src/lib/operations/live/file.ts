@@ -14,6 +14,7 @@ import type {
   ThreadMessage,
 } from '@/data/ports/operations'
 import { hexA, lighten } from '@/lib/color'
+import { addDays, businessToday, parseIso } from '@/lib/tz'
 import { memberMeta } from '../status'
 import type { Style } from '../types'
 import { AMBER, LATE_COLOR, badgeStyle, memberBadge, payColor } from './board'
@@ -298,12 +299,24 @@ export function deliveryText(m: Pick<ThreadMessage, 'direction' | 'from' | 'stat
 
 const channelName = (c: string): string => (c === 'email' ? 'Email' : c === 'sms' ? 'SMS' : 'Internal')
 
-export function messageVMs(items: readonly ThreadMessage[]): VM[] {
+/** "4:02 PM" today, "Yesterday 4:02 PM", then "Jun 11 · 9:12 AM": the design's stamps for older bubbles. */
+export function messageTime(m: Pick<ThreadMessage, 'at' | 'time'>, today: string, tz: string): string {
+  if (!m.at) return m.time
+  const day = businessToday(Date.parse(m.at), tz)
+  if (day === today) return m.time
+  if (day === addDays(today, -1)) return 'Yesterday ' + m.time
+  const [, mo, d] = parseIso(day)
+  return (
+    MONTH_ABBR[mo - 1]!.slice(0, 1) + MONTH_ABBR[mo - 1]!.slice(1).toLowerCase() + ' ' + d + ' · ' + m.time
+  )
+}
+
+export function messageVMs(items: readonly ThreadMessage[], today: string, tz: string): VM[] {
   return items.map((m) => {
     const out = m.from === 'staff' || m.from === 'system'
     return {
       text: m.text,
-      time: m.time + deliveryText(m),
+      time: messageTime(m, today, tz) + deliveryText(m),
       channelTag: m.from === 'system' ? 'Automated · ' + channelName(m.channel) : null,
       rowStyle: { display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start' },
       bubbleStyle: {
@@ -373,6 +386,7 @@ export interface FileUi {
   dark: boolean
   today: string
   tomorrow: string
+  tz: string
   tab: string
   composer: string
   payTender: 'card' | 'cash'
@@ -635,7 +649,7 @@ export function fileVM(
     })),
     photoSections: photoSections(f, dark, ui.can.checklist, ui.busy, h),
     // messages
-    messages: messageVMs(messages),
+    messages: messageVMs(messages, ui.today, ui.tz),
     templates: QUICK_REPLIES.map(([key, label]) => ({
       label,
       send: () => h.sendQuick(key, label),

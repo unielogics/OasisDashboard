@@ -505,8 +505,11 @@ async function phaseVisual(browser: Browser): Promise<void> {
   await o.page.waitForSelector('text=Appointments 24h')
   await sleep(500)
   // live: the same clock (the page's own clock is pinned to the server's 10:36 AM) and a quiet screen
-  const ctx = await browser.newContext({
+  // the live page runs in the same pinned Chromium (flags, fonts) as the original so the pixels are comparable
+  void browser
+  const ctx = await pbrowser.newContext({
     viewport: { width: 1480, height: 1000 },
+    deviceScaleFactor: 1,
     timezoneId: 'America/New_York',
     locale: 'en-US',
   })
