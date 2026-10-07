@@ -2,14 +2,15 @@
 //
 //   pnpm tsx scripts/live-stack.ts up --name settings [--profile design[,parity-pay]] [--api-port 4010] [--web-port 3210]
 //        [--backend ~/oasis/backend] [--dev-password oasis-dev-pass-1234] [--freeze 2026-06-13T10:36:00-04:00] [--skip-build]
-//        [--host 127.0.0.1] [--origin http://100.x.y.z:3240[,https://...]]
+//        [--host 127.0.0.1] [--origin http://100.x.y.z:3240[,https://...]] [--secure-cookies]
 //   pnpm tsx scripts/live-stack.ts down --name settings [--drop]
 //   pnpm tsx scripts/live-stack.ts status --name settings
 //
 // `up` (re)creates the schema e2e_<name> in the backend's DATABASE_URL, migrates and seeds it, starts the API
 // (src/server.ts) on --api-port (jobs off, SMS dispatch inline, hooks listener off), builds the live dashboard with API_ORIGIN pointing at it and serves it on --web-port.
 // The web server binds to --host (loopback unless told otherwise; pass a tailnet IP to review from another machine) and the
-// API accepts --origin as extra browser origins (CSRF origin check), so a remote browser can sign in.
+// API accepts --origin as extra browser origins (CSRF origin check), so a remote browser can sign in. --secure-cookies marks
+// the session cookie Secure, for a stack reached over HTTPS (a tunnel or proxy in front of it).
 // It prints a JSON summary and writes .live-stack/<name>.json (ports, pids, URLs, logs). Seeded logins are
 // <first name>@oasisautospa.com (rafael, amara, sofia, marco, lena, daniel) with the dev password.
 // Use one name, one API port and one web port per agent/worktree so concurrent stacks never collide.
@@ -162,7 +163,7 @@ async function up(): Promise<void> {
       // no worker in the stack: the SMS outbox drains inside the API process, and the tailnet-only hooks listener stays off
       SMS_DISPATCH_MODE: 'inline',
       HOOKS_PORT: '0',
-      COOKIE_SECURE: 'false',
+      COOKIE_SECURE: has('--secure-cookies') ? 'true' : 'false',
       SESSION_SECRET: randomBytes(32).toString('base64'),
       PUBLIC_API_URL: apiUrl,
       PUBLIC_DASHBOARD_URL: extraOrigins[0] ?? webUrl,
