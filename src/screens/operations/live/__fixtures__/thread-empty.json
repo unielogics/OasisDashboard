@@ -1,0 +1,12 @@
+{
+  "items": [],
+  "customer": {
+    "id": "019ec169-3c80-75dd-9b21-7fad9db1a334",
+    "name": "Priya Nair",
+    "smsOptedIn": true,
+    "optedOut": false,
+    "hasPhone": true,
+    "canMessage": true
+  },
+  "unread": 0
+}

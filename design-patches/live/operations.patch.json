@@ -49,6 +49,242 @@
       "tpl": 6,
       "expectTag": "header",
       "htmlFile": "view-as-bar.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 391,
+      "expectTag": "span",
+      "htmlFile": "ops-sms-chip.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 391,
+      "expectTag": "span",
+      "expectTextStarts": "WhatsApp opted-in"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 566,
+      "expectTag": "div",
+      "expect": "Receipt sent via WhatsApp + email",
+      "with": "Receipt sent via SMS + email"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 147,
+      "expectTag": "button",
+      "expect": "Simulate arrival",
+      "with": "Check in"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 658,
+      "expectTag": "div",
+      "htmlFile": "ops-new-name.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 658,
+      "expectTag": "div",
+      "expectTextStarts": "Full name"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 660,
+      "expectTag": "div",
+      "htmlFile": "ops-new-phone.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 660,
+      "expectTag": "div",
+      "expectTextStarts": "Phone number"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 661,
+      "expectTag": "button",
+      "htmlFile": "ops-new-sms.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 661,
+      "expectTag": "button",
+      "expectTextStarts": "WhatsApp"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 666,
+      "expectTag": "div",
+      "htmlFile": "ops-new-vehicle.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 666,
+      "expectTag": "div",
+      "expectTextStarts": "Year / Make / Model"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 667,
+      "expectTag": "div",
+      "htmlFile": "ops-new-plate.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 667,
+      "expectTag": "div",
+      "expectTextStarts": "License plate"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 657,
+      "expectTag": "div",
+      "htmlFile": "ops-new-hits.html"
+    },
+    {
+      "op": "wrap-if",
+      "tpl": 677,
+      "expectTag": "div",
+      "cond": "nf.showSlots",
+      "expectTextStarts": "Available slots"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 678,
+      "expectTag": "div",
+      "expectTextStarts": "Available slots",
+      "htmlFile": "ops-new-date.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 682,
+      "expectTag": "div",
+      "htmlFile": "ops-new-note.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 682,
+      "expectTag": "div",
+      "expectTextStarts": "Greyed slots"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 686,
+      "expectTag": "button",
+      "expect": "Book Appointment",
+      "with": "{{= nf.submitLabel }}"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 535,
+      "expectTag": "button",
+      "name": "style",
+      "expect": "flex:none;padding:8px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:20px;font-size:12.5px;font-weight:700;color:var(--ink2);white-space:nowrap;",
+      "value": "{{ tp.style }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 537,
+      "expectTag": "div",
+      "htmlFile": "ops-composer.html"
+    },
+    {
+      "op": "remove",
+      "tpl": 537,
+      "expectTag": "div",
+      "expectTextStarts": "Type a message"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 538,
+      "expectTag": "button",
+      "name": "sc-camel-on-click",
+      "expect": null,
+      "value": "{{ sel.sendMessage }}"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 538,
+      "expectTag": "button",
+      "name": "style",
+      "expect": "width:48px;height:48px;background:var(--accent);border-radius:13px;display:flex;align-items:center;justify-content:center;",
+      "value": "{{ sel.composerSendStyle }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 536,
+      "expectTag": "div",
+      "htmlFile": "ops-composer-hint.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 517,
+      "expectTag": "sc-if",
+      "htmlFile": "ops-photo-slot.html"
+    },
+    {
+      "op": "insert-before",
+      "tpl": 555,
+      "expectTag": "button",
+      "htmlFile": "ops-pay-tender.html"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 555,
+      "expectTag": "button",
+      "name": "style",
+      "expect": "height:52px;background:var(--panel);border:1px solid var(--line);border-radius:13px;font-weight:700;font-size:14px;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;",
+      "value": "{{ sel.linkStyle }}"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 555,
+      "expectTag": "button",
+      "name": "title",
+      "expect": null,
+      "value": "{{ sel.collectTitle }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 555,
+      "expectTag": "button",
+      "htmlFile": "ops-pay-link.html"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 558,
+      "expectTag": "button",
+      "name": "style",
+      "expect": "height:56px;background:var(--accent);color:#fff;border-radius:13px;font-weight:800;font-size:15.5px;box-shadow:0 8px 20px var(--accentSoft);",
+      "value": "{{ sel.collectStyle }}"
+    },
+    {
+      "op": "set-attr",
+      "tpl": 558,
+      "expectTag": "button",
+      "name": "title",
+      "expect": null,
+      "value": "{{ sel.collectTitle }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 559,
+      "expectTag": "sc-if",
+      "htmlFile": "ops-pay-pending.html"
+    },
+    {
+      "op": "insert-before",
+      "tpl": 601,
+      "expectTag": "button",
+      "htmlFile": "ops-apply-credit.html"
+    },
+    {
+      "op": "replace-text",
+      "tpl": 605,
+      "expectTag": "div",
+      "expect": "{{ sel.name }} is a strong upgrade candidate — 4 visits in 60 days. Offer Essential at check-out.",
+      "with": "{{= sel.upgradeText }}"
     }
   ]
 }

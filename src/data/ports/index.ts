@@ -1,6 +1,8 @@
 export * from './fixture'
 export * from './fixtures'
 export * from './live'
+export { createLiveOperationsPort, UploadError } from './operations'
+export type { OperationsPort } from './operations'
 export * from './payments'
 export * from './ports'
 export * from './types'

@@ -1,0 +1,258 @@
+{
+  "id": "019ec169-3c80-7a2f-8a50-ef376dc54170",
+  "seq": 6,
+  "version": 1,
+  "status": "confirmed",
+  "late": false,
+  "badge": { "label": "Confirmed", "color": "#2563EB" },
+  "canDrag": true,
+  "next": { "label": "Mark Arrived", "step": "arrive" },
+  "customer": {
+    "id": "019ec169-3c80-75dd-9b21-7fb37da2860b",
+    "name": "Liam Chen",
+    "initials": "LC",
+    "phone": "(305) 555-0107",
+    "email": null,
+    "contactMasked": false,
+    "vip": true,
+    "smsOptedIn": true,
+    "smsOptedOut": false
+  },
+  "vehicle": {
+    "year": 2020,
+    "make": "BMW",
+    "model": "M340i",
+    "color": "Alpine White",
+    "plate": "BMW-3401",
+    "id": "019ec169-3c80-75dd-9b21-7fb42fac4e9d"
+  },
+  "overview": {
+    "startsAt": "2026-06-13T14:45:00.000Z",
+    "endsAt": "2026-06-13T15:45:00.000Z",
+    "time": "10:45 AM",
+    "bizDate": "2026-06-13",
+    "dateLabel": "Saturday, June 13",
+    "service": {
+      "id": "019ec169-3c80-75dd-9b21-7f5d29929aee",
+      "name": "Ceramic Maintenance + Wax",
+      "priceCents": 18000
+    },
+    "durationMin": 60,
+    "durLabel": "Est. 60 min",
+    "source": "dashboard",
+    "bay": { "planned": { "id": "019ec169-3c80-75dd-9b21-7f2494a52208", "number": 1 }, "actual": null },
+    "bayLabel": "Bay 1",
+    "staff": { "id": "019ec169-3c80-75dd-9b21-7f1bd420eba0", "name": "Marco R." },
+    "etaMinutes": 12,
+    "prepped": false,
+    "geoCheckedInAt": null,
+    "arrivedAt": null,
+    "cleaningStartedAt": null,
+    "completedAt": null,
+    "pickupState": null,
+    "canceledAt": null,
+    "cancelReason": null,
+    "notes": null,
+    "specialInstructions": null,
+    "pay": {
+      "label": "Paid",
+      "kind": "paid",
+      "balanceCents": 0,
+      "awaitingCents": 0,
+      "invoiceNo": 20616,
+      "status": "paid"
+    }
+  },
+  "addons": {
+    "selected": [],
+    "catalog": [
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f77de493cb4",
+        "name": "Interior deep clean",
+        "priceCents": 6000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f7b7e4b1bd8",
+        "name": "Pet hair removal",
+        "priceCents": 3500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f7f120f5f2d",
+        "name": "Leather conditioning",
+        "priceCents": 4500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f83d95dbcac",
+        "name": "Wax",
+        "priceCents": 4000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f86a6cd3932",
+        "name": "Clay bar",
+        "priceCents": 5000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f8accdbcf99",
+        "name": "Odor removal",
+        "priceCents": 3000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f8d92b0de66",
+        "name": "Engine bay cleaning",
+        "priceCents": 5500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f91698ddcc5",
+        "name": "Ceramic maintenance",
+        "priceCents": 12000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f94d59667b5",
+        "name": "Rain repellent",
+        "priceCents": 2500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f97a8814259",
+        "name": "Wheel deep clean",
+        "priceCents": 4000,
+        "selected": false
+      }
+    ],
+    "totalCents": 0
+  },
+  "checklist": {
+    "done": 0,
+    "total": 7,
+    "pct": 0,
+    "allDone": false,
+    "sections": [
+      {
+        "kind": "package",
+        "title": "Ceramic Maintenance + Wax",
+        "addonId": null,
+        "items": [
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef385a0ec84e",
+            "label": "Pre-rinse",
+            "done": false,
+            "position": 0
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef3919154fac",
+            "label": "pH-neutral hand wash",
+            "done": false,
+            "position": 1
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef3ac37e3c11",
+            "label": "Ceramic boost spray",
+            "done": false,
+            "position": 2
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef3bf0482bf2",
+            "label": "Hand-applied wax",
+            "done": false,
+            "position": 3
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef3ca69893f5",
+            "label": "Wheel cleaning",
+            "done": false,
+            "position": 4
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef3d5b46585a",
+            "label": "Tire dressing",
+            "done": false,
+            "position": 5
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef3eb2926cbc",
+            "label": "Glass treatment",
+            "done": false,
+            "position": 6
+          }
+        ],
+        "done": 0,
+        "total": 7,
+        "allDone": false
+      }
+    ]
+  },
+  "photos": {
+    "arrival": {
+      "count": 2,
+      "items": [
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef3f0894ce27",
+          "category": "arrival",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T14:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef376dc54170/arrival/019ec169-3c80-7a2f-8a50-ef3f0894ce27.jpg?exp=1781361960&sig=VOo4PB1m4AXOkDYSfyE7dix9jML_29hR05wVIFoKvWQ",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef376dc54170/arrival/019ec169-3c80-7a2f-8a50-ef3f0894ce27.jpg?exp=1781361960&sig=VOo4PB1m4AXOkDYSfyE7dix9jML_29hR05wVIFoKvWQ"
+        },
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef40a554695b",
+          "category": "arrival",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T14:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef376dc54170/arrival/019ec169-3c80-7a2f-8a50-ef40a554695b.jpg?exp=1781361960&sig=vlCcGaLai8vxm4_NpGQXFNlO0QdAaUaTKosInkKutMQ",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef376dc54170/arrival/019ec169-3c80-7a2f-8a50-ef40a554695b.jpg?exp=1781361960&sig=vlCcGaLai8vxm4_NpGQXFNlO0QdAaUaTKosInkKutMQ"
+        }
+      ]
+    },
+    "before": { "count": 0, "items": [] },
+    "after": { "count": 0, "items": [] },
+    "issue": { "count": 0, "items": [] }
+  },
+  "activity": [
+    {
+      "id": 23,
+      "at": "2026-06-12T20:02:00.000Z",
+      "atLabel": "Yesterday 4:02 PM",
+      "text": "Booking created",
+      "channels": ["system"],
+      "actorType": "system",
+      "actorName": null
+    },
+    {
+      "id": 24,
+      "at": "2026-06-12T20:12:00.000Z",
+      "atLabel": "Yesterday 4:12 PM",
+      "text": "Confirmation + reminder sent",
+      "channels": ["sms"],
+      "actorType": "system",
+      "actorName": null
+    }
+  ],
+  "invoice": {
+    "invoiceId": "019ec169-3c80-7a2f-8a51-07ee53d2d40c",
+    "invoiceNo": 20616,
+    "subtotalCents": 18000,
+    "taxCents": 1260,
+    "tipCents": 0,
+    "totalCents": 19260,
+    "paidCents": 19260,
+    "balanceCents": 0,
+    "depositCents": 0,
+    "status": "paid",
+    "refundPending": false,
+    "awaitingCents": 0,
+    "items": [{ "name": "Ceramic Maintenance + Wax", "priceCents": 18000, "kind": "package" }],
+    "payMethodLabel": "Visa ••4421"
+  },
+  "membership": null,
+  "history": { "visitCount": 0, "recent": [] }
+}

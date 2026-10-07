@@ -26,6 +26,7 @@ import type {
   ServiceItem,
   Slot,
 } from './types'
+import type { OperationsPort } from './operations'
 import type { PaymentsPort } from './payments'
 import type { SettingsApi } from './settings-api'
 
@@ -103,6 +104,8 @@ export interface DataPort {
   calendar: CalendarPort
   availability: AvailabilityPort
   ops: OpsPort
+  /** The live Operations screen's typed endpoints (docs/screens-operations-live.md). */
+  operations: OperationsPort
   messages: MessagesPort
   payments: PaymentsPort
   people: PeoplePort

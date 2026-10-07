@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "019ec169-3c80-75dd-9b21-7fad9db1a334",
+      "fullName": "Priya Nair",
+      "phone": "(305) 555-0104",
+      "email": null,
+      "vip": false,
+      "needsDetails": false,
+      "vehicles": [
+        {
+          "id": "019ec169-3c80-75dd-9b21-7fae6d947417",
+          "year": 2022,
+          "make": "Tesla",
+          "model": "Model Y",
+          "color": "Midnight Silver",
+          "plate": "TES-2210"
+        }
+      ]
+    }
+  ]
+}

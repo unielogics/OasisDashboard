@@ -159,6 +159,9 @@ export function createFixtureDataPort(opts: FixtureOptions = {}): DataPort {
       thread: async () => unavailable('messages.thread'),
       send: async () => unavailable('messages.send'),
     },
+    operations: new Proxy({} as DataPort['operations'], {
+      get: (_t, name) => async () => unavailable(`operations.${String(name)}`),
+    }),
     payments: {
       summary: async () => unavailable('payments.summary'),
       invoices: async () => unavailable('payments.invoices'),

@@ -1,0 +1,68 @@
+{
+  "customerId": "019ec169-3c80-75dd-9b21-7fad9db1a334",
+  "membership": {
+    "id": "019ec169-3c80-7a2f-8a51-080e568c3bc2",
+    "customerId": "019ec169-3c80-75dd-9b21-7fad9db1a334",
+    "status": "active",
+    "source": "manual",
+    "plan": {
+      "key": "premium",
+      "name": "Premium",
+      "label": "Premium",
+      "color": "#8A6D3B",
+      "bgColor": "#F2E9D6",
+      "tint": "#8A6D3B",
+      "perks": [
+        "2 premium washes / month",
+        "Skip-the-line priority",
+        "15% off all add-ons",
+        "Monthly interior refresh",
+        "Free rain repellent"
+      ],
+      "addonDiscountBp": 1500,
+      "serviceDiscountBp": 0
+    },
+    "startedAt": "2025-05-13T14:36:00.000Z",
+    "memberMonths": 13,
+    "currentPeriodStart": "2026-06-12T04:00:00.000Z",
+    "renewsAt": "2026-07-12T04:00:00.000Z",
+    "renewLabel": "Jul 12, 2026",
+    "inGrace": false,
+    "canceledAt": null,
+    "autoApply": false,
+    "credits": {
+      "cycleStart": "2026-06-12T04:00:00.000Z",
+      "left": 1,
+      "used": 1,
+      "rules": [
+        {
+          "ruleId": "019ec169-3c80-7a2f-8a51-080693301000",
+          "label": "Premium wash",
+          "unlimited": false,
+          "granted": 2,
+          "used": 1,
+          "left": 1
+        }
+      ]
+    },
+    "retention": {
+      "label": "Loyal · low risk",
+      "desc": "Consistent monthly usage — strong retention",
+      "tone": "green",
+      "state": "loyal",
+      "cur30": 1,
+      "prev30": 0
+    },
+    "flags": [],
+    "inferenceReason": null,
+    "lastSqspOrderId": null,
+    "version": 1
+  },
+  "upgrade": null,
+  "history": {
+    "visitCount": 1,
+    "lifetimeSpendCents": 0,
+    "avgFreqDays": null,
+    "favPackage": "Premium Hand Wash + Interior"
+  }
+}

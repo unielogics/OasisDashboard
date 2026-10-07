@@ -1,0 +1,408 @@
+{
+  "id": "019ec169-3c80-7a2f-8a50-ef051101e441",
+  "seq": 3,
+  "version": 1,
+  "status": "completed",
+  "late": false,
+  "badge": { "label": "Completed", "color": "#0E9E6E" },
+  "canDrag": false,
+  "next": { "label": "Collect Payment", "step": "collect" },
+  "customer": {
+    "id": "019ec169-3c80-75dd-9b21-7fad9db1a334",
+    "name": "Priya Nair",
+    "initials": "PN",
+    "phone": "(305) 555-0104",
+    "email": null,
+    "contactMasked": false,
+    "vip": false,
+    "smsOptedIn": true,
+    "smsOptedOut": false
+  },
+  "vehicle": {
+    "year": 2022,
+    "make": "Tesla",
+    "model": "Model Y",
+    "color": "Midnight Silver",
+    "plate": "TES-2210",
+    "id": "019ec169-3c80-75dd-9b21-7fae6d947417"
+  },
+  "overview": {
+    "startsAt": "2026-06-13T13:45:00.000Z",
+    "endsAt": "2026-06-13T15:00:00.000Z",
+    "time": "9:45 AM",
+    "bizDate": "2026-06-13",
+    "dateLabel": "Saturday, June 13",
+    "service": {
+      "id": "019ec169-3c80-75dd-9b21-7f2c6a92ba20",
+      "name": "Premium Hand Wash + Interior",
+      "priceCents": 12900
+    },
+    "durationMin": 75,
+    "durLabel": "Est. 75 min",
+    "source": "dashboard",
+    "bay": {
+      "planned": { "id": "019ec169-3c80-75dd-9b21-7f252432bed6", "number": 2 },
+      "actual": { "id": "019ec169-3c80-75dd-9b21-7f252432bed6", "number": 2 }
+    },
+    "bayLabel": "Bay 2",
+    "staff": { "id": "019ec169-3c80-75dd-9b21-7f1d8ca7f925", "name": "Lena K." },
+    "etaMinutes": null,
+    "prepped": false,
+    "geoCheckedInAt": null,
+    "arrivedAt": "2026-06-13T13:45:00.000Z",
+    "cleaningStartedAt": "2026-06-13T13:45:00.000Z",
+    "completedAt": "2026-06-13T14:31:00.000Z",
+    "pickupState": "pending",
+    "canceledAt": null,
+    "cancelReason": null,
+    "notes": "Customer prefers no fragrance products. Parked in the south lot.",
+    "specialInstructions": null,
+    "pay": {
+      "label": "$164.78 due",
+      "kind": "due",
+      "balanceCents": 16478,
+      "awaitingCents": 0,
+      "invoiceNo": 20613,
+      "status": "unpaid"
+    }
+  },
+  "addons": {
+    "selected": [
+      {
+        "id": "019ec169-3c80-7a2f-8a50-ef0631bcffef",
+        "serviceId": "019ec169-3c80-75dd-9b21-7f94d59667b5",
+        "name": "Rain repellent",
+        "priceCents": 2500
+      }
+    ],
+    "catalog": [
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f77de493cb4",
+        "name": "Interior deep clean",
+        "priceCents": 6000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f7b7e4b1bd8",
+        "name": "Pet hair removal",
+        "priceCents": 3500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f7f120f5f2d",
+        "name": "Leather conditioning",
+        "priceCents": 4500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f83d95dbcac",
+        "name": "Wax",
+        "priceCents": 4000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f86a6cd3932",
+        "name": "Clay bar",
+        "priceCents": 5000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f8accdbcf99",
+        "name": "Odor removal",
+        "priceCents": 3000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f8d92b0de66",
+        "name": "Engine bay cleaning",
+        "priceCents": 5500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f91698ddcc5",
+        "name": "Ceramic maintenance",
+        "priceCents": 12000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f94d59667b5",
+        "name": "Rain repellent",
+        "priceCents": 2500,
+        "selected": true
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f97a8814259",
+        "name": "Wheel deep clean",
+        "priceCents": 4000,
+        "selected": false
+      }
+    ],
+    "totalCents": 2500
+  },
+  "checklist": {
+    "done": 9,
+    "total": 9,
+    "pct": 100,
+    "allDone": true,
+    "sections": [
+      {
+        "kind": "package",
+        "title": "Premium Hand Wash + Interior",
+        "addonId": null,
+        "items": [
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0796b618d9",
+            "label": "Exterior pre-rinse",
+            "done": true,
+            "position": 0
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0847be91f0",
+            "label": "Two-bucket hand wash",
+            "done": true,
+            "position": 1
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef09de4a7911",
+            "label": "Wheel & tire cleaning",
+            "done": true,
+            "position": 2
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0aad3875cf",
+            "label": "Tire shine",
+            "done": true,
+            "position": 3
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0bfa06a167",
+            "label": "Interior vacuum",
+            "done": true,
+            "position": 4
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0c1a65ffbd",
+            "label": "Dashboard & console wipe",
+            "done": true,
+            "position": 5
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0dfab47558",
+            "label": "Streak-free windows",
+            "done": true,
+            "position": 6
+          }
+        ],
+        "done": 7,
+        "total": 7,
+        "allDone": true
+      },
+      {
+        "kind": "addon",
+        "title": "Rain repellent",
+        "addonId": "019ec169-3c80-7a2f-8a50-ef0631bcffef",
+        "items": [
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0ea3c80454",
+            "label": "Clean glass",
+            "done": true,
+            "position": 7
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef0f9ab0cae9",
+            "label": "Apply rain repellent to windshield",
+            "done": true,
+            "position": 8
+          }
+        ],
+        "done": 2,
+        "total": 2,
+        "allDone": true
+      }
+    ]
+  },
+  "photos": {
+    "arrival": {
+      "count": 2,
+      "items": [
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef10c9889d11",
+          "category": "arrival",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T13:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/arrival/019ec169-3c80-7a2f-8a50-ef10c9889d11.jpg?exp=1781361960&sig=OKN0pkww0KLF2Y93yHBQ9wq8sEH_e1AxCqutrUhKxjk",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/arrival/019ec169-3c80-7a2f-8a50-ef10c9889d11.jpg?exp=1781361960&sig=OKN0pkww0KLF2Y93yHBQ9wq8sEH_e1AxCqutrUhKxjk"
+        },
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef1182cd6eff",
+          "category": "arrival",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T13:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/arrival/019ec169-3c80-7a2f-8a50-ef1182cd6eff.jpg?exp=1781361960&sig=5Uv836FX5IYXdBDJ7f-d1pw_eS5inMzQNp6q9AI4utA",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/arrival/019ec169-3c80-7a2f-8a50-ef1182cd6eff.jpg?exp=1781361960&sig=5Uv836FX5IYXdBDJ7f-d1pw_eS5inMzQNp6q9AI4utA"
+        }
+      ]
+    },
+    "before": {
+      "count": 3,
+      "items": [
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef12726ed610",
+          "category": "before",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T13:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/before/019ec169-3c80-7a2f-8a50-ef12726ed610.jpg?exp=1781361960&sig=zXAa8TeHGsKdSuT9Uc0j5A42XPOSKLPZFMHTMMOesrk",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/before/019ec169-3c80-7a2f-8a50-ef12726ed610.jpg?exp=1781361960&sig=zXAa8TeHGsKdSuT9Uc0j5A42XPOSKLPZFMHTMMOesrk"
+        },
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef132aa2e5ee",
+          "category": "before",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T13:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/before/019ec169-3c80-7a2f-8a50-ef132aa2e5ee.jpg?exp=1781361960&sig=wfPzOjFBFatMCf7tBtge8l3Ci3OK5e19ZVRCZR0SQ0U",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/before/019ec169-3c80-7a2f-8a50-ef132aa2e5ee.jpg?exp=1781361960&sig=wfPzOjFBFatMCf7tBtge8l3Ci3OK5e19ZVRCZR0SQ0U"
+        },
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef1408af2c2b",
+          "category": "before",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T13:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/before/019ec169-3c80-7a2f-8a50-ef1408af2c2b.jpg?exp=1781361960&sig=X0piSNYFBls13OLppd7Fofxm8LwNmLFNLLO69pLprns",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/before/019ec169-3c80-7a2f-8a50-ef1408af2c2b.jpg?exp=1781361960&sig=X0piSNYFBls13OLppd7Fofxm8LwNmLFNLLO69pLprns"
+        }
+      ]
+    },
+    "after": {
+      "count": 2,
+      "items": [
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef154da41bca",
+          "category": "after",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T13:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/after/019ec169-3c80-7a2f-8a50-ef154da41bca.jpg?exp=1781361960&sig=VnWwfAo9_P-CyQpP6Mre64HwBpLXuA1dS-7TiAtYkck",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/after/019ec169-3c80-7a2f-8a50-ef154da41bca.jpg?exp=1781361960&sig=VnWwfAo9_P-CyQpP6Mre64HwBpLXuA1dS-7TiAtYkck"
+        },
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef169cb1c461",
+          "category": "after",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T13:45:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/after/019ec169-3c80-7a2f-8a50-ef169cb1c461.jpg?exp=1781361960&sig=GobNONSuD1dMnwH8BOa0KubB65C_L5nDT1KF4wsAuHY",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef051101e441/after/019ec169-3c80-7a2f-8a50-ef169cb1c461.jpg?exp=1781361960&sig=GobNONSuD1dMnwH8BOa0KubB65C_L5nDT1KF4wsAuHY"
+        }
+      ]
+    },
+    "issue": { "count": 0, "items": [] }
+  },
+  "activity": [
+    {
+      "id": 11,
+      "at": "2026-06-12T20:02:00.000Z",
+      "atLabel": "Yesterday 4:02 PM",
+      "text": "Booking created",
+      "channels": ["system"],
+      "actorType": "system",
+      "actorName": null
+    },
+    {
+      "id": 12,
+      "at": "2026-06-12T20:12:00.000Z",
+      "atLabel": "Yesterday 4:12 PM",
+      "text": "Confirmation + reminder sent",
+      "channels": ["sms"],
+      "actorType": "system",
+      "actorName": null
+    },
+    {
+      "id": 13,
+      "at": "2026-06-13T13:45:00.000Z",
+      "atLabel": "Today 9:45 AM",
+      "text": "Arrival logged",
+      "channels": ["internal"],
+      "actorType": "system",
+      "actorName": null
+    },
+    {
+      "id": 14,
+      "at": "2026-06-13T13:58:00.000Z",
+      "atLabel": "Today 9:58 AM",
+      "text": "In-progress message sent",
+      "channels": ["sms"],
+      "actorType": "system",
+      "actorName": null
+    },
+    {
+      "id": 15,
+      "at": "2026-06-13T14:11:00.000Z",
+      "atLabel": "Today 10:11 AM",
+      "text": "Ready-for-pickup sent",
+      "channels": ["sms"],
+      "actorType": "system",
+      "actorName": null
+    }
+  ],
+  "invoice": {
+    "invoiceId": "019ec169-3c80-7a2f-8a51-07e48414d165",
+    "invoiceNo": 20613,
+    "subtotalCents": 15400,
+    "taxCents": 1078,
+    "tipCents": 0,
+    "totalCents": 16478,
+    "paidCents": 0,
+    "balanceCents": 16478,
+    "depositCents": 0,
+    "status": "unpaid",
+    "refundPending": false,
+    "awaitingCents": 0,
+    "items": [
+      { "name": "Premium Hand Wash + Interior", "priceCents": 12900, "kind": "package" },
+      { "name": "Rain repellent", "priceCents": 2500, "kind": "addon" }
+    ],
+    "payMethodLabel": null
+  },
+  "membership": {
+    "plan": "Premium",
+    "creditsLeft": 1,
+    "creditAvailable": true,
+    "planKey": "premium",
+    "renewsAt": "2026-07-12T04:00:00.000Z",
+    "renewLabel": "Jul 12, 2026",
+    "creditsUsed": 1,
+    "perks": [
+      "2 premium washes / month",
+      "Skip-the-line priority",
+      "15% off all add-ons",
+      "Monthly interior refresh",
+      "Free rain repellent"
+    ],
+    "color": "#8A6D3B",
+    "bgColor": "#F2E9D6",
+    "tint": "#8A6D3B",
+    "memberMonths": 13,
+    "retention": {
+      "label": "Loyal · low risk",
+      "desc": "Consistent monthly usage — strong retention",
+      "tone": "green"
+    }
+  },
+  "history": {
+    "visitCount": 1,
+    "recent": [
+      {
+        "id": "019ec169-3c80-7a2f-8a50-ef051101e441",
+        "bizDate": "2026-06-13",
+        "service": "Premium Hand Wash + Interior",
+        "status": "completed",
+        "priceCents": 12900
+      }
+    ]
+  }
+}
