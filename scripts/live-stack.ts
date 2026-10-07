@@ -6,7 +6,7 @@
 //   pnpm tsx scripts/live-stack.ts status --name settings
 //
 // `up` (re)creates the schema e2e_<name> in the backend's DATABASE_URL, migrates and seeds it, starts the API
-// (src/server.ts) on --api-port, builds the live dashboard with API_ORIGIN pointing at it and serves it on --web-port.
+// (src/server.ts) on --api-port (jobs off, SMS dispatch inline, hooks listener off), builds the live dashboard with API_ORIGIN pointing at it and serves it on --web-port.
 // It prints a JSON summary and writes .live-stack/<name>.json (ports, pids, URLs, logs). Seeded logins are
 // <first name>@oasisautospa.com (rafael, amara, sofia, marco, lena, daniel) with the dev password.
 // Use one name, one API port and one web port per agent/worktree so concurrent stacks never collide.
@@ -152,6 +152,9 @@ async function up(): Promise<void> {
       HOST: '127.0.0.1',
       PORT: String(apiPort),
       JOBS_ENABLED: 'false',
+      // no worker in the stack: the SMS outbox drains inside the API process, and the tailnet-only hooks listener stays off
+      SMS_DISPATCH_MODE: 'inline',
+      HOOKS_PORT: '0',
       COOKIE_SECURE: 'false',
       SESSION_SECRET: randomBytes(32).toString('base64'),
       PUBLIC_API_URL: apiUrl,

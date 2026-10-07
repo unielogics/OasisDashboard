@@ -6,7 +6,8 @@ import type { Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = { current: null as any }
-vi.mock('@/auth/session', () => ({ useSession: () => ({ session: session.current }) }))
+const viewAs = vi.fn()
+vi.mock('@/auth/session', () => ({ useSession: () => ({ session: session.current, viewAs }) }))
 
 import { makeSession } from '@/auth/test-fixtures'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -48,6 +49,22 @@ describe('<RouteGate>', () => {
       ['Operations', '/operations'],
       ['Sign out', '/logout'],
     ])
+  })
+  it('a Super Admin who views as a role without access can exit view-as from the locked card', async () => {
+    session.current = makeSession({
+      role: 'super',
+      viewAs: { active: true, canViewAs: true, roleId: 'role-crew', roleName: 'Crew', options: [] },
+      permissions: { 'pay.reports': { on: false } },
+    })
+    await mount(createElement(RouteGate, { pathname: '/payments' }, createElement('div', { id: 'screen' })))
+    expect(container.querySelector('#screen')).toBeNull()
+    const exit = [...container.querySelectorAll('a')].find((a) => a.textContent === 'Exit view-as')!
+    expect(exit).toBeDefined()
+    await act(async () => exit.click())
+    expect(viewAs).toHaveBeenCalledWith(null)
+    session.current = makeSession({ role: 'crew' })
+    await mount(createElement(RouteGate, { pathname: '/payments' }, createElement('div', { id: 'screen' })))
+    expect([...container.querySelectorAll('a')].map((a) => a.textContent)).not.toContain('Exit view-as')
   })
   it('Settings and Operations have their own locked cards; unknown paths pass through', async () => {
     session.current = makeSession({ role: 'crew' })
