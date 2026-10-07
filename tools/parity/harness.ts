@@ -21,6 +21,7 @@ import {
   type Theme,
 } from './config'
 import { OriginalDriver, PortDriver, type Driver } from './drivers'
+import { LiveDriver, type LiveTarget } from './live'
 import { runUnit, type RunContext } from './runner'
 import { ALL_SCENARIOS, selectScenarios, themesOf, validateScenarios, type ScenarioFilter } from './scenarios'
 import type { Scenario } from './scenarios/types'
@@ -30,6 +31,8 @@ import type { UnitResult } from './types'
 
 export type PortTarget =
   | { kind: 'url'; url: string }
+  /** the live dashboard build served against a real API stack (docs/parity-live.md) */
+  | { kind: 'live'; target: LiveTarget }
   /** serve another original bundle (optionally mutated) and use it as the "port": self-tests and dry runs */
   | { kind: 'original'; serve?: ServeOptions }
 
@@ -45,6 +48,13 @@ export interface HarnessOptions {
   browser?: Browser
   origPort?: number
   log?: (line: string) => void
+  /**
+   * `false` skips the run-level "entry never matched anything" check (a partial run cannot tell a stale entry from one
+   * that only shows in a scenario that was not selected). Per-step min/max checks always apply.
+   */
+  staleCheck?: boolean
+  /** live mode only */
+  floatNoise?: { relative: number }
 }
 
 export interface HarnessResult {
@@ -71,6 +81,23 @@ export async function checkPortReachable(baseUrl: string): Promise<void> {
   }
 }
 
+export async function checkLiveReachable(t: LiveTarget): Promise<void> {
+  for (const [what, url] of [
+    ['dashboard', `${t.webUrl.replace(/\/$/, '')}/login`],
+    ['API', `${t.apiUrl.replace(/\/$/, '')}/readyz`],
+  ] as const) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+      if (res.status >= 500) throw new Error(`HTTP ${res.status}`)
+    } catch (err) {
+      throw new Error(
+        `the live ${what} is not reachable at ${url} (${err instanceof Error ? err.message : String(err)}). ` +
+          `Start the stack first: pnpm live:up --name ${t.name} --freeze ${t.frozen} ...`,
+      )
+    }
+  }
+}
+
 export async function runHarness(opts: HarnessOptions): Promise<HarnessResult> {
   const scenarios = opts.scenarios ?? selectScenarios(opts.filter)
   validateScenarios(scenarios)
@@ -93,8 +120,10 @@ export async function runHarness(opts: HarnessOptions): Promise<HarnessResult> {
   let portServer: OriginalServer | undefined
   if (opts.port.kind === 'original') {
     portServer = await startOriginalServer({ port: 0, ...opts.port.serve })
-  } else {
+  } else if (opts.port.kind === 'url') {
     await checkPortReachable(opts.port.url)
+  } else {
+    await checkLiveReachable(opts.port.target)
   }
   const ownBrowser = !opts.browser
   const browser = opts.browser ?? (await launchBrowser())
@@ -103,15 +132,19 @@ export async function runHarness(opts: HarnessOptions): Promise<HarnessResult> {
   try {
     const portTarget = opts.port
     const ctx: RunContext = {
-      makeOriginal: (): Driver => new OriginalDriver(browser, origServer, 'orig'),
+      makeOriginal: (): Driver =>
+        new OriginalDriver(browser, origServer, 'orig', { ignoreTpl: portTarget.kind === 'live' }),
       makePort: (): Driver =>
         portTarget.kind === 'url'
           ? new PortDriver(browser, portTarget.url)
-          : new OriginalDriver(browser, portServer!, 'port'),
+          : portTarget.kind === 'live'
+            ? new LiveDriver(browser, portTarget.target)
+            : new OriginalDriver(browser, portServer!, 'port'),
       allowlist,
       tolerances,
       consoleBaseline,
       tracker,
+      floatNoise: opts.floatNoise ?? (opts.port.kind === 'live' ? { relative: 1e-12 } : undefined),
       outDir,
       log,
     }
@@ -126,7 +159,9 @@ export async function runHarness(opts: HarnessOptions): Promise<HarnessResult> {
     await origServer.close()
     await portServer?.close()
   }
-  const problems = tracker.finish()
+  const stepProblems = [...tracker.problems]
+  const finished = tracker.finish()
+  const problems = opts.staleCheck === false ? stepProblems : finished
   const unitFailures = units.filter((u) => !u.ok)
   const ok = unitFailures.length === 0 && problems.length === 0 && units.length > 0
   const summary = {

@@ -116,6 +116,8 @@ export function collectElements(opts: {
   props: readonly string[]
   full: boolean
   pseudoProps: readonly string[]
+  /** pair elements by DOM position only (live mode: the live build carries no data-dc-tpl, so neither side may use it) */
+  ignoreTpl?: boolean
 }): string {
   type RawSnap = Omit<ElementSnap, 'cs'> & { cs: string[] }
   const out: RawSnap[] = []
@@ -176,7 +178,7 @@ export function collectElements(opts: {
 
   const tplSeen = new Map<string, number>()
   const walk = (el: Element, parentKey: string, parentPath: string, elemIdx: number, tagIdx: number) => {
-    const tpl = el.getAttribute('data-dc-tpl')
+    const tpl = opts.ignoreTpl ? null : el.getAttribute('data-dc-tpl')
     const tag = el.tagName.toLowerCase()
     const path = `${parentPath}/${tag}[${elemIdx}]`
     let key: string

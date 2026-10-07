@@ -214,6 +214,34 @@ describe('LivePaymentsLogic: what is on screen is what the server said', () => {
   })
 })
 
+describe('the selection is sticky (DV-402)', () => {
+  const first = () => makeDetail({ label: 'INV-20608', client: 'Aisha Rahman' })
+
+  it('opens on the first row and keeps that invoice when a search or filter moves it out of the table', async () => {
+    const l = boot(makeSession({ role: 'mgmt' }), first(), unpaid())
+    let v = await load(l)
+    expect(v.d.id).toBe('INV-20608')
+    expect(v.rows[0].style.background).toBe('var(--accentSoft)')
+    v.onQuery({ target: { value: 'marcus' } })
+    v = await load(l)
+    expect(v.rows.map((r: any) => r.id)).toEqual(['INV-20607'])
+    expect(v.d.id).toBe('INV-20608')
+    expect(v.rows[0].style.background).toBe('transparent')
+  })
+
+  it('a click replaces it, and the new choice stays too', async () => {
+    const l = boot(makeSession({ role: 'mgmt' }), first(), unpaid())
+    let v = await load(l)
+    v.rows[1].onClick()
+    v = await load(l)
+    expect(v.d.id).toBe('INV-20607')
+    v.onQuery({ target: { value: 'aisha' } })
+    v = await load(l)
+    expect(v.rows.map((r: any) => r.id)).toEqual(['INV-20608'])
+    expect(v.d.id).toBe('INV-20607')
+  })
+})
+
 describe('an empty search keeps the last invoice on screen', () => {
   it('the detail panel does not go blank when no row matches', async () => {
     const l = boot()

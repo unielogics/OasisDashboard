@@ -3,7 +3,8 @@ import { SCREENS, THEMES, type Screen, type Theme } from './config'
 import { CHECK_NAMES, type CheckName, type Diff, type DiffKind } from './types'
 import type { SwapSpec } from './bundle'
 
-export type DeviationKind = 'text' | 'attr' | 'reorder' | 'element-added' | 'region-mask' | 'wiring'
+export type DeviationKind =
+  'text' | 'attr' | 'reorder' | 'element-added' | 'region-mask' | 'wiring' | 'computed-style'
 export const DEVIATION_KINDS: readonly DeviationKind[] = [
   'text',
   'attr',
@@ -11,6 +12,7 @@ export const DEVIATION_KINDS: readonly DeviationKind[] = [
   'element-added',
   'region-mask',
   'wiring',
+  'computed-style',
 ]
 
 export interface Matcher {
@@ -66,6 +68,8 @@ export const KIND_RULES: Record<DeviationKind, { checks: CheckName[]; diffKinds:
   },
   'region-mask': { checks: ['pixels', 'style'], diffKinds: ['pixel', 'rect', 'style'] },
   wiring: { checks: ['dom', 'vals', 'console'], diffKinds: ['attr', 'element-added', 'value', 'console'] },
+  // a computed property that differs without any DOM or pixel change (live: an inherited custom property)
+  'computed-style': { checks: ['style'], diffKinds: ['style'] },
 }
 
 export function globToRegExp(glob: string): RegExp {

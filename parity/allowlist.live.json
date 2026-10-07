@@ -1,0 +1,383 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "L-payments-01",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-401: the design's generated history reuses INV-20608..INV-20591 for two invoices (review B11); the live seed numbers the generated invoices downward from 20608 skipping ids in use. The oracle gets the same numbering before it renders.",
+      "swap": {
+        "find": "id:o.id||('INV-'+(seq--))",
+        "replace": "id:o.id||('INV-'+(()=>{ while(txs.some(x=>x.id==='INV-'+seq)) seq--; return seq--; })())",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-02",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-402: the screen opens on the newest invoice of the list; the design preselects the fixture literal INV-20603 (a row in the middle of the list).",
+      "swap": {
+        "find": "selId:'INV-20603'",
+        "replace": "selId:'INV-20608'",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-03",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-210: singular forms ('1 client'); the oracle's plural-only label is fixed before it renders.",
+      "swap": {
+        "find": "sub:cnt(x=>x.c.issued>0)+' clients'",
+        "replace": "sub:(n=>n+(n===1?' client':' clients'))(cnt(x=>x.c.issued>0))",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-04",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-220: ledger entries carry the server's stamp (Today/Yesterday/Mon d, then the time) for every entry; the design printed the bare invoice time. The oracle gets the same stamp before it renders.",
+      "swap": {
+        "find": "const meta=[e.t, e.by?",
+        "replace": "const meta=[(e.t&&!/^\\d{1,2}:\\d{2} [AP]M$/.test(e.t)?e.t:this.fmtDate(tx.off)+(tx.off<-1?' \u00b7 ':' ')+(e.t||tx.time)), e.by?",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-05",
+      "screen": "payments",
+      "kind": "element-added",
+      "reason": "DV-103/DV-104: the live header shows the signed-in user chip, and 'Preview as' only to a person allowed to view as another role (Rafael M. is not), so the right-hand cluster differs in structure and shifts the theme button.",
+      "scope": {
+        "checks": ["dom"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/header[1]/div[7]",
+          "div[0]/div[0]/div[0]/header[1]/div[8]",
+          "div[0]/div[0]/div[0]/header[1]/#text[6]",
+          "div[0]/div[0]/div[0]/header[1]/#text[8]"
+        ]
+      }
+    },
+    {
+      "id": "L-payments-06",
+      "screen": "payments",
+      "kind": "element-added",
+      "reason": "DV-103/DV-104: header right-hand cluster (spacer width, Preview-as wrapper replaced by the user chip, theme button position).",
+      "scope": {
+        "checks": ["style"]
+      },
+      "matcher": {
+        "loc": [
+          "root>div[0]>div[0]>div[0]>header[0]>div[1]",
+          "root>div[0]>div[0]>div[0]>header[0]>div[2]",
+          "root>div[0]>div[0]>div[0]>header[0]>div[2]>**",
+          "root>div[0]>div[0]>div[0]>header[0]>button[0]",
+          "root>div[0]>div[0]>div[0]>header[0]>button[0]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-payments-07",
+      "screen": "payments",
+      "kind": "region-mask",
+      "reason": "DV-103/DV-104: pixels of the header's right-hand cluster (user chip instead of 'Preview as', shifted theme button).",
+      "matcher": {
+        "rect": {
+          "x": 1150,
+          "y": 0,
+          "w": 330,
+          "h": 77
+        }
+      }
+    },
+    {
+      "id": "L-payments-08",
+      "screen": "payments",
+      "kind": "element-added",
+      "reason": "DV-104: the design's 'Preview as' role menu (roleOpts) has no live counterpart for a person who cannot view as another role; the live menu is driven by live.viewAs.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "matcher": {
+        "loc": "roleOpts[*]"
+      }
+    },
+    {
+      "id": "L-payments-09",
+      "screen": "payments",
+      "kind": "wiring",
+      "reason": "DV-106: the live class adds the `live` root (user chip, sign-out, view-as) to renderVals.",
+      "matcher": {
+        "loc": "live"
+      }
+    },
+    {
+      "id": "L-payments-10",
+      "screen": "payments",
+      "kind": "wiring",
+      "reason": "DV-201/DV-214: ledger entries that are not pending refunds carry no approval answer from the server (approveNote empty, Approve style disabled), and every entry has the Squarespace confirm fields; none of these is rendered for such an entry.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": [
+          "d.ledger[*].approveNote",
+          "d.ledger[*].approveStyle.*",
+          "d.ledger[*].awaiting",
+          "d.ledger[*].confirm*"
+        ]
+      }
+    },
+    {
+      "id": "L-all-01",
+      "screen": "*",
+      "kind": "computed-style",
+      "reason": "DV-403: the live pages mirror the theme on <html data-theme> (boot script, so a dark user never sees a light flash); the body background and the two outer wrappers therefore inherit the dark custom properties that the original only defines on its own theme wrapper. Nothing visible changes (pixels stay at zero).",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["body", "root>div[0]", "root>div[0]>div[0]"],
+        "name": "background-color"
+      }
+    },
+    {
+      "id": "L-all-02",
+      "screen": "*",
+      "kind": "computed-style",
+      "reason": "DV-403: custom properties inherited from <html data-theme> on the two outer wrappers (see L-all-01).",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["root>div[0]", "root>div[0]>div[0]"],
+        "name": "--*"
+      }
+    },
+    {
+      "id": "L-payments-11",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-210: singular forms ('1 invoice', '1 open balance'); the oracle's plural-only label is fixed before it renders.",
+      "swap": {
+        "find": "sub:inR.length+' invoices'",
+        "replace": "sub:inR.length+(inR.length===1?' invoice':' invoices')",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-12",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-210: singular forms ('1 invoice', '1 open balance'); the oracle's plural-only label is fixed before it renders.",
+      "swap": {
+        "find": "sub:cnt(x=>x.c.adj!==0)+' invoices'",
+        "replace": "sub:(n=>n+(n===1?' invoice':' invoices'))(cnt(x=>x.c.adj!==0))",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-13",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-210: singular forms ('1 invoice', '1 open balance'); the oracle's plural-only label is fixed before it renders.",
+      "swap": {
+        "find": "sub:cnt(x=>x.c.balance>0)+' open balances'",
+        "replace": "sub:(n=>n+(n===1?' open balance':' open balances'))(cnt(x=>x.c.balance>0))",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-14",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-404: the permission line names every role of the signed-in person ('Management + Accounting'); the design's Rafael has one role in Payments but two in the Settings design (Management and Accounting), and the live seed follows Settings. The oracle gets the same label before it renders.",
+      "swap": {
+        "find": "as '+this.roleName(s.role)+'",
+        "replace": "as '+this.roleName(s.role)+' + Accounting'+'",
+        "count": 6,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-15",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-216: a refund to the original card adds 'Card refunds are completed in Squarespace; confirm it here once done.' to the permission box. The oracle gets the same sentence before it renders.",
+      "swap": {
+        "find": "permOk=!blocked&&!over; submitLabel=over&&!blocked?'Request approval",
+        "replace": "if(f.dest==='card'&&!over&&origOk&&!blocked) permText+=' Card refunds are completed in Squarespace; confirm it here once done.'; permOk=!blocked&&!over; submitLabel=over&&!blocked?'Request approval",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-16",
+      "screen": "payments",
+      "kind": "wiring",
+      "reason": "DV-215: the sheet's view model carries the payment-link URL field and its error (needsUrl, urlRaw, setUrl, urlError, hasUrlError); only the Collect sheet's Payment link mode renders it.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["sh.needsUrl", "sh.urlRaw", "sh.setUrl", "sh.urlError", "sh.hasUrlError"]
+      }
+    },
+    {
+      "id": "L-settings-01",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-101: the header chip shows the session's role title, which is the person's first role (GET /me displayRole); the design prints both of Rafael's roles ('Management \u00b7 Accounting'). The oracle gets the same single role before it renders.",
+      "swap": {
+        "find": "Management \u00b7 Accounting",
+        "replace": "Management",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-settings-02",
+      "screen": "settings",
+      "kind": "element-added",
+      "reason": "DV-102: the chip is wrapped in the sign-out menu (a relative wrapper with data-live-menu and the closed dropdown); the chip itself is the design's.",
+      "scope": {
+        "checks": ["dom"]
+      },
+      "matcher": {
+        "loc": ["div[0]/div[0]/div[0]/header[1]/div[9]", "div[0]/div[0]/div[0]/header[1]/div[9]/**"]
+      }
+    },
+    {
+      "id": "L-settings-03",
+      "screen": "settings",
+      "kind": "wiring",
+      "reason": "DV-106: the live class adds the `live` root (user chip, sign-out, view-as) to renderVals.",
+      "matcher": {
+        "loc": "live"
+      }
+    },
+    {
+      "id": "L-settings-04",
+      "screen": "settings",
+      "kind": "element-added",
+      "reason": "DV-102: the chip sits inside the sign-out menu wrapper, so everything under the header's chip slot is one level deeper than in the design (identical boxes: pixels are at zero).",
+      "scope": {
+        "checks": ["style"]
+      },
+      "matcher": {
+        "loc": ["root>div[0]>div[0]>div[0]>header[0]>div[2]", "root>div[0]>div[0]>div[0]>header[0]>div[2]>**"]
+      }
+    },
+    {
+      "id": "L-settings-05",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-301: the notify option reads 'Sent by SMS' (SMS only, no WhatsApp). The oracle gets the same sub-line before it renders.",
+      "swap": {
+        "find": "'WhatsApp, with SMS fallback'",
+        "replace": "'Sent by SMS'",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-settings-06",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-301: the preview label names the channel and the first affected customer ('Preview \u00b7 SMS to Marcus'). The oracle gets the label of the design day (its first affected customer is Marcus Webb).",
+      "swap": {
+        "find": "Preview \u00b7 WhatsApp to Liam",
+        "replace": "Preview \u00b7 SMS to Marcus",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-settings-08",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-302: closure sub-lines show the server's real booking counts and nothing for a past closure; the design printed date-hash numbers. The seed has no bookings on a closure day, so the oracle gets 0 and an empty past line.",
+      "swap": {
+        "find": "sub:c.type==='closed'?'Online booking blocked \u00b7 '+(hash%4)+' existing bookings to move':'Slots outside reduced hours hidden \u00b7 '+(hash%3)+' bookings affected',",
+        "replace": "sub:pastC?'':c.type==='closed'?'Online booking blocked \u00b7 '+(0)+' existing bookings to move':'Slots outside reduced hours hidden \u00b7 '+(0)+' bookings affected',",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-settings-09",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-305: the emergency counters are the server's (nothing is notified or rebooked while no closure is active); the design showed the six remaining customers and a fixed 2.",
+      "swap": {
+        "find": "emNotified:em.notify?String(this.REMAINING.length):'0', emRebooked:'2',",
+        "replace": "emNotified:'0', emRebooked:'0',",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-settings-10",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-304: the affected list is the server's preview, requested when the Emergency section is open; until then the live list is empty. Steps with the section open show the same six customers.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": "emAffected[*]",
+        "orig": "\"time\"",
+        "port": "^$"
+      }
+    },
+    {
+      "id": "L-settings-11",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-304: count and confirm sentence come from the same lazily requested preview ('6 customers' once the Emergency section is open, '0 customers' before).",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["emAffectedCount", "confirmText"],
+        "orig": "^\"6 customers",
+        "port": "^\"0 customers"
+      }
+    },
+    {
+      "id": "L-settings-07",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-304: the preview is the message as it will be sent; until a reschedule landing page exists the server drops the sentence that carries the link (the editable template keeps its {link}). The oracle's preview drops the same sentence.",
+      "swap": {
+        "find": "const preview=em.msg.replace(/\\{first\\}/g,'Liam')",
+        "replace": "const preview=em.msg.replace(/ Pick a new time here: \\{link\\}/,'').replace(/\\{first\\}/g,'Liam')",
+        "count": 1,
+        "target": "logic"
+      }
+    }
+  ]
+}

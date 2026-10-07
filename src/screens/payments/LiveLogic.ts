@@ -485,9 +485,10 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
 
     const summary = unlocked ? this.readSummary(s.range) : undefined
     const rowsData = unlocked ? this.readRows(s.range, s.filter, s.query) : undefined
-    // The detail panel keeps the last invoice it showed when a filter or search leaves the table empty (as the design's
-    // panel does), instead of going blank.
-    const selId = s.selId ?? rowsData?.[0]?.id ?? this.shownId
+    // Nothing is selected until the first click: the panel opens on the newest invoice of the list, then keeps showing
+    // that invoice whatever the range, filter or search does to the table (the design's selection is sticky too), and
+    // does not go blank when the table is empty.
+    const selId = s.selId ?? this.shownId ?? rowsData?.[0]?.id ?? null
     this.shownId = selId
     const detail = unlocked && selId ? this.readDetail(selId) : undefined
     const today = summary?.range.to ?? null
