@@ -214,6 +214,20 @@ describe('LivePaymentsLogic: what is on screen is what the server said', () => {
   })
 })
 
+describe('an empty search keeps the last invoice on screen', () => {
+  it('the detail panel does not go blank when no row matches', async () => {
+    const l = boot()
+    let v = await load(l)
+    expect(v.d.id).toBe('INV-20607')
+    v.onQuery({ target: { value: 'zzzz-no-such-client' } })
+    v = await load(l)
+    expect(v.rows).toEqual([])
+    expect(v.noRows).toBe(true)
+    expect(v.d.id).toBe('INV-20607')
+    expect(v.d.actions.length).toBeGreaterThan(0)
+  })
+})
+
 describe('permissions and the locked screen', () => {
   it('a role without pay.reports gets the locked card and never calls the API', async () => {
     const l = boot(makeSession({ role: 'support' }))

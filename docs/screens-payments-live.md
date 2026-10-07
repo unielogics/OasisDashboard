@@ -32,7 +32,8 @@ filter, q)` (the port follows the keyset cursors, 500 per page, so the table sho
   open sheet, because `canApprove`, `caller` and the limits are answers for the effective role.
 - Search is the server's: `q` joins invoice id, client, vehicle and item names (the design's haystack). While a new
   answer loads, the previous list of the same range stays on screen. Filter chip counts come from the summary and ignore
-  the search, as in the design.
+  the search, as in the design. The detail panel keeps the last invoice it showed when a filter or search leaves the
+  table empty.
 - Money is formatted from integer cents with two helpers that match the design's strings: `money()` (two decimals,
   U+2212 minus) and `money0()` (whole dollars, half away from zero). Nothing on the screen is a client-side sum of
   cents. The only arithmetic is `cents.ts`, used for sheet previews; `cents.test.ts` proves it equals the design's float

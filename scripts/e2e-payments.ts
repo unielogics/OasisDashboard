@@ -830,6 +830,11 @@ async function phaseRead(browser: Browser): Promise<void> {
     const { v: sv, list } = await compareAll(page, `search "${q}"`, { range: '30d', q })
     if (q === 'zzzz-nothing') {
       ok(sv.noRows && sv.rows.length === 0, 'search with no match shows "Nothing matches this filter."')
+      ok(
+        /^INV-\d+ · /.test(sv.detail?.head ?? ''),
+        'the detail panel keeps the last invoice when nothing matches',
+        sv.detail?.head,
+      )
       await shot(page, '04-search-empty')
     }
     void list

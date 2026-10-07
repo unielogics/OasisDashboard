@@ -165,6 +165,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
   private lastRows: { range: RangeKey; rows: InvoiceListRow[] } | null = null
   private sessionStamp = ''
   private exporting = false
+  private shownId: string | null = null
   private unmounted = false
 
   constructor(props: Record<string, unknown> | undefined, deps: LiveDeps) {
@@ -484,7 +485,10 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
 
     const summary = unlocked ? this.readSummary(s.range) : undefined
     const rowsData = unlocked ? this.readRows(s.range, s.filter, s.query) : undefined
-    const selId = s.selId ?? rowsData?.[0]?.id ?? null
+    // The detail panel keeps the last invoice it showed when a filter or search leaves the table empty (as the design's
+    // panel does), instead of going blank.
+    const selId = s.selId ?? rowsData?.[0]?.id ?? this.shownId
+    this.shownId = selId
     const detail = unlocked && selId ? this.readDetail(selId) : undefined
     const today = summary?.range.to ?? null
 
