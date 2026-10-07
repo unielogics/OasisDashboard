@@ -3,6 +3,7 @@
 // and the section refetches on its own), writes go through command() (Idempotency-Key, 403 "Your role can't ...",
 // 409/412 refetch). Nothing here formats text the design owns; the view model keeps doing that. See
 // docs/screens-settings.md for the table of what each member calls.
+import { QueryObserver } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import { can as sessionCan } from '@/auth/session-model'
 import type { Session } from '@/auth/session-model'
@@ -126,6 +127,7 @@ export class LiveData implements SettingsData {
   private readonly debounce: { preview: number; checklist: number; closure: number }
   private readonly listeners = new Set<() => void>()
   private unsubscribeStore: (() => void) | null = null
+  private observers = new Map<string, () => void>()
   private getState: () => SettingsState = () => {
     throw new Error('LiveData is not attached to a view model')
   }
@@ -163,6 +165,7 @@ export class LiveData implements SettingsData {
   /** Task ids per service, running alongside the labels the screen edits (see saveChecklist). */
   private taskIds = new Map<string, (string | null)[]>()
   private lastServices: object | undefined
+  private lastEmergency: object | undefined
 
   constructor(deps: LiveDataDeps) {
     this.api = deps.api
@@ -294,8 +297,29 @@ export class LiveData implements SettingsData {
     return data ? { rev: this.rev(name, data), data } : undefined
   }
 
-  private section<T>(name: string, fetcher: () => Promise<T>): T | undefined {
+  /** One section's data. The bundled ones wait for the first load (it fills them); the team loads on its own. */
+  private section<T>(name: string, fetcher: () => Promise<T>, bundled = true): T | undefined {
+    if (bundled && this.qc.getQueryData(BOOT_KEY) === undefined) return undefined
+    this.watch(name, fetcher)
     return this.store.read<T>(qk.settings(name), fetcher, FOREVER)
+  }
+
+  /**
+   * While the screen is open each section has an observer, which makes its query "active": an invalidation (the stream
+   * saying something changed) then refetches at once and cancels a fetch that is already on its way. Without an observer
+   * the fetch that finishes first would clear an invalidation that arrived meanwhile and the section would keep stale data.
+   */
+  private watch<T>(name: string, fetcher: () => Promise<T>): void {
+    if (!this.listeners.size || this.observers.has(name)) return
+    const observer = new QueryObserver<T>(this.qc, {
+      queryKey: qk.settings(name),
+      queryFn: fetcher,
+      staleTime: Infinity,
+    })
+    this.observers.set(
+      name,
+      observer.subscribe(() => {}),
+    )
   }
 
   private hoursPart(): HoursPart | undefined {
@@ -326,10 +350,12 @@ export class LiveData implements SettingsData {
     return this.section('services', () => this.api.services())
   }
   private rolesPart(): RolesRes | undefined {
-    return this.access().can('team.view') ? this.section('roles', () => this.api.roles()) : undefined
+    return this.access().can('team.view') ? this.section('roles', () => this.api.roles(), false) : undefined
   }
   private employeesPart(): EmployeesRes | undefined {
-    return this.access().can('team.view') ? this.section('employees', () => this.api.employees()) : undefined
+    return this.access().can('team.view')
+      ? this.section('employees', () => this.api.employees(), false)
+      : undefined
   }
 
   /** The first load: one call for the whole screen, then each section lives on its own query. */
@@ -353,6 +379,12 @@ export class LiveData implements SettingsData {
     if (hours) this.hoursVersion = Math.max(this.hoursVersion ?? 0, hours.version)
     const closures = this.closuresPart()
     const emergency = this.emergencyPart()
+    if (emergency !== this.lastEmergency) {
+      // closing or reopening the shop adds and removes emergency rows in the closure list
+      const first = this.lastEmergency === undefined
+      this.lastEmergency = emergency
+      if (!first) void this.qc.invalidateQueries({ queryKey: qk.settings('closures') })
+    }
     const vip = this.vipPart()
     const arrival = this.arrivalPart()
     const services = this.servicesPart()
@@ -425,6 +457,8 @@ export class LiveData implements SettingsData {
       if (!this.listeners.size) {
         this.unsubscribeStore?.()
         this.unsubscribeStore = null
+        for (const off of this.observers.values()) off()
+        this.observers.clear()
       }
     }
   }

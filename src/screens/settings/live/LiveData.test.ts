@@ -99,6 +99,36 @@ describe('reading', () => {
   })
 })
 
+describe('invalidations from the stream', () => {
+  it('an invalidation that arrives while a refetch is on its way is not lost', async () => {
+    const { data, api, qc, bundle } = setup()
+    data.subscribe(() => {})
+    await loaded(data, 'closures')
+    const real = api.closures.bind(api)
+    const gates: (() => void)[] = []
+    let served = 0
+    api.closures = async () => {
+      const mine = ++served
+      const snapshot = await real() // what the server holds at the moment the request is served
+      await new Promise<void>((resolve) => gates.push(resolve))
+      return mine === 1 ? snapshot : await real()
+    }
+    // first event: the section is refetched at once (the screen is open)
+    void qc.invalidateQueries({ queryKey: ['settings', 'closures'] })
+    await vi.waitFor(() => expect(gates).toHaveLength(1))
+    // somebody deletes a closure and a second event arrives while that fetch is still waiting
+    bundle.closures.upcoming.shift()
+    void qc.invalidateQueries({ queryKey: ['settings', 'closures'] })
+    await vi.waitFor(() => expect(gates).toHaveLength(2))
+    gates[0]!() // the cancelled fetch's answer is dropped
+    gates[1]!()
+    await vi.waitFor(() => {
+      const m = data.sync()!
+      expect(m.closures!.data.closures.some((c: any) => c.name === 'Thanksgiving')).toBe(false)
+    })
+  })
+})
+
 describe('hours and rules', () => {
   it('saves the week on the current version, adopts the new one and words the warnings', async () => {
     const { data, calls, toasts } = setup()

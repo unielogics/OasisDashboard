@@ -41,8 +41,8 @@ import type {
 export type MaybeAsync<T> = T | Promise<T>
 
 /** Runs `then` with the value now when it is plain, or when the promise resolves. */
-export function settle<T>(v: MaybeAsync<T>, then: (value: T) => void): void {
-  if (v instanceof Promise) void v.then(then)
+export function settle<T>(v: MaybeAsync<T>, then: (value: T) => void, fail?: (e: unknown) => void): void {
+  if (v instanceof Promise) void v.then(then, fail)
   else then(v)
 }
 

@@ -39,7 +39,10 @@ function eq<T>(actual: T, expected: T, what: string): void {
     throw new Error(`${what}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
 }
 
+const only = args.includes('--only') ? args[args.indexOf('--only') + 1]! : ''
+
 async function step(name: string, fn: () => Promise<void>): Promise<void> {
+  if (only && !name.includes(only)) return
   // a toast of the previous step must not satisfy this step's expectations
   if (current)
     await current
@@ -153,7 +156,7 @@ async function eventually<T>(read: () => Promise<T>, expected: T, what: string, 
     if (JSON.stringify(last) === JSON.stringify(expected)) return
     if (Date.now() > end)
       throw new Error(`${what}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(last)}`)
-    await sleep(200)
+    await sleep(300)
   }
 }
 
@@ -211,8 +214,14 @@ async function session(
 try {
   // ====================================================================================================== Management
   console.log('Management (rafael)')
+  // the script reads and writes through a second person's session, so the API's per-user rate limit is not spent by
+  // the polling of this script and the page under test gets all of its own
+  const { ctx: bg } = await session(EMAILS.superAdmin, 'super-background')
+  const req = bg.request
+  // a run that was interrupted can leave its closures behind
+  for (const c of (await api(req, '/closures')).upcoming)
+    if (/^E2E /.test(c.name)) await write(bg, 'DELETE', `/closures/${c.id}`)
   const { ctx: mctx, page } = await session(EMAILS.manager, 'manager')
-  const req = mctx.request
   await open(page)
   await page.waitForSelector('text=Working hours')
   await shot(page, 'management-hours')
@@ -340,6 +349,21 @@ try {
       'closure gone in the API',
     )
     check(!(await page.getByText('E2E staff day', { exact: true }).isVisible()), 'row gone after reload')
+    // the federal-holiday toggle persists (the design never saved it)
+    const federal = () =>
+      xp(page, `//div[./div/div[normalize-space(.)='Auto-add US federal holidays']]`)
+        .first()
+        .locator('button')
+    await federal().click()
+    await eventually(async () => (await api(req, '/closures')).federalAuto, false, 'API federal toggle off')
+    await reload(page, 'closures')
+    await eventually(async () => (await api(req, '/closures')).federalAuto, false, 'still off after reload')
+    await federal().click()
+    await eventually(
+      async () => (await api(req, '/closures')).federalAuto,
+      true,
+      'API federal toggle back on',
+    )
   })
 
   // ---- emergency --------------------------------------------------------------------------------------------------------
@@ -684,27 +708,24 @@ try {
   })
 
   // ---- realtime and merging ---------------------------------------------------------------------------------------------
-  const { ctx: bg } = await session(EMAILS.superAdmin, 'super-background')
-  current = page
   await step(
     'realtime: a closure added elsewhere appears without a reload, and goes away again',
     async () => {
+      const name = 'E2E remote ' + unique
       await reload(page, 'closures')
       const taken = new Set<string>((await api(req, '/closures')).upcoming.map((c: any) => c.date))
       let date = isoDate(60)
       for (let n = 61; taken.has(date); n++) date = isoDate(n)
       const made = await write(bg, 'POST', '/closures', {
         date,
-        name: 'E2E remote closure',
+        name,
         type: 'closed',
         notify: false,
       })
-      await page.getByText('E2E remote closure', { exact: true }).waitFor({ timeout: 10_000 })
+      await page.getByText(name, { exact: true }).waitFor({ timeout: 10_000 })
       await shot(page, 'realtime-closure')
       await write(bg, 'DELETE', `/closures/${made.closure.id}`)
-      await page
-        .getByText('E2E remote closure', { exact: true })
-        .waitFor({ state: 'detached', timeout: 10_000 })
+      await page.getByText(name, { exact: true }).waitFor({ state: 'detached', timeout: 10_000 })
     },
   )
 
@@ -761,6 +782,21 @@ try {
     },
   )
 
+  await step('employees: a person added or changed elsewhere shows up in the open list', async () => {
+    await reload(page, 'employees')
+    const last = 'Hire' + unique
+    const made = await write(bg, 'POST', '/employees', {
+      first: 'Remote',
+      last,
+      phone: `(786) 555-${String(Number(unique.slice(-4)) + 1).padStart(4, '0')}`,
+    })
+    await page.getByText('Remote ' + last, { exact: true }).waitFor({ timeout: 10_000 })
+    await write(bg, 'POST', `/employees/${made.employee.id}/deactivate`)
+    const row = xp(page, `//button[.//div[normalize-space(.)='Remote ${last}']]`).first()
+    await row.getByText('Inactive', { exact: true }).waitFor({ timeout: 10_000 })
+    await shot(page, 'realtime-employee')
+  })
+
   await step('theme: toggling saves the preference on the server', async () => {
     await page
       .locator('header button')
@@ -769,7 +805,7 @@ try {
       .click()
       .catch(() => {})
     await sleep(600)
-    const me = await api(req, '/me')
+    const me = await api(mctx.request, '/me')
     check(
       me.preferences.theme === 'dark' || me.preferences.theme === 'light',
       'preference set: ' + me.preferences.theme,

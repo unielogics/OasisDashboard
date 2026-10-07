@@ -934,19 +934,29 @@ export class SettingsLogic extends DCLogic<SettingsState> {
     const closeNow = () => {
       if (this.closing) return
       this.closing = true
-      settle(data.close(em, this.closeAction.key), (r) => {
+      const done = (): void => {
         this.closing = false
-        if (!r.ok) return
-        this.closeAction.renew()
-        this.setState((st) => ({ confirm: false, em: { ...st.em, active: true, summary: r.value.summary } }))
-        this.flash(
-          'Shop closed · ' +
-            (em.notify
-              ? r.value.notified +
-                (data.live && r.value.notified === 1 ? ' customer notified' : ' customers notified')
-              : 'no messages sent'),
-        )
-      })
+      }
+      settle(
+        data.close(em, this.closeAction.key),
+        (r) => {
+          done()
+          if (!r.ok) return
+          this.closeAction.renew()
+          this.setState((st) => ({
+            confirm: false,
+            em: { ...st.em, active: true, summary: r.value.summary },
+          }))
+          this.flash(
+            'Shop closed · ' +
+              (em.notify
+                ? r.value.notified +
+                  (data.live && r.value.notified === 1 ? ' customer notified' : ' customers notified')
+                : 'no messages sent'),
+          )
+        },
+        done,
+      )
     }
 
     const vals: Vals = {
@@ -1000,14 +1010,25 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         if (!this.allowed('set.hours')) return
         const hours = s.hours
         this.busy.hours = (this.busy.hours ?? 0) + 1
-        settle(data.saveHours(hours), (r) => {
+        const release = (): void => {
           this.busy.hours = (this.busy.hours ?? 1) - 1
-          if (!r.ok) return void this.forceUpdate()
-          this.setState({ savedHours: JSON.stringify(hours) })
-          this.flash(
-            'Working hours saved · booking and calendar updated' + (r.value.note ? ' · ' + r.value.note : ''),
-          )
-        })
+        }
+        settle(
+          data.saveHours(hours),
+          (r) => {
+            release()
+            if (!r.ok) return void this.forceUpdate()
+            this.setState({ savedHours: JSON.stringify(hours) })
+            this.flash(
+              'Working hours saved · booking and calendar updated' +
+                (r.value.note ? ' · ' + r.value.note : ''),
+            )
+          },
+          () => {
+            release()
+            this.forceUpdate()
+          },
+        )
       },
       upcoming: sortedC.filter((c) => !c.past),
       past: sortedC.filter((c) => c.past).reverse(),
@@ -1102,6 +1123,8 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       confirmText: confirmText(em, preview.count, data.live),
       askClose: () => {
         if (!this.allowed('set.emergency')) return
+        // the server says who may close the shop (role names and permission); a person it refuses gets the toast
+        if (data.live && !access.canClose) return void this.flash(deniedTitle('set.emergency'))
         this.setState({ confirm: true })
       },
       cancelClose: () => this.setState({ confirm: false }),
