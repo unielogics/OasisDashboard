@@ -140,32 +140,6 @@
       }
     },
     {
-      "id": "L-all-01",
-      "screen": "*",
-      "kind": "computed-style",
-      "reason": "DV-403: the live pages mirror the theme on <html data-theme> (boot script, so a dark user never sees a light flash); the body background and the two outer wrappers therefore inherit the dark custom properties that the original only defines on its own theme wrapper. Nothing visible changes (pixels stay at zero).",
-      "expect": {
-        "min": 0
-      },
-      "matcher": {
-        "loc": ["body", "root>div[0]", "root>div[0]>div[0]"],
-        "name": "background-color"
-      }
-    },
-    {
-      "id": "L-all-02",
-      "screen": "*",
-      "kind": "computed-style",
-      "reason": "DV-403: custom properties inherited from <html data-theme> on the two outer wrappers (see L-all-01).",
-      "expect": {
-        "min": 0
-      },
-      "matcher": {
-        "loc": ["root>div[0]", "root>div[0]>div[0]"],
-        "name": "--*"
-      }
-    },
-    {
       "id": "L-payments-11",
       "screen": "payments",
       "kind": "text",
@@ -310,6 +284,18 @@
       }
     },
     {
+      "id": "L-settings-07",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-304: with the Emergency section open the preview is the message as it will be sent, and until a reschedule landing page exists the server drops the sentence that carries the link (every other state, and the editable template, keep the {link} sentence). The oracle's preview drops the same sentence in the same state.",
+      "swap": {
+        "find": "const preview=em.msg.replace(/\\{first\\}/g,'Liam')",
+        "replace": "const preview=(sec==='emergency'?em.msg.replace(/ Pick a new time here: \\{link\\}/,''):em.msg).replace(/\\{first\\}/g,'Liam')",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
       "id": "L-settings-08",
       "screen": "settings",
       "kind": "text",
@@ -368,15 +354,29 @@
       }
     },
     {
-      "id": "L-settings-07",
-      "screen": "settings",
-      "kind": "text",
-      "reason": "DV-304: with the Emergency section open the preview is the message as it will be sent, and until a reschedule landing page exists the server drops the sentence that carries the link (every other state, and the editable template, keep the {link} sentence). The oracle's preview drops the same sentence in the same state.",
-      "swap": {
-        "find": "const preview=em.msg.replace(/\\{first\\}/g,'Liam')",
-        "replace": "const preview=(sec==='emergency'?em.msg.replace(/ Pick a new time here: \\{link\\}/,''):em.msg).replace(/\\{first\\}/g,'Liam')",
-        "count": 1,
-        "target": "logic"
+      "id": "L-all-01",
+      "screen": "*",
+      "kind": "computed-style",
+      "reason": "DV-403: the live pages mirror the theme on <html data-theme> (boot script, so a dark user never sees a light flash); the body background and the two outer wrappers therefore inherit the dark custom properties that the original only defines on its own theme wrapper. Nothing visible changes (pixels stay at zero).",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["body", "root>div[0]", "root>div[0]>div[0]"],
+        "name": "background-color"
+      }
+    },
+    {
+      "id": "L-all-02",
+      "screen": "*",
+      "kind": "computed-style",
+      "reason": "DV-403: custom properties inherited from <html data-theme> on the two outer wrappers (see L-all-01).",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["root>div[0]", "root>div[0]>div[0]"],
+        "name": "--*"
       }
     }
   ]

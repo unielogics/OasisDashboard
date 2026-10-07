@@ -16,13 +16,13 @@ export const LIVE_SCREENS: Record<Screen, LiveScreen> = {
   },
   settings: {
     status: 'live',
-    profiles: ['design'],
-    note: 'the design seed (hours, closures, staff, roles, VIP, packages)',
+    profiles: ['design', 'parity-ops'],
+    note: 'the design seed (hours, closures, staff, roles, VIP, packages) and the Operations day: the emergency preview lists the six customers left today',
   },
   operations: {
     status: 'pending',
     profiles: ['design', 'parity-ops'],
-    note: 'typed view model on fixtures, not live yet (docs/screens-operations.md); registered here so the matrix lists it',
+    note: 'typed view model on fixtures, not live yet (docs/screens-operations.md); registered so the catalogue knows it',
   },
 }
 
