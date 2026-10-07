@@ -1,0 +1,462 @@
+{
+  "packages": [
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f26523c5390",
+      "kind": "package",
+      "name": "Express Hand Wash",
+      "shortName": "Express Hand Wash",
+      "shortNameOverride": null,
+      "priceCents": 4500,
+      "durationMin": 35,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 10,
+      "tags": ["express", "handwash"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 5,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f2754d576ec", "label": "Exterior rinse", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f28be224df6", "label": "Hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f2972b77b95", "label": "Wheel cleaning", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f2a5fa65d33", "label": "Hand dry & towel", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f2bf23a66c4", "label": "Glass & windows", "position": 4 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f2c6a92ba20",
+      "kind": "package",
+      "name": "Premium Hand Wash + Interior",
+      "shortName": "Premium Hand Wash",
+      "shortNameOverride": null,
+      "priceCents": 12900,
+      "durationMin": 75,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 20,
+      "tags": ["premium", "handwash"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 7,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f2de4175c43", "label": "Exterior pre-rinse", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f2e4bf15292", "label": "Two-bucket hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f2f92c2529e", "label": "Wheel & tire cleaning", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f306bdacf6d", "label": "Tire shine", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f3182f2a628", "label": "Interior vacuum", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f32eab10954", "label": "Dashboard & console wipe", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f332d0685e8", "label": "Streak-free windows", "position": 6 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f34d66faba4",
+      "kind": "package",
+      "name": "Premium Hand Wash + Interior Refresh",
+      "shortName": "Premium Hand Wash",
+      "shortNameOverride": null,
+      "priceCents": 13900,
+      "durationMin": 75,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 30,
+      "tags": ["premium", "handwash"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 8,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f356239d56e", "label": "Exterior pre-rinse", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f3694db2f7c", "label": "Two-bucket hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f37c19b31b2", "label": "Wheel & tire cleaning", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f38b8bcc1d1", "label": "Tire shine", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f39971d6eac", "label": "Interior vacuum", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f3a17c37864", "label": "Dashboard & vents wipe", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f3b98c11ccc", "label": "Leather seat refresh", "position": 6 },
+        { "id": "019ec169-3c80-75dd-9b21-7f3c47dc202a", "label": "Streak-free windows", "position": 7 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f3d7f180739",
+      "kind": "package",
+      "name": "Executive Detail",
+      "shortName": "Executive Detail",
+      "shortNameOverride": null,
+      "priceCents": 26000,
+      "durationMin": 90,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 40,
+      "tags": ["executive"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 10,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f3e21a59deb", "label": "Foam pre-soak", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f3f4fc21ea3", "label": "Two-bucket hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f40aeb3f8fd", "label": "Clay bar treatment", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4177d6d17c", "label": "Wheel & caliper detail", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f42663e8387", "label": "Tire dressing", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4311ffd3a2", "label": "Full interior vacuum", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4456808414", "label": "Leather conditioning", "position": 6 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4543f8385a", "label": "Dashboard & vents detail", "position": 7 },
+        { "id": "019ec169-3c80-75dd-9b21-7f46594705f7", "label": "Streak-free glass", "position": 8 },
+        { "id": "019ec169-3c80-75dd-9b21-7f47decb11cb", "label": "Spray sealant", "position": 9 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f48fc082c43",
+      "kind": "package",
+      "name": "Executive Detail + Ceramic",
+      "shortName": "Executive Detail",
+      "shortNameOverride": null,
+      "priceCents": 42000,
+      "durationMin": 120,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 50,
+      "tags": ["executive", "ceramic"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 9,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f49bc147fe9", "label": "Foam pre-soak", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4a0f1329c0", "label": "Two-bucket hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4bdbd3be66", "label": "Iron decontamination", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4c1c8ab095", "label": "Clay bar treatment", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4d43424cb9", "label": "Ceramic spray coat", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4ef2b0d4f2", "label": "Wheel & caliper detail", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f4f9bee4a5e", "label": "Full interior detail", "position": 6 },
+        { "id": "019ec169-3c80-75dd-9b21-7f505b774108", "label": "Leather conditioning", "position": 7 },
+        { "id": "019ec169-3c80-75dd-9b21-7f51b605a538", "label": "Streak-free glass", "position": 8 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f52c41da566",
+      "kind": "package",
+      "name": "Full Detail",
+      "shortName": "Full Detail",
+      "shortNameOverride": null,
+      "priceCents": 32000,
+      "durationMin": 120,
+      "active": true,
+      "bookableDesk": false,
+      "sort": 60,
+      "tags": ["detail"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 10,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f53cc3fb3c1", "label": "Engine bay degrease", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f54beff403e", "label": "Foam pre-soak", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f5550700d70", "label": "Hand wash", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f56f5f3b0f9", "label": "Clay bar", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f579863e1e8", "label": "Wheel deep clean", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f58caa2829c", "label": "Carpet shampoo", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f599050fdc3", "label": "Full interior vacuum", "position": 6 },
+        { "id": "019ec169-3c80-75dd-9b21-7f5a17876a29", "label": "Leather treatment", "position": 7 },
+        { "id": "019ec169-3c80-75dd-9b21-7f5b1ae51ee1", "label": "Glass polish", "position": 8 },
+        { "id": "019ec169-3c80-75dd-9b21-7f5c3f648d94", "label": "Wax & seal", "position": 9 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f5d29929aee",
+      "kind": "package",
+      "name": "Ceramic Maintenance + Wax",
+      "shortName": "Ceramic Maintenance",
+      "shortNameOverride": null,
+      "priceCents": 18000,
+      "durationMin": 60,
+      "active": true,
+      "bookableDesk": false,
+      "sort": 70,
+      "tags": ["ceramic"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 7,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f5ebadb66e7", "label": "Pre-rinse", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f5f201aa49a", "label": "pH-neutral hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6088aff181", "label": "Ceramic boost spray", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f61527216ae", "label": "Hand-applied wax", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f624c25039f", "label": "Wheel cleaning", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f63e84fd1b7", "label": "Tire dressing", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6432bcb163", "label": "Glass treatment", "position": 6 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f65b08c037e",
+      "kind": "package",
+      "name": "Exotic Detail Package",
+      "shortName": "Exotic Detail Package",
+      "shortNameOverride": null,
+      "priceCents": 65000,
+      "durationMin": 150,
+      "active": true,
+      "bookableDesk": false,
+      "sort": 80,
+      "tags": ["exotic"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 9,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f6666e67cbb", "label": "Waterless decon", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f67b04d9993", "label": "Two-bucket hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6862ca9c5e", "label": "Paint correction pass", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6987cfa5af", "label": "Ceramic seal", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6aaa04561e", "label": "Wheel & caliper detail", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6bc2b02fe4", "label": "Full interior detail", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6c3822a281", "label": "Leather conditioning", "position": 6 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6d84ba1565", "label": "Glass & trim restore", "position": 7 },
+        { "id": "019ec169-3c80-75dd-9b21-7f6e03786d4a", "label": "Photographic handover", "position": 8 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f6f7d065d63",
+      "kind": "package",
+      "name": "Family Wash + Pet Hair",
+      "shortName": "Family Wash",
+      "shortNameOverride": null,
+      "priceCents": 9500,
+      "durationMin": 50,
+      "active": true,
+      "bookableDesk": false,
+      "sort": 90,
+      "tags": ["handwash", "family"],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 7,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f702681b6d1", "label": "Exterior rinse", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f7183c8dd5a", "label": "Hand wash", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f7226deac26", "label": "Pet hair removal", "position": 2 },
+        { "id": "019ec169-3c80-75dd-9b21-7f73101b1b8d", "label": "Interior vacuum", "position": 3 },
+        { "id": "019ec169-3c80-75dd-9b21-7f748eeb82ee", "label": "Dashboard wipe", "position": 4 },
+        { "id": "019ec169-3c80-75dd-9b21-7f755cb91f4e", "label": "Windows", "position": 5 },
+        { "id": "019ec169-3c80-75dd-9b21-7f76610dd00f", "label": "Odor neutralize", "position": 6 }
+      ]
+    }
+  ],
+  "addons": [
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f77de493cb4",
+      "kind": "addon",
+      "name": "Interior deep clean",
+      "shortName": "Interior deep clean",
+      "shortNameOverride": null,
+      "priceCents": 6000,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 10,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 3,
+      "tasks": [
+        {
+          "id": "019ec169-3c80-75dd-9b21-7f7878929737",
+          "label": "Deep vacuum seats & carpets",
+          "position": 0
+        },
+        {
+          "id": "019ec169-3c80-75dd-9b21-7f792b7a5362",
+          "label": "Steam clean vents & cupholders",
+          "position": 1
+        },
+        { "id": "019ec169-3c80-75dd-9b21-7f7a259ce76f", "label": "Wipe door jambs & panels", "position": 2 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f7b7e4b1bd8",
+      "kind": "addon",
+      "name": "Pet hair removal",
+      "shortName": "Pet hair removal",
+      "shortNameOverride": null,
+      "priceCents": 3500,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 20,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 3,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f7c88fae145", "label": "Rubber-brush pet hair", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f7d50916e52", "label": "Lint-roll upholstery", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f7eef0e35ac", "label": "Vacuum seat seams", "position": 2 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f7f120f5f2d",
+      "kind": "addon",
+      "name": "Leather conditioning",
+      "shortName": "Leather conditioning",
+      "shortNameOverride": null,
+      "priceCents": 4500,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 30,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 3,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f809668c804", "label": "Clean leather surfaces", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f81e190214a", "label": "Apply conditioner", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f82b61e1a2b", "label": "Buff to matte finish", "position": 2 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f83d95dbcac",
+      "kind": "addon",
+      "name": "Wax",
+      "shortName": "Wax",
+      "shortNameOverride": null,
+      "priceCents": 4000,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 40,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 2,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f84da1a45ea", "label": "Apply carnauba wax", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f85e7fda3d0", "label": "Buff off haze", "position": 1 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f86a6cd3932",
+      "kind": "addon",
+      "name": "Clay bar",
+      "shortName": "Clay bar",
+      "shortNameOverride": null,
+      "priceCents": 5000,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 50,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 3,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f871434ca54", "label": "Lubricate panels", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f88d3c23686", "label": "Clay bar paint", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f89d67c7823", "label": "Wipe residue", "position": 2 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f8accdbcf99",
+      "kind": "addon",
+      "name": "Odor removal",
+      "shortName": "Odor removal",
+      "shortNameOverride": null,
+      "priceCents": 3000,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 60,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 2,
+      "tasks": [
+        {
+          "id": "019ec169-3c80-75dd-9b21-7f8b2e54895c",
+          "label": "Enzyme treatment on fabrics",
+          "position": 0
+        },
+        { "id": "019ec169-3c80-75dd-9b21-7f8c7cb5c064", "label": "Odor neutralizer cycle", "position": 1 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f8d92b0de66",
+      "kind": "addon",
+      "name": "Engine bay cleaning",
+      "shortName": "Engine bay cleaning",
+      "shortNameOverride": null,
+      "priceCents": 5500,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 70,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 3,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f8e4fd13297", "label": "Cover electricals", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f8fd1c22a36", "label": "Degrease engine bay", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f909d55d617", "label": "Dress plastics", "position": 2 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f91698ddcc5",
+      "kind": "addon",
+      "name": "Ceramic maintenance",
+      "shortName": "Ceramic maintenance",
+      "shortNameOverride": null,
+      "priceCents": 12000,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 80,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 2,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f92ecf80375", "label": "Ceramic boost spray", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f9334f53dc9", "label": "Buff & level coating", "position": 1 }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f94d59667b5",
+      "kind": "addon",
+      "name": "Rain repellent",
+      "shortName": "Rain repellent",
+      "shortNameOverride": null,
+      "priceCents": 2500,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 90,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 2,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f952e7ce58e", "label": "Clean glass", "position": 0 },
+        {
+          "id": "019ec169-3c80-75dd-9b21-7f9681bc36fb",
+          "label": "Apply rain repellent to windshield",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": "019ec169-3c80-75dd-9b21-7f97a8814259",
+      "kind": "addon",
+      "name": "Wheel deep clean",
+      "shortName": "Wheel deep clean",
+      "shortNameOverride": null,
+      "priceCents": 4000,
+      "durationMin": 0,
+      "active": true,
+      "bookableDesk": true,
+      "sort": 100,
+      "tags": [],
+      "sqspSku": null,
+      "version": 1,
+      "taskCount": 3,
+      "tasks": [
+        { "id": "019ec169-3c80-75dd-9b21-7f9896ba2d9c", "label": "Remove wheel fallout", "position": 0 },
+        { "id": "019ec169-3c80-75dd-9b21-7f99b0e47f20", "label": "Clean barrels & calipers", "position": 1 },
+        { "id": "019ec169-3c80-75dd-9b21-7f9a3c165783", "label": "Seal wheel faces", "position": 2 }
+      ]
+    }
+  ]
+}

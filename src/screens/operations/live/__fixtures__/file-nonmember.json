@@ -1,0 +1,246 @@
+{
+  "id": "019ec169-3c80-7a2f-8a50-ef640e2cf892",
+  "seq": 10,
+  "version": 1,
+  "status": "confirmed",
+  "late": false,
+  "badge": { "label": "Confirmed", "color": "#2563EB" },
+  "canDrag": true,
+  "next": { "label": "Mark Arrived", "step": "arrive" },
+  "customer": {
+    "id": "019ec169-3c80-75dd-9b21-7fbb54cc0da0",
+    "name": "Tom Bradley",
+    "initials": "TB",
+    "phone": "(305) 555-0111",
+    "email": null,
+    "contactMasked": false,
+    "vip": false,
+    "smsOptedIn": true,
+    "smsOptedOut": false
+  },
+  "vehicle": {
+    "year": 2016,
+    "make": "Honda",
+    "model": "Civic",
+    "color": "Aegean Blue",
+    "plate": "HND-2218",
+    "id": "019ec169-3c80-75dd-9b21-7fbc5b89a3de"
+  },
+  "overview": {
+    "startsAt": "2026-06-13T17:30:00.000Z",
+    "endsAt": "2026-06-13T18:05:00.000Z",
+    "time": "1:30 PM",
+    "bizDate": "2026-06-13",
+    "dateLabel": "Saturday, June 13",
+    "service": {
+      "id": "019ec169-3c80-75dd-9b21-7f26523c5390",
+      "name": "Express Hand Wash",
+      "priceCents": 4500
+    },
+    "durationMin": 35,
+    "durLabel": "Est. 35 min",
+    "source": "dashboard",
+    "bay": { "planned": { "id": "019ec169-3c80-75dd-9b21-7f252432bed6", "number": 2 }, "actual": null },
+    "bayLabel": "Bay 2",
+    "staff": { "id": "019ec169-3c80-75dd-9b21-7f1ff2c11805", "name": "Sofia D." },
+    "etaMinutes": null,
+    "prepped": false,
+    "geoCheckedInAt": null,
+    "arrivedAt": null,
+    "cleaningStartedAt": null,
+    "completedAt": null,
+    "pickupState": null,
+    "canceledAt": null,
+    "cancelReason": null,
+    "notes": null,
+    "specialInstructions": null,
+    "pay": {
+      "label": "$48.15 due",
+      "kind": "due",
+      "balanceCents": 4815,
+      "awaitingCents": 0,
+      "invoiceNo": 20620,
+      "status": "unpaid"
+    }
+  },
+  "addons": {
+    "selected": [],
+    "catalog": [
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f77de493cb4",
+        "name": "Interior deep clean",
+        "priceCents": 6000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f7b7e4b1bd8",
+        "name": "Pet hair removal",
+        "priceCents": 3500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f7f120f5f2d",
+        "name": "Leather conditioning",
+        "priceCents": 4500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f83d95dbcac",
+        "name": "Wax",
+        "priceCents": 4000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f86a6cd3932",
+        "name": "Clay bar",
+        "priceCents": 5000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f8accdbcf99",
+        "name": "Odor removal",
+        "priceCents": 3000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f8d92b0de66",
+        "name": "Engine bay cleaning",
+        "priceCents": 5500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f91698ddcc5",
+        "name": "Ceramic maintenance",
+        "priceCents": 12000,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f94d59667b5",
+        "name": "Rain repellent",
+        "priceCents": 2500,
+        "selected": false
+      },
+      {
+        "serviceId": "019ec169-3c80-75dd-9b21-7f97a8814259",
+        "name": "Wheel deep clean",
+        "priceCents": 4000,
+        "selected": false
+      }
+    ],
+    "totalCents": 0
+  },
+  "checklist": {
+    "done": 0,
+    "total": 5,
+    "pct": 0,
+    "allDone": false,
+    "sections": [
+      {
+        "kind": "package",
+        "title": "Express Hand Wash",
+        "addonId": null,
+        "items": [
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef65f6482565",
+            "label": "Exterior rinse",
+            "done": false,
+            "position": 0
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef66e6170d8c",
+            "label": "Hand wash",
+            "done": false,
+            "position": 1
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef678f9f4686",
+            "label": "Wheel cleaning",
+            "done": false,
+            "position": 2
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef684816d5f6",
+            "label": "Hand dry & towel",
+            "done": false,
+            "position": 3
+          },
+          {
+            "id": "019ec169-3c80-7a2f-8a50-ef693ab47b3a",
+            "label": "Glass & windows",
+            "done": false,
+            "position": 4
+          }
+        ],
+        "done": 0,
+        "total": 5,
+        "allDone": false
+      }
+    ]
+  },
+  "photos": {
+    "arrival": {
+      "count": 2,
+      "items": [
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef6afe37a38b",
+          "category": "arrival",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T17:30:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef640e2cf892/arrival/019ec169-3c80-7a2f-8a50-ef6afe37a38b.jpg?exp=1781361960&sig=aiZlLALYtSYW6GAmamJQb-F3Q8g_1e9I1-u290eLUcg",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef640e2cf892/arrival/019ec169-3c80-7a2f-8a50-ef6afe37a38b.jpg?exp=1781361960&sig=aiZlLALYtSYW6GAmamJQb-F3Q8g_1e9I1-u290eLUcg"
+        },
+        {
+          "id": "019ec169-3c80-7a2f-8a50-ef6b88d7d7a1",
+          "category": "arrival",
+          "note": null,
+          "bytes": 120000,
+          "takenAt": "2026-06-13T17:30:00.000Z",
+          "thumbUrl": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef640e2cf892/arrival/019ec169-3c80-7a2f-8a50-ef6b88d7d7a1.jpg?exp=1781361960&sig=EGjkiHqFJsjYKZYqgpdveNqILqQ7VaDs3xJcg-sNlQI",
+          "url": "http://127.0.0.1:4023/dev-storage/files/loc/019ec169-3c80-75dd-9b21-7f11e65adce1/appt/019ec169-3c80-7a2f-8a50-ef640e2cf892/arrival/019ec169-3c80-7a2f-8a50-ef6b88d7d7a1.jpg?exp=1781361960&sig=EGjkiHqFJsjYKZYqgpdveNqILqQ7VaDs3xJcg-sNlQI"
+        }
+      ]
+    },
+    "before": { "count": 0, "items": [] },
+    "after": { "count": 0, "items": [] },
+    "issue": { "count": 0, "items": [] }
+  },
+  "activity": [
+    {
+      "id": 30,
+      "at": "2026-06-12T20:02:00.000Z",
+      "atLabel": "Yesterday 4:02 PM",
+      "text": "Booking created",
+      "channels": ["system"],
+      "actorType": "system",
+      "actorName": null
+    },
+    {
+      "id": 31,
+      "at": "2026-06-12T20:12:00.000Z",
+      "atLabel": "Yesterday 4:12 PM",
+      "text": "Confirmation + reminder sent",
+      "channels": ["sms"],
+      "actorType": "system",
+      "actorName": null
+    }
+  ],
+  "invoice": {
+    "invoiceId": "019ec169-3c80-7a2f-8a51-07fbd64416b3",
+    "invoiceNo": 20620,
+    "subtotalCents": 4500,
+    "taxCents": 315,
+    "tipCents": 0,
+    "totalCents": 4815,
+    "paidCents": 0,
+    "balanceCents": 4815,
+    "depositCents": 0,
+    "status": "unpaid",
+    "refundPending": false,
+    "awaitingCents": 0,
+    "items": [{ "name": "Express Hand Wash", "priceCents": 4500, "kind": "package" }],
+    "payMethodLabel": null
+  },
+  "membership": null,
+  "history": { "visitCount": 0, "recent": [] }
+}

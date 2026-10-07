@@ -1,0 +1,4 @@
+<div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding:11px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;font-size:12.5px;font-weight:600;color:var(--ink2);"><span style="width:8px;height:8px;border-radius:50%;background:#E0A93B;"></span>{{= nf.note }}</div>
+<sc-if value="{{ nf.override }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-top:10px;"><input value="{{ nf.overrideReason }}" sc-camel-on-input="{{ nf.setOverrideReason }}" placeholder="Override reason (required)" autocomplete="off" style="{{ nf.inputStyle }}"></div>
+</sc-if>

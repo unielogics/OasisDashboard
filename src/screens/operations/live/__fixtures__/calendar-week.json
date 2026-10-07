@@ -1,0 +1,84 @@
+{
+  "from": "2026-06-07",
+  "to": "2026-06-13",
+  "total": 55,
+  "days": [
+    {
+      "date": "2026-06-07",
+      "weekday": 0,
+      "count": 6,
+      "closed": null,
+      "reduced": false,
+      "note": "",
+      "open": { "openMin": 540, "closeMin": 900, "from": "9:00 AM", "to": "3:00 PM" },
+      "needsRebook": 0,
+      "isToday": false
+    },
+    {
+      "date": "2026-06-08",
+      "weekday": 1,
+      "count": 7,
+      "closed": null,
+      "reduced": false,
+      "note": "",
+      "open": { "openMin": 480, "closeMin": 1080, "from": "8:00 AM", "to": "6:00 PM" },
+      "needsRebook": 0,
+      "isToday": false
+    },
+    {
+      "date": "2026-06-09",
+      "weekday": 2,
+      "count": 5,
+      "closed": null,
+      "reduced": false,
+      "note": "",
+      "open": { "openMin": 480, "closeMin": 1080, "from": "8:00 AM", "to": "6:00 PM" },
+      "needsRebook": 0,
+      "isToday": false
+    },
+    {
+      "date": "2026-06-10",
+      "weekday": 3,
+      "count": 8,
+      "closed": null,
+      "reduced": false,
+      "note": "",
+      "open": { "openMin": 480, "closeMin": 1080, "from": "8:00 AM", "to": "6:00 PM" },
+      "needsRebook": 0,
+      "isToday": false
+    },
+    {
+      "date": "2026-06-11",
+      "weekday": 4,
+      "count": 7,
+      "closed": null,
+      "reduced": false,
+      "note": "",
+      "open": { "openMin": 480, "closeMin": 1080, "from": "8:00 AM", "to": "6:00 PM" },
+      "needsRebook": 0,
+      "isToday": false
+    },
+    {
+      "date": "2026-06-12",
+      "weekday": 5,
+      "count": 11,
+      "closed": null,
+      "reduced": false,
+      "note": "",
+      "open": { "openMin": 480, "closeMin": 1080, "from": "8:00 AM", "to": "6:00 PM" },
+      "needsRebook": 0,
+      "isToday": false
+    },
+    {
+      "date": "2026-06-13",
+      "weekday": 6,
+      "count": 11,
+      "closed": null,
+      "reduced": false,
+      "note": "",
+      "open": { "openMin": 480, "closeMin": 1020, "from": "8:00 AM", "to": "5:00 PM" },
+      "needsRebook": 0,
+      "isToday": true
+    }
+  ]
+}

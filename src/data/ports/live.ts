@@ -2,6 +2,7 @@
 // below is wired to its endpoint with the DTOs of ./types; the screens switch over one by one (docs/data-layer.md,
 // "migration recipe"). Nothing here formats text or computes money; the server does.
 import type { ApiClient } from '../http/client'
+import { createLiveOperationsPort } from './operations'
 import { createLivePaymentsPort } from './payments'
 import type { DataPort } from './ports'
 import { createSettingsApi } from './settings-api'
@@ -56,6 +57,7 @@ export function createLiveDataPort(c: ApiClient): DataPort {
       thread: (id) => c.get(`/appointments/${enc(id)}/messages`),
       send: (id, input, o) => c.post(`/appointments/${enc(id)}/messages`, input, o),
     },
+    operations: createLiveOperationsPort(c),
     payments: createLivePaymentsPort(c),
     settings: createSettingsApi(c),
     people: {

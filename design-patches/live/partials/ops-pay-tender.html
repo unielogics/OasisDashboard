@@ -1,0 +1,5 @@
+<div style="display:flex;gap:8px;">
+  <sc-for list="{{ sel.payTenders }}" as="td" hint-placeholder-count="2">
+    <button sc-camel-on-click="{{ td.onClick }}" style="{{ td.style }}">{{ td.label }}</button>
+  </sc-for>
+</div>
