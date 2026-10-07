@@ -371,10 +371,10 @@
       "id": "L-settings-07",
       "screen": "settings",
       "kind": "text",
-      "reason": "DV-304: the preview is the message as it will be sent; until a reschedule landing page exists the server drops the sentence that carries the link (the editable template keeps its {link}). The oracle's preview drops the same sentence.",
+      "reason": "DV-304: with the Emergency section open the preview is the message as it will be sent, and until a reschedule landing page exists the server drops the sentence that carries the link (every other state, and the editable template, keep the {link} sentence). The oracle's preview drops the same sentence in the same state.",
       "swap": {
         "find": "const preview=em.msg.replace(/\\{first\\}/g,'Liam')",
-        "replace": "const preview=em.msg.replace(/ Pick a new time here: \\{link\\}/,'').replace(/\\{first\\}/g,'Liam')",
+        "replace": "const preview=(sec==='emergency'?em.msg.replace(/ Pick a new time here: \\{link\\}/,''):em.msg).replace(/\\{first\\}/g,'Liam')",
         "count": 1,
         "target": "logic"
       }

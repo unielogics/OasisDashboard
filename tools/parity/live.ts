@@ -147,6 +147,16 @@ export class LiveDriver extends PageDriver {
     return readValsViaFiber(this.page)
   }
 
+  /** Leave the page first so the browser drops its event stream before the context goes away. */
+  override async close(): Promise<void> {
+    try {
+      await this.page?.goto('about:blank', { timeout: 5_000 })
+    } catch {
+      // the context is closed next either way
+    }
+    await super.close()
+  }
+
   /** 4xx/5xx answers of the API seen since the page opened (the console check also sees the browser's own message). */
   failures(): readonly string[] {
     return this.apiFailures
@@ -183,6 +193,9 @@ export async function signIn(browser: Browser, t: LiveTarget, theme: Theme, next
     serviceWorkers: 'block',
   })
   try {
+    // the sign-in context only needs the cookie: it must not leave an event stream open behind it (the API allows 8
+    // streams per person and the dashboard's proxy keeps a dropped one alive for a while)
+    await ctx.route('**/api/v1/events*', (route) => route.abort())
     const page = await ctx.newPage()
     await page.goto(`${t.webUrl}/login?next=${encodeURIComponent(next)}`, { waitUntil: 'load' })
     await page.getByLabel(/email/i).fill(t.email)
