@@ -695,17 +695,17 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
           onClick: () => this.setF({ method: k }),
           style: seg(f.method === k),
         })),
-        needsUrl: calc.needsUrl,
-        urlRaw: f.url,
-        setUrl: (e: InputEvent) => this.setF({ url: e.target.value }),
-        urlError: this.state.urlError ?? '',
-        hasUrlError: !!this.state.urlError,
       }
     }
     if (sk === 'apply') sh = { title: 'Apply store credit', sub: det.client }
     const req = calc.request
     return {
       ...sh,
+      needsUrl: calc.needsUrl,
+      urlRaw: f.url,
+      setUrl: (e: InputEvent) => this.setF({ url: e.target.value }),
+      urlError: this.state.urlError ?? '',
+      hasUrlError: !!this.state.urlError,
       summary: calc.summary,
       blocked,
       submit: () => {

@@ -40,7 +40,8 @@
     "live:up": "tsx scripts/live-stack.ts up",
     "live:down": "tsx scripts/live-stack.ts down",
     "live:status": "tsx scripts/live-stack.ts status",
-    "live:smoke": "tsx scripts/live-smoke.ts"
+    "live:smoke": "tsx scripts/live-smoke.ts",
+    "e2e:payments": "tsx scripts/e2e-payments.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
