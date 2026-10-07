@@ -1200,19 +1200,24 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       },
       toast: s.toast,
     }
-    if (data.live) {
-      Object.assign(vals, this.liveVals(sec, gate, preview, access))
-    }
-    if (LIVE) {
+    if (data.live || LIVE) {
+      // everything the live template reads sits under `live`: the session chrome and, from the API, this screen's extras
       const chrome = this.chrome()
-      vals.live = chrome ? chrome.vals() : {}
-      if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
-        document.documentElement.setAttribute('data-theme', s.theme)
+      vals.live = {
+        ...(chrome ? chrome.vals() : {}),
+        ...(data.live ? this.liveVals(sec, gate, preview, access) : {}),
+      }
     }
+    if (
+      LIVE &&
+      typeof document !== 'undefined' &&
+      document.documentElement.getAttribute('data-theme') !== s.theme
+    )
+      document.documentElement.setAttribute('data-theme', s.theme)
     return vals
   }
 
-  /** The extra roots of the live template (loading, locked and failed cards, server-driven texts, candidates). */
+  /** What the live template reads besides the session chrome: loading, locked and failed cards, server texts, candidates. */
   private liveVals(
     sec: SectionKey,
     gate: 'locked' | 'loading' | 'failed' | null,
@@ -1234,7 +1239,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       emPreviewLabel: 'Preview · SMS to ' + (preview.first || 'a customer'),
       hasCandidates: this.candidates.length > 0,
       candidates: this.candidates.map((c) => ({
-        label: c.detail ? c.name + ' \u00b7 ' + c.detail : c.name,
+        name: c.detail ? c.name + ' \u00b7 ' + c.detail : c.name,
         onClick: () => this.pickCandidate(c),
       })),
     }

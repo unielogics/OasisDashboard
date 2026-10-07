@@ -56,7 +56,7 @@ const go = (logic: any, section: string): void => {
 /** Waits until a section has what it needs. */
 const ready = async (logic: any, section = 'hours'): Promise<void> => {
   go(logic, section)
-  await vi.waitFor(() => expect(vals(logic).secOpen).toBe(true))
+  await vi.waitFor(() => expect(vals(logic).live.secOpen).toBe(true))
 }
 const writes = (calls: any[][]): string[] =>
   calls
@@ -85,12 +85,12 @@ describe('loading and locked sections', () => {
   it('shows the loading card, then the section, hydrated from the server', async () => {
     const { logic } = make()
     const first = vals(logic)
-    expect(first.secLoading).toBe(true)
+    expect(first.live.secLoading).toBe(true)
     expect(first.secHours).toBe(false)
-    expect(first.secOpen).toBe(false)
+    expect(first.live.secOpen).toBe(false)
     await ready(logic)
     const v = vals(logic)
-    expect(v.secLoading).toBe(false)
+    expect(v.live.secLoading).toBe(false)
     expect(v.secHours).toBe(true)
     expect(v.hourRows[0]).toMatchObject({ day: 'Monday', from: '8:00 AM', to: '6:00 PM', len: '10 hrs' })
     expect(v.weekHours).toBe('65 hrs')
@@ -102,35 +102,37 @@ describe('loading and locked sections', () => {
     const { logic, fail, data } = make()
     fail.set('bundle', new ApiError({ status: 500, title: 'Boom' }))
     go(logic, 'hours')
-    await vi.waitFor(() => expect(vals(logic).secFailed).toBe(true))
-    expect(vals(logic).secLoading).toBe(false)
+    await vi.waitFor(() => expect(vals(logic).live.secFailed).toBe(true))
+    expect(vals(logic).live.secLoading).toBe(false)
     fail.delete('bundle')
-    click(logic, 'retryLoad')
-    await vi.waitFor(() => expect(vals(logic).secOpen).toBe(true))
+    click(logic, 'live.retryLoad')
+    await vi.waitFor(() => expect(vals(logic).live.secOpen).toBe(true))
     expect(data.status()).toBe('ready')
   })
 
   it('sections the caller cannot read show the locked card with the permission named', async () => {
     const { logic } = make('support')
     go(logic, 'emergency')
-    await vi.waitFor(() => expect(vals(logic).secLocked).toBe(true))
+    await vi.waitFor(() => expect(vals(logic).live.secLocked).toBe(true))
     const v = vals(logic)
     expect(v.secEmergency).toBe(false)
-    expect(v.secOpen).toBe(false)
-    expect(v.lockedTitle).toBe('You don’t have access to Emergency closing')
-    expect(v.lockedBody).toBe('Ask an administrator to give your role the “Emergency closing” permission.')
+    expect(v.live.secOpen).toBe(false)
+    expect(v.live.lockedTitle).toBe('You don’t have access to Emergency closing')
+    expect(v.live.lockedBody).toBe(
+      'Ask an administrator to give your role the “Emergency closing” permission.',
+    )
     await ready(logic, 'employees')
-    expect(vals(logic).secLocked).toBe(false)
+    expect(vals(logic).live.secLocked).toBe(false)
   })
 
   it('Crew has no team, VIP or emergency section but still reads hours', async () => {
     const { logic } = make('crew')
     for (const s of ['employees', 'roles', 'vip', 'emergency']) {
       go(logic, s)
-      expect(vals(logic).secLocked, s).toBe(true)
+      expect(vals(logic).live.secLocked, s).toBe(true)
     }
     await ready(logic, 'hours')
-    expect(vals(logic).secLocked).toBe(false)
+    expect(vals(logic).live.secLocked).toBe(false)
   })
 
   it('opens the emergency section for the #emergency deep link', async () => {
@@ -146,9 +148,9 @@ describe('loading and locked sections', () => {
     await ready(logic, 'emergency')
     const v = vals(logic)
     expect(v.emOpts[0].sub).toBe('Sent by SMS')
-    expect(v.emStrip).toMatch(/appointments? left today, \d+ vehicles? on site/)
-    expect(v.emRequirement).toBe('Requires Management or Super Admin · you have access')
-    expect(v.emPreviewLabel).toBe('Preview · SMS to Liam')
+    expect(v.live.emStrip).toMatch(/appointments? left today, \d+ vehicles? on site/)
+    expect(v.live.emRequirement).toBe('Requires Management or Super Admin · you have access')
+    expect(v.live.emPreviewLabel).toBe('Preview · SMS to Liam')
     expect(v.emReasons).toHaveLength(5)
     await ready(logic, 'vip')
     expect(vals(logic).vipCount).toBe('4 clients')
@@ -556,12 +558,12 @@ describe('VIP', () => {
     )
     click(logic, 'vipNewSet', 'Okaf')
     click(logic, 'addVip')
-    await vi.waitFor(() => expect(vals(logic).hasCandidates).toBe(true))
-    expect(vals(logic).candidates[0].label).toBe('David Okafor · 2019 Ford F-150 · …0103')
+    await vi.waitFor(() => expect(vals(logic).live.hasCandidates).toBe(true))
+    expect(vals(logic).live.candidates[0].name).toBe('David Okafor · 2019 Ford F-150 · …0103')
     fail.delete('addVipClient')
-    click(logic, 'candidates[0].onClick')
+    click(logic, 'live.candidates[0].onClick')
     await vi.waitFor(() => expect(logic.state.vip.clients).toContain('David Okafor'))
-    expect(vals(logic).hasCandidates).toBe(false)
+    expect(vals(logic).live.hasCandidates).toBe(false)
   })
 })
 
@@ -595,8 +597,7 @@ describe('the fixture build is untouched', () => {
     const logic = new (createSettingsLogic(new FixtureData({ storage: null })))({}) as any
     attach(logic)
     const v = logic.renderVals()
-    for (const k of ['secOpen', 'secLoading', 'secLocked', 'secFailed', 'emStrip', 'candidates'])
-      expect(v).not.toHaveProperty(k)
+    expect(v).not.toHaveProperty('live')
     expect(v.emOpts[0].sub).toBe('WhatsApp, with SMS fallback')
   })
 })
