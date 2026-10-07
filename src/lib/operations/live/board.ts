@@ -52,6 +52,8 @@ export interface BoardHandlers {
   togglePay(card: OpsCard): void
   togglePickup(card: OpsCard): void
   alertAction(alert: OpsAlert): void
+  /** The alert card's Open button. */
+  alertOpen(alert: OpsAlert): void
 }
 
 export const LATE_COLOR = '#C2410C'
@@ -510,7 +512,7 @@ export function alertVM(a: OpsAlert, dark: boolean, h: BoardHandlers): VM {
     },
     action: () => h.alertAction(a),
     pri: a.priority,
-    open: () => (a.appointmentId ? h.select(a.appointmentId) : undefined),
+    open: () => h.alertOpen(a),
   }
 }
 

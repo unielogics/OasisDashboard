@@ -227,6 +227,46 @@ describe('advance and the board commands', () => {
   })
 })
 
+describe('alerts that are not about a booking', () => {
+  const extra = (kind: string, appointmentId: string | null, title: string) =>
+    ({
+      key: kind + ':x',
+      kind,
+      tone: 'red',
+      glyph: '!',
+      appointmentId,
+      priority: 0,
+      title,
+      desc: 'Details of ' + title,
+      actionLabel: 'Open',
+      action: { type: 'open', appointmentId },
+    }) as any
+
+  it('a new reply opens the Messages tab, money waiting on Squarespace the Payments tab, a device alert says what it says', async () => {
+    const port = stubPort()
+    const pid = id('completed')
+    port.snap.alerts = [
+      extra('new_reply', pid, 'New reply · Priya Nair'),
+      extra('awaiting_processor', pid, 'Card money waiting'),
+      extra('sms_device_down', null, 'SMS device offline'),
+    ]
+    const l = await boot({ role: 'mgmt' }, port)
+    const [reply, money, device] = l.vals().alerts
+    reply.action()
+    await flushed(l)
+    expect(l.logic.state.selectedId).toBe(pid)
+    expect(l.logic.state.modalTab).toBe('messages')
+    l.logic.setState({ selectedId: null })
+    money.open()
+    expect(l.logic.state.modalTab).toBe('payments')
+    device.action()
+    expect(l.logic.state.toast).toEqual({
+      title: 'SMS device offline',
+      desc: 'Details of SMS device offline',
+    })
+  })
+})
+
 describe('roles: no request, the design toast', () => {
   it('Crew can move jobs and tick the checklist but not take money, message or add add-ons', async () => {
     const l = await boot({ role: 'crew' })

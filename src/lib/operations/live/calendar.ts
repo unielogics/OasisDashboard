@@ -9,6 +9,7 @@ import { calendarSwipe } from '../gesture'
 import type { GestureCtx } from '../gesture'
 import type { CalMode } from '../types'
 import { cardVM } from './board'
+import { plural } from './fmt'
 import type { BoardHandlers, BoardUi, GestureEvent } from './board'
 
 type VM = Record<string, unknown>
@@ -199,7 +200,7 @@ export function calVM(i: CalInputs, h: CalHandlers): VM {
         },
       })
     }
-    calSub = tot + ' appointments this week · tap a day to open it'
+    calSub = plural(tot, 'appointment') + ' this week · tap a day to open it'
   } else {
     const g = monthGrid(date)
     calLabel = MONTHS[g.m - 1] + ' ' + g.y
@@ -252,7 +253,7 @@ export function calVM(i: CalInputs, h: CalHandlers): VM {
         },
       })
     }
-    calSub = tot + ' appointments in ' + MONTHS[g.m - 1] + ' · tap a date to open it'
+    calSub = plural(tot, 'appointment') + ' in ' + MONTHS[g.m - 1] + ' · tap a date to open it'
   }
 
   return {

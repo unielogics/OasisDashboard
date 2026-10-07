@@ -24,6 +24,7 @@ import type {
   FilePhoto,
   MembershipView,
   OperationsPort,
+  OpsAlert,
   OpsBay,
   OpsCard,
   OpsSnapshot,
@@ -713,7 +714,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     await this.cmd.setPickup(c.id, c.pickupState === 'collected' ? 'pending' : 'collected')
   }
 
-  private async alertAction(a: { action: { type: string; appointmentId: string | null } }): Promise<void> {
+  private async alertAction(a: OpsAlert): Promise<void> {
     const id = a.action.appointmentId
     switch (a.action.type) {
       case 'mark_picked_up':
@@ -743,8 +744,22 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
         return
       default:
         // assign_bay, view_file, open
-        if (id) this.select(id)
+        this.alertOpen(a)
     }
+  }
+
+  /** Opens what an alert is about: a reply opens the Messages tab, money waiting on Squarespace the Payments tab. */
+  private alertOpen(a: OpsAlert): void {
+    const id = a.appointmentId ?? a.action.appointmentId
+    if (!id) {
+      // device and sync alerts have no appointment: say what they say
+      this.flash(a.title, a.desc)
+      return
+    }
+    this.select(
+      id,
+      a.kind === 'new_reply' ? 'messages' : a.kind === 'awaiting_processor' ? 'payments' : 'overview',
+    )
   }
 
   private async sendKey(id: string, templateKey: string, label: string): Promise<void> {
@@ -1054,6 +1069,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       togglePay: (c) => void this.togglePay(c),
       togglePickup: (c) => void this.togglePickup(c),
       alertAction: (a) => void this.alertAction(a),
+      alertOpen: (a) => this.alertOpen(a),
       setMode: (mode) => this.setState({ calMode: mode }),
       goTo: (date) => this.setState({ calMode: 'day', calDate: date }),
       nav: (dir) => this.calNav(dir),
