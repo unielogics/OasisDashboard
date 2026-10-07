@@ -19,7 +19,7 @@ import {
   loadStackTarget,
   stackProfiles,
 } from '../tools/parity/live-config'
-import { formatMatrix, matrixOf } from '../tools/parity/live-matrix'
+import { formatMatrix, formatUsage, matrixOf } from '../tools/parity/live-matrix'
 import { LIVE_SCREENS, liveScreens } from '../tools/parity/live-registry'
 import { ALL_SCENARIOS, selectScenarios } from '../tools/parity/scenarios'
 
@@ -105,9 +105,14 @@ async function main(): Promise<number> {
     outDir,
   })
   const cells = matrixOf(result.units)
-  fs.writeFileSync(path.join(outDir, 'matrix.json'), JSON.stringify(cells, null, 1) + '\n')
+  const liveEntries = loadAllowlist(LIVE_ALLOWLIST_FILE)
+  fs.writeFileSync(
+    path.join(outDir, 'matrix.json'),
+    JSON.stringify({ cells, usage: result.usage, swaps: result.swaps }, null, 1) + '\n',
+  )
   console.log('\n' + formatSummary(result))
   console.log('\n' + formatMatrix(cells))
+  console.log('\n' + formatUsage(liveEntries, result))
   return result.ok ? 0 : 1
 }
 

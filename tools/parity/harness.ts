@@ -62,6 +62,10 @@ export interface HarnessResult {
   units: UnitResult[]
   problems: string[]
   outDir: string
+  /** diff-side entries: differences matched and steps applied */
+  usage: Array<{ id: string; matched: number; steps: number }>
+  /** pre-render swaps applied to the originals, per screen */
+  swaps: Array<{ screen: Screen; id: string; found: number }>
 }
 
 export function loadConsoleBaseline(file = CONSOLE_BASELINE_FILE): Partial<Record<Screen, string[]>> {
@@ -162,6 +166,10 @@ export async function runHarness(opts: HarnessOptions): Promise<HarnessResult> {
   const stepProblems = [...tracker.problems]
   const finished = tracker.finish()
   const problems = opts.staleCheck === false ? stepProblems : finished
+  const usage = tracker.usage()
+  const swaps = SCREENS.flatMap((screen) =>
+    (origServer.swapResults[screen] ?? []).map((r) => ({ screen, id: r.id, found: r.found })),
+  )
   const unitFailures = units.filter((u) => !u.ok)
   const ok = unitFailures.length === 0 && problems.length === 0 && units.length > 0
   const summary = {
@@ -177,9 +185,11 @@ export async function runHarness(opts: HarnessOptions): Promise<HarnessResult> {
       durationMs: u.durationMs,
     })),
     allowlistProblems: problems,
+    usage,
+    swaps,
   }
   fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 1) + '\n')
-  return { ok, units, problems, outDir }
+  return { ok, units, problems, outDir, usage, swaps }
 }
 
 export function formatSummary(r: HarnessResult): string {

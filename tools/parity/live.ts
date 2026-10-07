@@ -36,7 +36,7 @@ export class LiveNotReadyError extends Error {}
  *    user's server preference (the server value wins over localStorage in the live variant);
  *  - the browser's Date is pinned to the stack's frozen instant but timers run for real (react-query, rAF, SSE);
  *  - "ready" = the screen mounted, the event stream is connected, no API request is in flight and the DOM stopped
- *    changing for a few polls, with no loading text on screen.
+ *    changing for QUIET_MS, with no loading text on screen.
  */
 export class LiveDriver extends PageDriver {
   readonly side = 'port' as const

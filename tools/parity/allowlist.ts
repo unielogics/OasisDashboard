@@ -354,6 +354,13 @@ export class AllowlistTracker {
     return local
   }
 
+  /** Per entry: differences matched in total and the number of steps the entry applied to (swap entries are not tracked). */
+  usage(): Array<{ id: string; matched: number; steps: number }> {
+    return this.entries
+      .filter((e) => !e.swap)
+      .map((e) => ({ id: e.id, matched: this.total.get(e.id) ?? 0, steps: this.appliedUnits.get(e.id) ?? 0 }))
+  }
+
   /** Call once at the end of a run; entries that applied somewhere but never matched anything are stale. */
   finish(): string[] {
     for (const e of this.entries) {

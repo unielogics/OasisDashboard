@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { cellLabel, classifyStep, formatMatrix, matrixOf } from './live-matrix'
+import type { AllowEntry } from './allowlist'
+import { cellLabel, classifyStep, formatMatrix, formatUsage, matrixOf } from './live-matrix'
 import { CHECK_NAMES, type CheckName, type CheckResult, type StepResult, type UnitResult } from './types'
 
 const check = (name: CheckName, over: Partial<CheckResult> = {}): CheckResult => ({
@@ -64,5 +65,45 @@ describe('live matrix', () => {
     expect(table).toContain(
       '3 runs, 3 steps: 1 zero, 1 allow-listed (2 differences), 1 unresolved steps (2 differences)',
     )
+  })
+
+  it('reports how each live entry was used, with its DV ids', () => {
+    const entries: AllowEntry[] = [
+      {
+        id: 'L-payments-01',
+        screen: 'payments',
+        kind: 'text',
+        reason: 'DV-401: ids and DV-402',
+        swap: { find: 'a', replace: 'b', count: 1 },
+      },
+      {
+        id: 'L-payments-05',
+        screen: 'payments',
+        kind: 'element-added',
+        reason: 'DV-103 header',
+        matcher: { loc: 'x' },
+      },
+      {
+        id: 'L-payments-06',
+        screen: 'payments',
+        kind: 'element-added',
+        reason: 'DV-104 never matched',
+        matcher: { loc: 'y' },
+      },
+    ]
+    const table = formatUsage(entries, {
+      usage: [
+        { id: 'L-payments-05', matched: 7, steps: 3 },
+        { id: 'L-payments-06', matched: 0, steps: 0 },
+      ],
+      swaps: [{ screen: 'payments', id: 'L-payments-01', found: 1 }],
+    })
+    expect(table).toContain(
+      '| L-payments-01 | payments | text | DV-401, DV-402 | swap, 1 replacement(s) in payments |',
+    )
+    expect(table).toContain(
+      '| L-payments-05 | payments | element-added | DV-103 | 7 differences over 3 steps |',
+    )
+    expect(table).toContain('| L-payments-06 | payments | element-added | DV-104 | applied to no step |')
   })
 })

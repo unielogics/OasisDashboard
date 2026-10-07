@@ -5,8 +5,9 @@
 //   pnpm live:up --name lparity --api-port 4024 --web-port 3224 --profile design,parity-ops,parity-pay --freeze 2026-06-13T10:36:00-04:00 --backend ~/oasis/wt/d10-be
 //   pnpm parity:live:selftest --stack lparity --backend ~/oasis/wt/d10-be
 //
-// Phases: 1 baseline (must pass), 2 four seed changes applied straight to the stack's schema (must fail on the right
-// checks of the right screens), 3 changes reverted (must pass again). The changes are reverted even when a phase throws.
+// Phases: 1 baseline (must pass), 2 four seed changes, one at a time, applied straight to the stack's schema (each must
+// fail the DOM, renderVals and pixel checks of the screen it touches), 3 everything reverted (must pass again). A change is
+// reverted even when its phase throws.
 import '../tools/parity/env'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -56,6 +57,7 @@ function sql(statement: string): string {
 const S = schema
 interface Change {
   what: string
+  screen: 'payments' | 'settings'
   apply: string
   revert: string
 }
@@ -64,21 +66,25 @@ interface Change {
 const CHANGES: Change[] = [
   {
     what: 'Payments: a seeded price (the first item of INV-20608 gets $1.00 dearer)',
+    screen: 'payments',
     apply: `update ${S}.invoice_items set price_cents = price_cents + 100 where position = 0 and invoice_id = (select id from ${S}.invoices where invoice_no = 20608)`,
     revert: `update ${S}.invoice_items set price_cents = price_cents - 100 where position = 0 and invoice_id = (select id from ${S}.invoices where invoice_no = 20608)`,
   },
   {
     what: 'Payments: a seeded label (the client of INV-20608 is renamed)',
+    screen: 'payments',
     apply: `update ${S}.invoices set client_name = 'Aisha Rahmann' where invoice_no = 20608 and client_name = 'Aisha Rahman'`,
     revert: `update ${S}.invoices set client_name = 'Aisha Rahman' where invoice_no = 20608 and client_name = 'Aisha Rahmann'`,
   },
   {
     what: 'Settings: a seeded price (every package gets $1.00 dearer)',
+    screen: 'settings',
     apply: `update ${S}.services set price_cents = price_cents + 100 where kind = 'package'`,
     revert: `update ${S}.services set price_cents = price_cents - 100 where kind = 'package'`,
   },
   {
     what: 'Settings: a seeded label (the package Express Hand Wash is renamed)',
+    screen: 'settings',
     apply: `update ${S}.services set name = 'Express Hand Wash!' where kind = 'package' and name = 'Express Hand Wash'`,
     revert: `update ${S}.services set name = 'Express Hand Wash' where kind = 'package' and name = 'Express Hand Wash!'`,
   },
@@ -90,9 +96,13 @@ const servicesStep: Scenario = {
   title: 'open Packages & checklists',
   steps: [clickBtn('section-services', 'Packages & checklists')],
 }
-const scenarios: Scenario[] = [...selectScenarios({ screen: 'payments', scenario: 'initial' }), servicesStep]
+const SCENARIOS: Record<'payments' | 'settings', Scenario[]> = {
+  payments: selectScenarios({ screen: 'payments', scenario: 'initial' }),
+  settings: [servicesStep],
+}
+const both = [...SCENARIOS.payments, ...SCENARIOS.settings]
 
-async function phase(name: string, theme: Theme = 'light'): Promise<HarnessResult> {
+async function phase(name: string, scenarios: Scenario[], theme: Theme = 'light'): Promise<HarnessResult> {
   console.log(`\n== ${name}`)
   return runHarness({
     scenarios,
@@ -128,33 +138,28 @@ const expectPass = (label: string, r: HarnessResult) => {
     )
 }
 
-const applied: Change[] = []
-try {
-  expectPass('1 baseline', await phase('baseline'))
+expectPass('1 baseline', await phase('baseline', both))
 
-  for (const c of CHANGES) {
-    sql(c.apply)
-    applied.push(c)
+// 2: each change alone, on the screen it touches, must be seen by the DOM, renderVals and pixel checks
+for (const [i, c] of CHANGES.entries()) {
+  sql(c.apply)
+  try {
     console.log(`changed  ${c.what}`)
-  }
-  const broken = await phase('broken')
-  for (const [screen, must] of [
-    ['payments', ['dom', 'vals', 'pixels']],
-    ['settings', ['dom', 'vals', 'pixels']],
-  ] as const) {
-    const f = failing(broken, screen)
-    console.log(`2 broken ${screen}: failing checks ${[...f].join(', ') || 'none'}`)
-    for (const c of must)
-      if (!f.has(c)) problems.push(`broken ${screen}: the ${c} check did not notice the changed seed`)
-  }
-  if (broken.ok) problems.push('broken: the run passed although four seeded values were changed')
-} finally {
-  for (const c of applied.reverse()) {
+    const r = await phase(`broken-${i + 1}`, SCENARIOS[c.screen])
+    const f = failing(r, c.screen)
+    console.log(
+      `2.${i + 1} ${c.screen}: ${r.ok ? 'PASS' : 'FAIL'}, failing checks: ${[...f].join(', ') || 'none'}`,
+    )
+    if (r.ok) problems.push(`${c.what}: the run passed although the seed was changed`)
+    for (const check of ['dom', 'vals', 'pixels'] as const)
+      if (!f.has(check)) problems.push(`${c.what}: the ${check} check did not notice`)
+  } finally {
     sql(c.revert)
     console.log(`reverted ${c.what}`)
   }
 }
-expectPass('3 reverted', await phase('reverted'))
+
+expectPass('3 reverted', await phase('reverted', both))
 
 if (problems.length) {
   console.error('\nSELF-TEST FAILED\n  ' + problems.join('\n  '))

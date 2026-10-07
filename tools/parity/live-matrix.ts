@@ -1,3 +1,4 @@
+import type { AllowEntry } from './allowlist'
 import type { Screen, Theme } from './config'
 import { CHECK_NAMES, type StepResult, type UnitResult } from './types'
 
@@ -91,5 +92,34 @@ export function formatMatrix(cells: readonly MatrixCell[]): string {
     '',
     `${cells.length} runs, ${t((c) => c.steps)} steps: ${t((c) => c.zero)} zero, ${t((c) => c.allowedSteps)} allow-listed (${t((c) => c.allowed)} differences), ${t((c) => c.unresolvedSteps)} unresolved steps (${t((c) => c.unresolved)} differences)`,
   )
+  return lines.join('\n')
+}
+
+export interface UsageInput {
+  usage: ReadonlyArray<{ id: string; matched: number; steps: number }>
+  swaps: ReadonlyArray<{ screen: Screen; id: string; found: number }>
+}
+
+/** One row per live allow-list entry: how it was used in the run, and the DV lines it rests on. */
+export function formatUsage(entries: readonly AllowEntry[], u: UsageInput): string {
+  const lines = ['| id | screen | kind | DV | use |', '| --- | --- | --- | --- | --- |']
+  for (const e of entries) {
+    const dv = [...new Set(e.reason.match(/DV-\d{3}/g) ?? [])].join(', ')
+    let use: string
+    if (e.swap) {
+      const hits = u.swaps.filter((x) => x.id === e.id)
+      use = hits.length
+        ? `swap, ${hits.map((h) => `${h.found} replacement(s) in ${h.screen}`).join('; ')}`
+        : 'swap, not applied'
+    } else {
+      const x = u.usage.find((y) => y.id === e.id)
+      use = x
+        ? x.steps
+          ? `${x.matched} differences over ${x.steps} steps`
+          : 'applied to no step'
+        : 'applied to no step'
+    }
+    lines.push(`| ${e.id} | ${e.screen} | ${e.kind} | ${dv} | ${use} |`)
+  }
   return lines.join('\n')
 }
