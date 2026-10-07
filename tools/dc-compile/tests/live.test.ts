@@ -251,13 +251,22 @@ describe('live variant of the three screens', () => {
     }
   })
 
+  // The Payments wave adds Squarespace states that its live view model owns (DV-214, DV-215); nothing else may leave live.*.
+  const PAYMENTS_OWN =
+    /^(d\.ledger\[\]\.(awaiting|confirm|confirmStyle|confirmNote)|sh\.(needsUrl|urlRaw|setUrl|hasUrlError|urlError))$/
+
   it('only the chip, view-as and bar bindings differ: every live binding is under live.*', () => {
     for (const s of SCREENS) {
       const p = JSON.parse(text(prod.perScreen[s]![`${s}.bindings.json`])) as Bindings
       const l = JSON.parse(text(live.perScreen[s]![`${s}.bindings.json`])) as Bindings
       const added = l.paths.filter((x) => !p.paths.includes(x))
       expect(added.length, s).toBeGreaterThan(5)
-      for (const a of added) expect(a, s).toMatch(/^live\.|^r\.(name|lim|style|onClick)$/)
+      for (const a of added)
+        expect(a, s).toMatch(
+          s === 'payments'
+            ? new RegExp(`${/^live\.|^r\.(name|lim|style|onClick)$/.source}|${PAYMENTS_OWN.source}`)
+            : /^live\.|^r\.(name|lim|style|onClick)$/,
+        )
       expect(l.roots).toContain('live')
     }
   })

@@ -3,7 +3,6 @@
 // the screens); every mutation takes the action's Idempotency-Key and is wrapped by command() for optimistic
 // patches, rollback and toasts.
 import type {
-  AdjustInput,
   AdvanceInput,
   AppointmentFile,
   AvailabilityQuery,
@@ -12,30 +11,22 @@ import type {
   Catalog,
   ClosureInput,
   ClosureItem,
-  CollectInput,
   CommandOptions,
-  CreditInput,
-  Cursor,
   EmergencyCloseInput,
   EmergencyPreview,
   EmergencyState,
   EmployeeQuery,
   EmployeeRow,
   HoursSettings,
-  InvoiceDetail,
-  InvoiceQuery,
-  InvoiceRow,
   JsonObject,
   MessageInput,
   OpsSnapshot,
   OpsWindow,
-  PaymentRange,
-  PaymentsSummary,
-  RefundInput,
   RolesBundle,
   ServiceItem,
   Slot,
 } from './types'
+import type { PaymentsPort } from './payments'
 import type { SettingsApi } from './settings-api'
 
 export interface CatalogPort {
@@ -89,21 +80,6 @@ export interface OpsPort {
 export interface MessagesPort {
   thread(appointmentId: string): Promise<JsonObject[]>
   send(appointmentId: string, input: MessageInput, o?: CommandOptions): Promise<JsonObject>
-}
-
-export interface PaymentsPort {
-  summary(range: PaymentRange): Promise<PaymentsSummary>
-  /** Follows keyset cursors until the list is complete (the design has no pagination). */
-  invoices(q: InvoiceQuery): Promise<InvoiceRow[]>
-  invoicePage(q: InvoiceQuery, cursor?: string): Promise<Cursor<InvoiceRow>>
-  invoice(id: string): Promise<InvoiceDetail>
-  collect(id: string, input: CollectInput, o?: CommandOptions): Promise<InvoiceDetail>
-  refund(id: string, input: RefundInput, o?: CommandOptions): Promise<InvoiceDetail>
-  approveRefund(id: string, eventId: string, o?: CommandOptions): Promise<InvoiceDetail>
-  denyRefund(id: string, eventId: string, o?: CommandOptions): Promise<InvoiceDetail>
-  adjust(id: string, input: AdjustInput, o?: CommandOptions): Promise<InvoiceDetail>
-  issueCredit(id: string, input: CreditInput, o?: CommandOptions): Promise<InvoiceDetail>
-  voidPayment(id: string, eventId: string, o?: CommandOptions): Promise<InvoiceDetail>
 }
 
 export interface PeoplePort {

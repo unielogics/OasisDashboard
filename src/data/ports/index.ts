@@ -1,6 +1,7 @@
 export * from './fixture'
 export * from './fixtures'
 export * from './live'
+export * from './payments'
 export * from './ports'
 export * from './types'
 export * from './settings-api'

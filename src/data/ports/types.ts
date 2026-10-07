@@ -146,44 +146,6 @@ export interface MessageInput {
   templateKey?: string
 }
 
-// ---- payments ----------------------------------------------------------------------------------------------------
-export type PaymentRange = 'today' | '7d' | '30d' | 'mtd'
-export type InvoiceFilter = 'all' | 'unpaid' | 'refunds' | 'adjusted' | 'credits'
-export interface InvoiceQuery {
-  range: PaymentRange
-  filter?: InvoiceFilter
-  q?: string
-}
-export interface PaymentsSummary extends JsonObject {
-  rangeLabel: string
-}
-export interface InvoiceRow extends JsonObject {
-  id: string
-}
-export interface InvoiceDetail extends JsonObject {
-  id: string
-  version: number
-}
-export interface CollectInput {
-  method: string
-  amountCents: number
-}
-export interface RefundInput {
-  amountCents: number
-  reason: string
-  dest: 'original' | 'credit'
-  itemIds?: string[]
-}
-export interface AdjustInput {
-  amountCents: number
-  reason: string
-}
-export interface CreditInput {
-  amountCents: number
-  reason: string
-  expiry: string
-}
-
 // ---- people and settings -----------------------------------------------------------------------------------------
 export interface EmployeeQuery {
   q?: string
