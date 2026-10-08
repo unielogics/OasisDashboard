@@ -129,7 +129,11 @@ export function formatUsage(entries: readonly AllowEntry[], u: UsageInput): stri
  * One result for runs made screen by screen (each screen on its own stack): units and problems in order, the usage of a
  * diff-side entry summed, and every swap once per screen.
  */
-export function mergeResults(results: readonly HarnessResult[], outDir: string): HarnessResult {
+export function mergeResults(
+  results: readonly HarnessResult[],
+  outDir: string,
+  opts: { staleCheck?: boolean } = {},
+): HarnessResult {
   const usage = new Map<string, { id: string; matched: number; steps: number }>()
   for (const r of results)
     for (const u of r.usage) {
@@ -140,8 +144,13 @@ export function mergeResults(results: readonly HarnessResult[], outDir: string):
   for (const r of results) for (const s of r.swaps) swaps.set(`${s.screen}/${s.id}`, s)
   const units = results.flatMap((r) => r.units)
   const problems = results.flatMap((r) => r.problems)
+  // an entry that applied to some step of these runs but never matched anything there is stale
+  if (opts.staleCheck)
+    for (const u of usage.values())
+      if (u.steps > 0 && u.matched === 0)
+        problems.push(`${u.id}: never matched anything in this run (stale entry)`)
   return {
-    ok: results.length > 0 && results.every((r) => r.ok),
+    ok: results.length > 0 && results.every((r) => r.ok) && problems.length === 0,
     units,
     problems,
     outDir,

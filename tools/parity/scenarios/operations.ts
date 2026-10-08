@@ -68,6 +68,7 @@ export const operationsScenarios: Scenario[] = [
   {
     id: 'touch-long-press-drag',
     screen: 'operations',
+    writes: true,
     title: 'touch: long-press (380 ms) a timeline card, drag it onto the open bay, drop, wait out the toast',
     touch: true,
     tags: ['gesture'],
@@ -105,6 +106,7 @@ export const operationsScenarios: Scenario[] = [
   {
     id: 'touch-swipe-advance',
     screen: 'operations',
+    writes: true,
     title: 'touch: swipe a timeline card right past 90 px to advance it',
     touch: true,
     tags: ['gesture'],
@@ -138,6 +140,7 @@ export const operationsScenarios: Scenario[] = [
   {
     id: 'mouse-drag-to-bay',
     screen: 'operations',
+    writes: true,
     title: 'mouse: drag a timeline card (6 px threshold) onto the open bay and drop',
     tags: ['gesture'],
     steps: [

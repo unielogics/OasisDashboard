@@ -627,6 +627,617 @@
       "matcher": {
         "loc": "$"
       }
+    },
+    {
+      "id": "L-operations-20",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401/DV-413: the Week range lists the week's real appointments: the seed creates the days after tomorrow from the design's own calendar generator (tomorrow keeps the fixture only, backend test/golden/ops deviation 11) as bookings only, without invoices, add-ons or memberships, so their cards read 'No invoice' with no member or add-on chip. The design's Week timeline only had the twelve fixture appointments. The oracle's Week pool gets its generated appointments for days 2 to 6, as the seed holds them.",
+      "swap": {
+        "find": "    let pool=s.appts.filter(match);",
+        "replace": "    let pool=(s.range==='week'?[...s.appts,...[2,3,4,5,6].flatMap(o=>this.genDay(o)).map(a=>({...a,member:null,addons:[],pay:'none'}))]:s.appts).filter(match);",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-21",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-411: the timeline puts a divider before every new day (Today, Tomorrow, then the date: 'Monday, June 15'); the design only knew Today and Tomorrow. The oracle gets the same dividers before it renders.",
+      "swap": {
+        "find": "dividerLabel: a.day===1 && lastDay!==1 ? 'Tomorrow' : (groups.length===0?'Today':''),",
+        "replace": "dividerLabel: (groups.length===0||a.day!==lastDay) ? (a.day===0?'Today':a.day===1?'Tomorrow':this.dateFor(a.day).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})) : '',",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-22",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-411: the divider of every new day is shown (see L-operations-21).",
+      "swap": {
+        "find": "dividerStyle: (a.day===1 && lastDay!==1) || groups.length===0 ?",
+        "replace": "dividerStyle: groups.length===0 || a.day!==lastDay ?",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-23",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: the file's phone line is the customer's number on record; the seeded design customers carry synthetic 555-01xx numbers (the plan's guard so a seed never texts a stranger) instead of the fixture's. The oracle shows the seeded numbers before it renders.",
+      "swap": {
+        "find": "phone:sa.cust.phone,",
+        "replace": "phone:({'Maria Delgado':'(305) 555-0102','David Okafor':'(786) 555-0103','Priya Nair':'(305) 555-0104','Jonathan Franco':'(305) 555-0105','Sofia Marchetti':'(786) 555-0106','Liam Chen':'(305) 555-0107','Marcus Webb':'(786) 555-0108','Grace Adeyemi':'(305) 555-0109','Aisha Rahman':'(786) 555-0110','Tom Bradley':'(305) 555-0111','Elena Volkov':'(786) 555-0112','Nathan Brooks':'(305) 555-0113'})[sa.cust.name]||sa.cust.phone,",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-24",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-404: SMS only; the file header chip reads 'SMS opted-in'.",
+      "swap": {
+        "find": "WhatsApp opted-in",
+        "replace": "SMS opted-in",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-25",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-405/DV-404: an outgoing bubble ends its time with the delivery state (the seeded design texts are delivered: ' \u00b7 Delivered') and an automated text is tagged 'Automated \u00b7 SMS' (SMS only). The oracle's bubbles get the same before it renders.",
+      "swap": {
+        "find": "return { text:m.text, time:m.time, channelTag: m.from==='system'?'Automated \u00b7 '+m.channel:",
+        "replace": "return { text:m.text, time:m.time+(out?' \u00b7 Delivered':''), channelTag: m.from==='system'?'Automated \u00b7 SMS':",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-26",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-404: the sheet's opt-in toggle reads 'SMS' (SMS only).",
+      "swap": {
+        "find": "WhatsApp</button>",
+        "replace": "SMS</button>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-27",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-402: the slot grid is the day's real bay-aware availability (GET /availability on the seeded day: past slots hidden, 11:00 AM to 2:00 PM would overbook a bay, 2:30 PM first free, last start 4:00 PM by the cutoff; backend test/golden/ops deviation 10); the design hard-coded eight slots. The oracle gets the same grid before it renders.",
+      "swap": {
+        "find": "const slotTimes=['10:30 AM','11:00 AM','11:30 AM','12:30 PM','1:00 PM','2:30 PM','4:00 PM','4:30 PM'];",
+        "replace": "const slotTimes=['11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM'];",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-28",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-402: the blocked slots are the server's (no seeded VIP hold falls on these slots of the day, see L-operations-27).",
+      "swap": {
+        "find": "const blocked=['11:00 AM','1:00 PM'], vipHeld=['11:30 AM','12:30 PM'];",
+        "replace": "const blocked=['11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM'], vipHeld=[];",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-29",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-402/DV-420: a greyed slot stays pickable for a role with sched.override (it then asks for the override reason), so its cursor is the pointer for Rafael; the design showed not-allowed.",
+      "swap": {
+        "find": "cursor:off?'not-allowed':'pointer',",
+        "replace": "cursor:'pointer',",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-30",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-403: the sheet's static name, phone, vehicle and plate boxes are real inputs in the design's box style (an <input> where the design had a <div> with placeholder text).",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new", "open-walkin"],
+        "checks": ["dom", "style"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[1]/div[3]/div[1]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[1]/div[3]/div[1]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[1]/div[3]/input[1]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[1]/div[3]/div[3]/div[0]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[1]/div[3]/div[3]/div[0]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[1]/div[3]/div[3]/input[0]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[3]/div[1]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[3]/div[1]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[3]/div[3]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[3]/div[3]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[3]/input[1]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[3]/input[3]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[0]>div[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[0]>div[1]>**",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[1]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-31",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-403/DV-404: the SMS opt-in toggle of the sheet is a real control and says what it does (title 'Text this customer').",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new", "open-walkin"]
+      },
+      "matcher": {
+        "loc": "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[1]/div[3]/div[3]/button[1]",
+        "name": "title",
+        "port": "^Text this customer$"
+      }
+    },
+    {
+      "id": "L-operations-32",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-405/DV-406/DV-408/DV-410/DV-415/DV-417: the live file view model adds the composer, the SMS chip, the Payment pending box, the tender choice, the payment link input, Apply credit, the upgrade line and the pickup state; only keys the design does not have.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["open-file", "tab-*"]
+      },
+      "matcher": {
+        "loc": "sel.*",
+        "orig": "^$"
+      }
+    },
+    {
+      "id": "L-operations-33",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-406/DV-417: the quick-reply pills carry their style (the disabled look for a role without msg.send); the design styled them in the template.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["open-file", "tab-*"]
+      },
+      "matcher": {
+        "loc": "sel.templates[*].style",
+        "orig": "^$"
+      }
+    },
+    {
+      "id": "L-operations-34",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-407: a photo slot is a real photo (thumbnail URL, note) or the add tile (file input: accept, busy, disabled, onFile); the design's slots were grey icons.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "checks": ["vals"],
+        "steps": ["open-file", "tab-*"]
+      },
+      "matcher": {
+        "loc": ["sel.photoSections[*].slots[*]", "sel.photoSections[*].slots[*].**"]
+      }
+    },
+    {
+      "id": "L-operations-35",
+      "screen": "operations",
+      "kind": "reorder",
+      "reason": "DV-407: the photo slot style objects list their properties in another order (the add tile is positioned for its file input); the template binds by name.",
+      "expect": {
+        "min": 0
+      },
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "checks": ["vals"],
+        "steps": ["open-file", "tab-*"]
+      },
+      "matcher": {
+        "loc": ["sel.photoSections[*].slots[*]", "sel.photoSections[*].slots[*].style"]
+      }
+    },
+    {
+      "id": "L-operations-36",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-415/DV-401: the membership figures are the membership port's (renewal, credits left and used, months, retention label); Marcus Webb is not a member, so they are empty, where the design computed fixed values (Jul 12, 1 credit, 8 + visits % 6 months, 'Loyal' by visit count) for everyone.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "checks": ["vals"],
+        "steps": ["open-file", "tab-*"]
+      },
+      "matcher": {
+        "loc": [
+          "sel.renewDate",
+          "sel.creditsLeft",
+          "sel.creditsUsed",
+          "sel.memberMonths",
+          "sel.riskLabel",
+          "sel.riskDesc",
+          "sel.riskStyle.*"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-38",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-407: the seeded photo rows have no object behind them, so their thumbnail requests answer 404 (the browser logs it) before the slot falls back to the design's tile.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-photos"],
+        "checks": ["console"]
+      },
+      "matcher": {
+        "loc": "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    },
+    {
+      "id": "L-operations-39",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-407: the photo slots are real: a photo is an image (falling back to the design's tile when it cannot load) and the add tile carries a file input over it (positioned, overflow hidden).",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-photos"],
+        "checks": ["dom", "style"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[*]/div[3]/div[*]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[*]/div[3]/div[*]/**",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[*]>div[1]>div[*]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[*]>div[1]>div[*]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-40",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-408: Mark Paid first asks Card or Cash: the tender row sits above Send payment link, so the two buttons under it move down 58 px and the panel grows.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-payments"],
+        "checks": ["dom", "style"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/div[3]/div[3]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/div[3]/div[3]/**",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]>div[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]>div[1]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-41",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-408: pixels of the Payments tab's right column under the balance card (the Card/Cash row and the two buttons it moves down, with their shadows).",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-payments"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 886,
+          "y": 440,
+          "w": 404,
+          "h": 240
+        }
+      }
+    },
+    {
+      "id": "L-operations-42",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-417: the file's commands carry their enabled look in the style (opacity 1, pointer; a role that cannot use them gets the disabled look) and an empty title (the role's reason when disabled).",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-messages", "tab-payments"],
+        "checks": ["dom"]
+      },
+      "matcher": {
+        "loc": "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/**",
+        "name": "style",
+        "port": "opacity: 1; cursor: pointer;$"
+      }
+    },
+    {
+      "id": "L-operations-43",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-417: see L-operations-42 (the empty title of an enabled command).",
+      "expect": {
+        "min": 0
+      },
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-messages", "tab-payments"],
+        "checks": ["dom"]
+      },
+      "matcher": {
+        "loc": "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/**",
+        "name": "title",
+        "port": "^$",
+        "orig": "^$"
+      }
+    },
+    {
+      "id": "L-operations-44",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-406: the 'Type a message\u2026' box is a real input (Enter sends) in the design's box style.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-messages"],
+        "checks": ["dom", "style"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/div[5]/div[3]/div[1]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/div[5]/div[3]/div[1]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/div[5]/div[3]/input[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]>div[2]>div[1]>div[0]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]>div[2]>div[1]>input[0]"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-45",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-406: the composer's placeholder is an input placeholder, which the browser draws a fraction of a pixel off the design's plain text.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["tab-messages"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 428,
+          "y": 792,
+          "w": 140,
+          "h": 26
+        }
+      }
+    },
+    {
+      "id": "L-operations-46",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-402: a walk-in has no slot grid (it takes the next slot of the grid) and books with 'Check in walk-in'. The oracle's sheet hides the slot section and changes the button for its Walk-in title before it renders (template part 1 of 3).",
+      "swap": {
+        "find": "<div>\n            <div style=\"font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;\">Available slots",
+        "replace": "<sc-if value=\"{{ newIsAppt }}\" hint-placeholder-val=\"{{ true }}\"><div>\n            <div style=\"font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;\">Available slots",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-47",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-402: see L-operations-46 (template part 2 of 3: the end of the slot section).",
+      "swap": {
+        "find": "manager override required</div>\n          </div>",
+        "replace": "manager override required</div>\n          </div></sc-if>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-48",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-402: see L-operations-46 (template part 3 of 3: the button label).",
+      "swap": {
+        "find": ">Book Appointment</button>",
+        "replace": "><sc-if value=\"{{ newIsAppt }}\" hint-placeholder-val=\"{{ true }}\">Book Appointment</sc-if><sc-if value=\"{{ newIsWalkin }}\" hint-placeholder-val=\"{{ false }}\">Check in walk-in</sc-if></button>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-49",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-402: see L-operations-46 (the oracle's logic says which sheet is open).",
+      "swap": {
+        "find": "newOpen:s.newOpen, newTitle:s.newTitle,",
+        "replace": "newOpen:s.newOpen, newTitle:s.newTitle, newIsAppt:s.newTitle!=='Walk-in Booking', newIsWalkin:s.newTitle==='Walk-in Booking',",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-50",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-402: the two flags the oracle gets from L-operations-49 for its sheet; the live sheet reads nf.showSlots and nf.submitLabel instead.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "matcher": {
+        "loc": ["newIsAppt", "newIsWalkin"],
+        "port": "^$"
+      }
+    },
+    {
+      "id": "L-operations-51",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-415: a non-member gets the server's upgrade line, which offers a plan only with 3 or more visits in 60 days; Marcus Webb (the file the scenarios open) has fewer in the seed, so it reads 'Marcus Webb is not a member yet. Offer a plan at check-out.' where the design printed a fixed '4 visits in 60 days' candidate line. The oracle gets that sentence before it renders.",
+      "swap": {
+        "find": "{{ sel.name }} is a strong upgrade candidate \u2014 4 visits in 60 days. Offer Essential at check-out.",
+        "replace": "Marcus Webb is not a member yet. Offer a plan at check-out.",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-37",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-416/DV-401: History is the customer's real completed visits followed by the appointment's activity log, with real totals; for Marcus Webb (the file the scenarios open) that is no completed visit, $20 paid (today's deposit), no cadence, and the two log lines of yesterday. The design invented three past visits, visits*148 and '18 days'. The oracle gets those values before it renders.",
+      "swap": {
+        "find": "history:sa.history, visitCount:String(sa.visits), lifetimeSpend:this.money(sa.visits*148), avgFreq:'18 days',",
+        "replace": "history:[{day:'4:12',mon:'PM',service:'Confirmation + reminder sent',note:'Yesterday \u00b7 SMS',amount:'',fav:false},{day:'4:02',mon:'PM',service:'Booking created',note:'Yesterday \u00b7 Internal',amount:'',fav:false}], visitCount:'0', lifetimeSpend:'$20', avgFreq:'\u2014',",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-52",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-402: a date row (Today \u00b7 Saturday, June 13 with \u2039 \u203a) sits between the slot heading and the grid, so the grid and the note under it move down 58 px and the sheet body grows.",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new"],
+        "checks": ["dom", "style"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[7]/div[2]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[7]/div[2]/**",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[3]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[3]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-53",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-402: pixels of the slot area under its heading (the date row and the grid it moves down, to the footer).",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 985,
+          "y": 780,
+          "w": 472,
+          "h": 130
+        }
+      }
+    },
+    {
+      "id": "L-operations-54",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-403: the Full name box is an input; the browser draws its placeholder a fraction of a pixel off the design's plain text.",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new", "open-walkin"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 996,
+          "y": 148,
+          "w": 80,
+          "h": 28
+        }
+      }
+    },
+    {
+      "id": "L-operations-55",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-403: the Phone number box is an input (placeholder drawn a fraction of a pixel off, see L-operations-54).",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new", "open-walkin"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 996,
+          "y": 208,
+          "w": 110,
+          "h": 28
+        }
+      }
+    },
+    {
+      "id": "L-operations-56",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-403: the Year / Make / Model box is an input (placeholder drawn a fraction of a pixel off, see L-operations-54).",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new", "open-walkin"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 996,
+          "y": 301,
+          "w": 140,
+          "h": 28
+        }
+      }
+    },
+    {
+      "id": "L-operations-57",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-403: the License plate box is an input (placeholder drawn a fraction of a pixel off, see L-operations-54).",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new", "open-walkin"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 1236,
+          "y": 301,
+          "w": 100,
+          "h": 28
+        }
+      }
+    },
+    {
+      "id": "L-operations-58",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: a card's pay line is the server's; an appointment with no invoice (the seed's generated days, see L-operations-20) reads 'No invoice'. The oracle's card gets that label for such an appointment.",
+      "swap": {
+        "find": "payLabel: a.pay==='paid'?'Paid':",
+        "replace": "payLabel: a.pay==='none'?'No invoice':a.pay==='paid'?'Paid':",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-59",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: 'No invoice' is drawn in the muted ink (see L-operations-58).",
+      "swap": {
+        "find": "payStyle: { fontSize:'11.5px',fontWeight:800, color: a.pay==='paid' ? (dark?'#5FC9A6':'#0D9488') : '#C2410C' }",
+        "replace": "payStyle: { fontSize:'11.5px',fontWeight:800, color: a.pay==='none' ? 'var(--ink3)' : a.pay==='paid' ? (dark?'#5FC9A6':'#0D9488') : '#C2410C' }",
+        "count": 1,
+        "target": "logic"
+      }
     }
   ]
 }

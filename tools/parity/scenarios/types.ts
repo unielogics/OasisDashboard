@@ -25,6 +25,11 @@ export interface Scenario {
   /** enable touch emulation (hasTouch) on both pages */
   touch?: boolean
   tags?: readonly string[]
+  /**
+   * The scenario changes server data when it runs against the live API (a drop assigns a bay, a swipe advances a job). The
+   * fixture harness ignores it; the live run saves the stack's schema before each run of it and restores it afterwards.
+   */
+  writes?: boolean
   /** the harness always snapshots an "initial" step first, right after load; these run after it */
   steps: readonly ScenarioStep[]
 }

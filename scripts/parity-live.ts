@@ -21,11 +21,13 @@ import {
   LIVE_FREEZE,
   LIVE_REPORTS_DIR,
   StackError,
+  readStack,
   screenStack,
 } from '../tools/parity/live-config'
 import { formatMatrix, formatSkipped, formatUsage, matrixOf, mergeResults } from '../tools/parity/live-matrix'
 import { LIVE_SCREENS, liveScreens, liveSkipReason, liveUpCommand } from '../tools/parity/live-registry'
-import { ALL_SCENARIOS, selectScenarios } from '../tools/parity/scenarios'
+import { ALL_SCENARIOS, selectScenarios, themesOf } from '../tools/parity/scenarios'
+import { saveSchema } from '../tools/parity/live-db'
 
 const HELP = `pnpm parity:live [options]
 
@@ -128,28 +130,42 @@ async function main(): Promise<number> {
   const outDir = values.out ?? LIVE_REPORTS_DIR
   const browser = await launchBrowser()
   const results: HarnessResult[] = []
+  const run = (screen: Screen, list: typeof scenarios, theme?: 'light' | 'dark') =>
+    runHarness({
+      scenarios: list,
+      theme,
+      port: { kind: 'live', target: targets.get(screen)! },
+      origPort: 0,
+      browser,
+      // stale entries are judged once over every run of this invocation (mergeResults), not per run
+      staleCheck: false,
+      allowlist,
+      outDir,
+    })
   try {
     for (const screen of screens) {
       const target = targets.get(screen)!
       console.log(`== ${screen} on stack ${target.name} (${target.webUrl})`)
-      results.push(
-        await runHarness({
-          scenarios: scenarios.filter((s) => s.screen === screen),
-          theme: values.theme as 'light' | 'dark' | undefined,
-          port: { kind: 'live', target },
-          origPort: 0,
-          browser,
-          // a partial run cannot tell a stale allow-list entry from one that shows in a scenario that was not selected
-          staleCheck: values.all,
-          allowlist,
-          outDir,
-        }),
-      )
+      const mine = scenarios.filter((s) => s.screen === screen)
+      const reading = mine.filter((s) => !s.writes)
+      if (reading.length)
+        results.push(await run(screen, reading, values.theme as 'light' | 'dark' | undefined))
+      // a scenario that writes through the API gets the seeded state back after each of its runs
+      for (const s of mine.filter((x) => x.writes))
+        for (const theme of themesOf(s, values.theme as 'light' | 'dark' | undefined)) {
+          const snap = saveSchema(readStack(target.name))
+          try {
+            results.push(await run(screen, [s], theme))
+          } finally {
+            snap.restore()
+            snap.dispose()
+          }
+        }
     }
   } finally {
     await browser.close()
   }
-  const result = mergeResults(results, outDir)
+  const result = mergeResults(results, outDir, { staleCheck: values.all })
   const cells = matrixOf(result.units)
   const liveEntries = loadAllowlist(LIVE_ALLOWLIST_FILE)
   const left = skipped.map((s) => ({
