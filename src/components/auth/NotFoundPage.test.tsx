@@ -61,7 +61,9 @@ describe('the 404 page', () => {
   })
 
   it('shows no link until it knows who is there', async () => {
-    await act(async () => root.render(createElement(NotFoundPage, { load: () => new Promise<NotFoundState>(() => {}) })))
+    await act(async () =>
+      root.render(createElement(NotFoundPage, { load: () => new Promise<NotFoundState>(() => {}) })),
+    )
     expect(container.querySelector('h1')!.textContent).toBe('Page not found')
     expect(links()).toEqual([])
   })
