@@ -275,7 +275,9 @@ try {
           await op.getByText('Emergency closing', { exact: true }).first().isVisible(),
           'the Emergency section is open',
         )
-        await op.goto(`${stack.webUrl}/nope-${Date.now()}`, { waitUntil: 'load' })
+        // the session cookie belongs to the host the sign-in ran on: Next sends a loopback visitor (127.0.0.1) to
+        // localhost when it redirects, so stay on the origin the browser is on now
+        await op.goto(`${new URL(op.url()).origin}/nope-${Date.now()}`, { waitUntil: 'load' })
         await op.getByText('Page not found', { exact: true }).waitFor()
         await op.getByRole('link', { name: 'Settings' }).waitFor()
         eq(
