@@ -248,6 +248,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
   private custQ = ''
   private bookAction = new Action()
   private thumbs = new Map<string, { url: string; at: number }>()
+  /** thumbnail URLs that failed to load: their slots show the design's tile */
+  private brokenThumbs = new Set<string>()
   private markedRead = new Set<string>()
   private sending = false
 
@@ -1182,6 +1184,12 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
           .finally(() => this.setState({ busy: this.state.busy.filter((b) => b !== cat) }))
       },
       thumb: (p) => this.thumb(p),
+      thumbFailed: (url) => {
+        if (this.brokenThumbs.has(url)) return
+        this.brokenThumbs.add(url)
+        this.setState({})
+      },
+      isThumbBroken: (url) => this.brokenThumbs.has(url),
     }
     return fileVM(f, thread, mem, fui, h, renderIcon)
   }

@@ -207,6 +207,20 @@ export interface PhotoHandlers {
   upload(category: PhotoCategory, file: File): void
   /** The browser-visible URL of a thumbnail (stable while the signature is fresh). */
   thumb(p: FilePhoto): string
+  /** The thumbnail at this URL failed to load (no object behind it, or it expired): the slot shows the design's tile. */
+  thumbFailed(url: string): void
+  isThumbBroken(url: string): boolean
+}
+
+/** The design's photo tile (`slots(n)`): what a photo without a loadable thumbnail shows. */
+const iconSlotStyle: Style = {
+  aspectRatio: '4/3',
+  borderRadius: '11px',
+  background: 'var(--panel3)',
+  border: '1px solid var(--line)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 }
 
 export function photoSections(
@@ -226,19 +240,25 @@ export function photoSections(
     const group = f.photos[cat]
     const n = group.count
     const items = group.items as FilePhoto[]
-    const slots: VM[] = items.map((p) => ({
-      icon: !p.thumbUrl && !p.url,
-      thumb: p.thumbUrl || p.url ? h.thumb(p) : '',
-      note: p.note ?? '',
-      add: false,
-      style: {
-        ...slotBase,
-        background: 'var(--panel3)',
-        border: '1px solid var(--line)',
-        overflow: 'hidden',
-        position: 'relative',
-      },
-    }))
+    const slots: VM[] = items.map((p) => {
+      const url = p.thumbUrl || p.url ? h.thumb(p) : ''
+      if (!url || h.isThumbBroken(url))
+        return { icon: true, thumb: '', note: p.note ?? '', add: false, style: { ...iconSlotStyle } }
+      return {
+        icon: false,
+        thumb: url,
+        onError: () => h.thumbFailed(url),
+        note: p.note ?? '',
+        add: false,
+        style: {
+          ...slotBase,
+          background: 'var(--panel3)',
+          border: '1px solid var(--line)',
+          overflow: 'hidden',
+          position: 'relative',
+        },
+      }
+    })
     slots.push({
       add: true,
       icon: false,
