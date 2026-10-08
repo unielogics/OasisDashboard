@@ -876,6 +876,18 @@
       }
     },
     {
+      "id": "L-operations-37",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-416/DV-401: History is the customer's real completed visits followed by the appointment's activity log, with real totals; for Marcus Webb (the file the scenarios open) that is no completed visit, $20 paid (today's deposit), no cadence, and the two log lines of yesterday. The design invented three past visits, visits*148 and '18 days'. The oracle gets those values before it renders.",
+      "swap": {
+        "find": "history:sa.history, visitCount:String(sa.visits), lifetimeSpend:this.money(sa.visits*148), avgFreq:'18 days',",
+        "replace": "history:[{day:'4:12',mon:'PM',service:'Confirmation + reminder sent',note:'Yesterday \u00b7 SMS',amount:'',fav:false},{day:'4:02',mon:'PM',service:'Booking created',note:'Yesterday \u00b7 Internal',amount:'',fav:false}], visitCount:'0', lifetimeSpend:'$20', avgFreq:'\u2014',",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
       "id": "L-operations-38",
       "screen": "operations",
       "kind": "wiring",
@@ -1091,18 +1103,6 @@
         "replace": "Marcus Webb is not a member yet. Offer a plan at check-out.",
         "count": 1,
         "target": "template"
-      }
-    },
-    {
-      "id": "L-operations-37",
-      "screen": "operations",
-      "kind": "text",
-      "reason": "DV-416/DV-401: History is the customer's real completed visits followed by the appointment's activity log, with real totals; for Marcus Webb (the file the scenarios open) that is no completed visit, $20 paid (today's deposit), no cadence, and the two log lines of yesterday. The design invented three past visits, visits*148 and '18 days'. The oracle gets those values before it renders.",
-      "swap": {
-        "find": "history:sa.history, visitCount:String(sa.visits), lifetimeSpend:this.money(sa.visits*148), avgFreq:'18 days',",
-        "replace": "history:[{day:'4:12',mon:'PM',service:'Confirmation + reminder sent',note:'Yesterday \u00b7 SMS',amount:'',fav:false},{day:'4:02',mon:'PM',service:'Booking created',note:'Yesterday \u00b7 Internal',amount:'',fav:false}], visitCount:'0', lifetimeSpend:'$20', avgFreq:'\u2014',",
-        "count": 1,
-        "target": "logic"
       }
     },
     {
