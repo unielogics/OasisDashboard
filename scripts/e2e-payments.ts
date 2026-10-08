@@ -953,6 +953,82 @@ async function phaseRead(browser: Browser): Promise<void> {
   await p.ctx.close()
 }
 
+/**
+ * The refund sheet's inline check against the server, on invoices of the 7-day list chosen for the review findings the
+ * caps exist for: card money below the other money (2: cash paid, the card cap is smaller), non-credit money below what is
+ * refundable (14: store credit applied), and a pending refund (7) when one is listed. For each destination and every
+ * amount one cent above a cap the sheet must name the server's refusal word for word and disable its button; the server
+ * is then asked (POST /invoices/:id/refunds, refused, so nothing changes) and must answer 422 with that same detail. An
+ * amount the sheet allows is never sent.
+ */
+async function refundCapsAgainstServer(page: Page): Promise<void> {
+  const rows = (await apiList(page, '7d')).filter((r) => r.paidCents > 0)
+  const details: any[] = []
+  for (const r of rows) details.push((await api(page, 'GET', `/invoices/${r.id}`)).body)
+  const caps = (d: any) => d.refundCaps as { cardCents: number; otherCents: number; totalCents: number }
+  ok(
+    details.length > 0 && details.every((d) => d.refundCaps && Number.isInteger(caps(d).totalCents)),
+    'GET /invoices/:id carries refundCaps on every paid invoice of the week',
+  )
+  ok(
+    details.every((d) => caps(d).totalCents === d.calc.refundable),
+    'refundCaps.totalCents is calc.refundable',
+  )
+  const pick = (pred: (d: any) => boolean) => details.find((d) => pred(d) && caps(d).totalCents > 0)
+  const chosen = [
+    pick((d) => caps(d).cardCents < caps(d).otherCents),
+    pick((d) => caps(d).otherCents < caps(d).totalCents),
+    pick((d) => d.calc.pendingN > 0),
+  ].filter((d, i, a) => d && a.findIndex((x) => x?.id === d.id) === i)
+  ok(
+    chosen.length >= 2,
+    'the week has invoices with cash money and with store credit money to check',
+    chosen.length,
+  )
+  for (const d of chosen) {
+    const c = caps(d)
+    await openSheet(page, d.label, /^Refund$/)
+    await sheetButton(page, /^Custom$/).click()
+    for (const [label, dest] of [
+      ['Original payment', 'card'],
+      ['Cash', 'cash'],
+      ['Store credit', 'credit'],
+    ] as const) {
+      await sheetButton(page, new RegExp(`^${label}$`)).click()
+      for (const cents of [...new Set([c.cardCents + 1, c.otherCents + 1, c.totalCents + 1])]) {
+        await sheet(page)
+          .locator('input')
+          .first()
+          .fill((cents / 100).toFixed(2))
+        await sleep(150)
+        const txt = await sheetText(page)
+        const blocked = await submitBtn(page).isDisabled()
+        const capped =
+          (dest === 'card' && cents > c.cardCents) ||
+          cents > c.totalCents ||
+          (dest === 'cash' && cents > c.otherCents)
+        const what = `${d.label} ${dest} ${usd2(cents)}`
+        ok(blocked === capped, `refund caps: the sheet blocks exactly what the server refuses (${what})`, txt)
+        if (!blocked) continue
+        const res = await api(page, 'POST', `/invoices/${d.id}/refunds`, {
+          mode: 'custom',
+          amountCents: cents,
+          dest,
+        })
+        ok(res.status === 422, `refund caps: the server refuses ${what}`, res.body)
+        ok(
+          typeof res.body?.detail === 'string' && txt.includes(res.body.detail),
+          `refund caps: the sheet says the server's words (${what})`,
+          { server: res.body?.detail, sheet: txt },
+        )
+      }
+    }
+    await sheet(page).getByRole('button', { name: 'Cancel', exact: true }).click()
+    const after = (await api(page, 'GET', `/invoices/${d.id}`)).body
+    eq(caps(after), c, `refund caps: ${d.label} unchanged by the refused requests`)
+  }
+}
+
 // ---- phase: write ---------------------------------------------------------------------------------------------------
 
 async function openSheet(page: Page, invoice: string, action: RegExp | string): Promise<View> {
@@ -1261,6 +1337,8 @@ async function phaseWrite(browser: Browser): Promise<void> {
   )
   ok(await submitBtn(page).isDisabled(), 'an impossible refund cannot be submitted')
   await sheet(page).getByRole('button', { name: 'Cancel', exact: true }).click()
+
+  await refundCapsAgainstServer(page)
 
   // -- adjust: percent discount with settlement as store credit, surcharge in dollars ------------------------------------
   v = await openSheet(page, 'INV-20608', /^Adjust$/)
