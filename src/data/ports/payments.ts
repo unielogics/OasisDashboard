@@ -204,6 +204,11 @@ export interface InvoiceDetail {
     amountCents: number
   }>
   calc: InvoiceCalc
+  /**
+   * The refund command's caps after done and pending refunds: a refund to card checks `cardCents` then `totalCents`, to cash
+   * `totalCents` then `otherCents`, to store credit `totalCents` (backend detail.ts RefundCapsDto).
+   */
+  refundCaps: { cardCents: number; otherCents: number; totalCents: number }
   clientCredit: { balanceCents: number; nextExpiry: { at: string; cents: number } | null }
   /** Newest first. */
   ledger: LedgerEvent[]

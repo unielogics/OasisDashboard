@@ -512,6 +512,24 @@ const firstName = (client: string): string => client.split(' ')[0]!
 export const methodOfLabel = (label: string): CollectInput['method'] =>
   label === 'Cash' ? 'cash' : label === 'Payment link' ? 'payment_link' : 'card'
 
+/**
+ * What the server answers to a refund of `val` cents to `dest`, from the invoice's refundCaps (the refund command's own caps
+ * after done and pending refunds), checked in the command's order: card `cardCents` then `totalCents`, cash `totalCents` then
+ * `otherCents`, store credit `totalCents`. The texts are the server's problem details. null = the amount is within the caps.
+ */
+export function refundCapError(
+  caps: InvoiceDetail['refundCaps'],
+  dest: LiveSheetForm['dest'],
+  val: number,
+): string | null {
+  if (dest === 'card' && val > caps.cardCents)
+    return 'Only ' + money(caps.cardCents) + ' was paid by card — refund the rest to store credit.'
+  if (val > caps.totalCents) return 'More than the refundable amount.'
+  if (dest === 'cash' && val > caps.otherCents)
+    return 'Only ' + money(caps.otherCents) + ' was paid by card or cash — refund the rest to store credit.'
+  return null
+}
+
 /** Everything a sheet shows and sends. Previews use the cents twin; submitting asks the server, which has the last word. */
 export function liveSheetCalc(args: {
   kind: SheetKind
@@ -549,15 +567,10 @@ export function liveSheetCalc(args: {
         c.refundable,
       )
     else val = amountCents
-    const origOk = f.dest !== 'card' || val <= c.toOrigMax
+    const capError = refundCapError(d.refundCaps, f.dest, val)
     const over = val > rf.maxCents
     const noItems = f.mode === 'items' && f.items.length === 0
-    blocked =
-      val <= 0 ||
-      val > c.refundable ||
-      !origOk ||
-      noItems ||
-      (f.mode === 'items' && refundableItems.length === 0)
+    blocked = val <= 0 || !!capError || noItems || (f.mode === 'items' && refundableItems.length === 0)
     summary = [
       { label: 'Refundable', value: money(c.refundable), color: 'var(--ink)' },
       { label: 'This refund', value: money(val), color: 'var(--red)' },
@@ -569,15 +582,13 @@ export function liveSheetCalc(args: {
         value: money(credit + val),
         color: 'var(--amber)',
       })
-    permText = !origOk
-      ? 'Only ' + money(c.toOrigMax) + ' was paid by card — refund the rest to store credit.'
-      : val > c.refundable
-        ? 'More than the refundable amount.'
-        : over
-          ? 'Over your ' + limitLabel(rf) + ' as ' + p.roleLabel + '. This will be sent for approval.'
-          : 'Within your ' + limitLabel(rf) + ' as ' + p.roleLabel + '.'
+    permText =
+      capError ??
+      (over
+        ? 'Over your ' + limitLabel(rf) + ' as ' + p.roleLabel + '. This will be sent for approval.'
+        : 'Within your ' + limitLabel(rf) + ' as ' + p.roleLabel + '.')
     // DV-216: a card refund is finished in Squarespace.
-    if (f.dest === 'card' && !over && origOk && !blocked)
+    if (f.dest === 'card' && !over && !blocked)
       permText += ' Card refunds are completed in Squarespace; confirm it here once done.'
     permOk = !blocked && !over
     submitLabel = over && !blocked ? 'Request approval · ' + money(val) : 'Refund ' + money(val)

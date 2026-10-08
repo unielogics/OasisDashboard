@@ -77,6 +77,35 @@ export interface DetailSpec {
   taxBp?: number
   creditCents?: number
   paymentLinkUrl?: string | null
+  refundCaps?: InvoiceDetail['refundCaps']
+}
+
+/**
+ * The server's originalRefundCap (backend payments/repository.ts) over built events: money paid by anything but store
+ * credit (voids taken back out) less the card and cash refunds done or pending; the card cap counts card and wallet money
+ * and card refunds only.
+ */
+export function refundCapsOf(events: readonly LedgerEvent[], refundable: number): InvoiceDetail['refundCaps'] {
+  const byId = new Map(events.map((e) => [e.id, e]))
+  const isCard = (e: LedgerEvent) => {
+    const kind = e.methodKind ?? (e.voidsEventId ? byId.get(e.voidsEventId)?.methodKind : null)
+    return kind === 'card' || kind === 'apple_pay'
+  }
+  const live = (e: LedgerEvent) => e.type === 'refund' && (e.status === 'done' || e.status === 'pending')
+  let orig = 0
+  let card = 0
+  for (const e of events) {
+    const signed = e.type === 'pay' ? e.amountCents : e.type === 'void' ? -e.amountCents : 0
+    orig += signed
+    if (isCard(e)) card += signed
+    if (live(e) && e.dest !== 'credit') orig -= e.amountCents
+    if (live(e) && e.dest === 'card') card -= e.amountCents
+  }
+  return {
+    cardCents: Math.max(0, Math.min(orig, card)),
+    otherCents: Math.max(0, orig),
+    totalCents: refundable,
+  }
 }
 
 export function makeDetail(spec: DetailSpec = {}): InvoiceDetail {
@@ -149,6 +178,7 @@ export function makeDetail(spec: DetailSpec = {}): InvoiceDetail {
         amountCents: e.amountCents,
       })),
     calc,
+    refundCaps: spec.refundCaps ?? refundCapsOf(events, calc.refundable),
     clientCredit: { balanceCents: spec.creditCents ?? 0, nextExpiry: null },
     ledger: [...events].reverse(),
     caller: null,
