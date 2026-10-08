@@ -26,14 +26,17 @@ const EVENTS_PATH = '/api/v1/events'
 
 /**
  * Page timers of at least this many milliseconds are held by the harness and fire only when a scenario advances time
- * (`runFor`), like every timer of the originals on their paused clock. Without it a toast (3.2 s) could expire in real
- * time while the harness waits for the page to settle after a command, and the snapshot would miss it.
+ * (`runFor`), like every timer of the originals on their paused clock: the long-press (380 ms), the click suppression
+ * after a gesture (450 ms), a toast (3.2 s). Shorter ones (react-query's batching, the 200/250 ms debounces) also run in
+ * real time, because the live screens need them to load. Without this a toast could expire, or a long-press arm, in
+ * real time while the harness waits for the page to settle, at a moment the pinned Date does not know.
  */
-export const HELD_TIMER_MS = 3000
+export const HELD_TIMER_MS = 300
 
 /**
  * Installed before the page's scripts. Every setTimeout is recorded with its due instant on the pinned Date; a short one
- * also runs in real time (react-query, debounces, the long-press), a long one waits. `__parityDue(t)` lists the timers
+ * also runs in real time (react-query, debounces, the long-press), a long one waits. A setInterval of a second or more
+ * (the 1 s tick) never runs in real time. `__parityDue(t)` lists the timers
  * due by instant t in order and `__parityFire(id)` runs one now, so the harness can step the pinned Date through them
  * like a fake clock does.
  */
@@ -57,6 +60,20 @@ export function timerControlScript(threshold: number): string {
     timers.delete(id);
     if (t.real !== null) realClear(t.real);
   };
+  // intervals of a second or more (the screens' 1 s tick, polls) only move with the scenario clock, like the originals'
+  var realSetI = window.setInterval.bind(window), realClearI = window.clearInterval.bind(window);
+  window.setInterval = function (fn, ms) {
+    if (typeof fn !== 'function') return realSetI.apply(window, arguments);
+    var args = Array.prototype.slice.call(arguments, 2), every = Math.max(0, Number(ms) || 0);
+    if (every < 1000) return realSetI.apply(window, arguments);
+    var id = ++next;
+    timers.set(id, { fn: fn, args: args, due: Date.now() + every, seq: id, real: null, every: every });
+    return id;
+  };
+  window.clearInterval = function (id) {
+    if (timers.has(id)) timers.delete(id);
+    else realClearI(id);
+  };
   window.__parityDue = function (until) {
     var out = [];
     timers.forEach(function (t, id) { if (t.due <= until) out.push([id, t.due, t.seq]); });
@@ -66,8 +83,13 @@ export function timerControlScript(threshold: number): string {
   window.__parityFire = function (id) {
     var t = timers.get(id);
     if (!t) return false;
-    timers.delete(id);
-    if (t.real !== null) realClear(t.real);
+    if (t.every) {
+      t.due += t.every;
+      t.seq = ++next;
+    } else {
+      timers.delete(id);
+      if (t.real !== null) realClear(t.real);
+    }
     t.fn.apply(window, t.args);
     return true;
   };

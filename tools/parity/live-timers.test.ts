@@ -18,6 +18,11 @@ function sandbox() {
       const i = real.findIndex((t) => t.id === id)
       if (i >= 0) real.splice(i, 1)
     },
+    setInterval: (fn: () => void, ms: number) => {
+      real.push({ id: ++n, fn, ms: -ms })
+      return n
+    },
+    clearInterval: () => {},
     Date: { now: () => now },
     Map,
     Math,
@@ -47,7 +52,7 @@ function sandbox() {
 }
 
 describe('live mode: page timers follow the scenario clock', () => {
-  it('a long timer (a toast) waits for runFor; a short one also runs in real time, once', () => {
+  it('a long timer (a toast) waits for runFor; a short one (a 250 ms debounce) also runs in real time, once', () => {
     const { w, real, advance } = sandbox()
     const fired: string[] = []
     w.setTimeout!(() => fired.push('short'), 250)
@@ -74,8 +79,10 @@ describe('live mode: page timers follow the scenario clock', () => {
     advance(400, at)
     expect(order).toEqual(['first', 'chained', 'press'])
     expect(at).toEqual([1_000_100, 1_000_150, 1_000_380])
-    // a timer fired by the harness never fires again from its real schedule
-    for (const t of real.splice(0)) t.fn()
+    // a short timer fired by the harness never fires again from its real schedule; the long ones only move with runFor
+    expect(real).toEqual([]) // their real schedules were cancelled when the harness fired them
+    expect(order).toEqual(['first', 'chained', 'press'])
+    advance(500, at)
     expect(order).toEqual(['first', 'chained', 'press', 'later'])
   })
 
@@ -87,5 +94,20 @@ describe('live mode: page timers follow the scenario clock', () => {
     w.clearTimeout!(id)
     advance(6000, [])
     expect(got).toEqual([[1, 'x']])
+  })
+
+  it('a 1 s interval (the tick) only fires with runFor, on its own beat; a short one stays real', () => {
+    const { w, real, advance } = sandbox()
+    const at: number[] = []
+    const ticks: number[] = []
+    const id = w.setInterval!(() => ticks.push(1), 1000)
+    w.setInterval!(() => {}, 100)
+    expect(real.map((t) => t.ms)).toEqual([-100])
+    advance(3300, at)
+    expect(ticks).toHaveLength(3)
+    expect(at).toEqual([1_001_000, 1_002_000, 1_003_000])
+    w.clearInterval!(id)
+    advance(5000, [])
+    expect(ticks).toHaveLength(3)
   })
 })
