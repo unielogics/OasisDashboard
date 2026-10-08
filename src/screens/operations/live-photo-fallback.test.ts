@@ -1,6 +1,7 @@
 // A photo whose thumbnail fails to load (no object behind the seeded row, or an expired link) shows the design's grey
 // tile instead of the browser's broken-image box; found by the live parity run of the Photos tab.
 import { describe, expect, it } from 'vitest'
+import type { AppointmentFile } from '@/data/ports/operations'
 import { photoSections, type PhotoHandlers } from '@/lib/operations/live/file'
 import { FILES, clone } from './live-testkit'
 
@@ -15,6 +16,9 @@ function handlers(): PhotoHandlers & { broken: Set<string> } {
   }
 }
 
+/** the captured file of a job in a bay (two arrival and three before photos) */
+const cleaning = () => clone(FILES.cleaning) as unknown as AppointmentFile
+
 const DESIGN_TILE = {
   aspectRatio: '4/3',
   borderRadius: '11px',
@@ -28,7 +32,7 @@ const DESIGN_TILE = {
 describe('photo slots', () => {
   it('a loadable thumbnail is an image with an error handler', () => {
     const h = handlers()
-    const arrival = photoSections(clone(FILES.cleaning), false, true, new Set(), h)[0]!
+    const arrival = photoSections(cleaning(), false, true, new Set(), h)[0]!
     const first = (arrival.slots as Array<Record<string, unknown>>)[0]!
     expect(first.icon).toBe(false)
     expect(String(first.thumb)).toMatch(/dev-storage/)
@@ -37,7 +41,7 @@ describe('photo slots', () => {
 
   it('after the image fails, the slot is the design tile (icon, no image) and the others keep their thumbnails', () => {
     const h = handlers()
-    const f = clone(FILES.cleaning)
+    const f = cleaning()
     const before = photoSections(f, false, true, new Set(), h)[0]!
     ;(before.slots as Array<{ onError: () => void }>)[0]!.onError()
     const arrival = photoSections(f, false, true, new Set(), h)[0]!

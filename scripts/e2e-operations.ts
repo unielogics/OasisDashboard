@@ -368,6 +368,12 @@ const findCard = (snap: any, name: string): any =>
 
 // ---- comparing the screen with the API ---------------------------------------------------------------------------------
 
+/** A free bay's Next line as the screen builds it: the first card of the shown timeline planned for that bay. */
+function windowNextUp(snap: any, bay: any): string {
+  const c = snap.timeline.groups.flatMap((g: any) => g.items).find((x: any) => x.bay?.number === bay.number)
+  return c ? `Next: ${c.customer.name} · ${c.time}` : 'No vehicles queued'
+}
+
 async function compareBoard(page: Page, label: string, view: 'timeline' | 'bay' = 'timeline'): Promise<void> {
   const snap = await apiCards(page)
   // allow a refetch to land
@@ -423,7 +429,7 @@ async function compareBoard(page: Page, label: string, view: 'timeline' | 'bay' 
               bay.occupant.worker?.name ?? 'Unassigned',
               bay.occupant.card.next.label,
             )
-          : has(on.text, 'Available', bay.nextUp)
+          : has(on.text, 'Available', windowNextUp(snap, bay))
       ok(miss.length === 0, `${label}: ${bay.name}`, miss)
     }
     const occ = snap.bays.find((x: any) => x.occupant)
@@ -657,12 +663,24 @@ async function compareFile(page: Page, id: string, name: string): Promise<void> 
     `Damage / Issues · ${f.photos.issue.count} notes`,
   )
   ok(miss.length === 0, `file ${name}: photos`, miss)
-  const imgs = await modal(page).locator('img').count()
   const withThumb = ['arrival', 'before', 'after', 'issue'].reduce(
     (n, c) => n + f.photos[c].items.filter((p: any) => p.thumbUrl || p.url).length,
     0,
   )
-  ok(imgs === withThumb, `file ${name}: a thumbnail per photo`, [imgs, withThumb])
+  // a thumbnail that cannot load (the seeded rows have no object behind them) turns into the design's tile
+  const settledImgs = await until(async () =>
+    modal(page)
+      .locator('img')
+      .evaluateAll((els) => els.every((e) => (e as HTMLImageElement).complete)),
+  )
+  const imgs = await modal(page)
+    .locator('img')
+    .evaluateAll((els) => els.map((e) => (e as HTMLImageElement).naturalWidth > 0))
+  ok(
+    !!settledImgs && imgs.length <= withThumb && imgs.every(Boolean),
+    `file ${name}: a loaded thumbnail or the design's tile per photo, never a broken image`,
+    [imgs, withThumb],
+  )
   await tab(page, 'Messages')
   t = await fileText(page)
   const th = (await api(page, 'GET', `/appointments/${id}/messages`)).body
