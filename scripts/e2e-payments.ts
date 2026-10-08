@@ -654,10 +654,16 @@ async function compareAll(
   label: string,
   opts: { range: string; filter?: string; q?: string },
 ): Promise<{ v: View; list: any[]; summary: any; detail: any }> {
-  const v = await settled(page)
+  let v = await settled(page)
   const summary = await compareSummary(page, v, opts.range, label)
   const list = await compareList(page, v, opts.range, opts.filter ?? 'all', opts.q ?? '', label)
-  const sel = v.rows.find((r) => r.selected)
+  let sel = v.rows.find((r) => r.selected)
+  if (!sel && v.rows.length > 0) {
+    // the open invoice stays open when a range, filter or search hides its row (DV-502, as the design does); open the
+    // first visible row so its detail panel is checked too
+    v = await clickRow(page, v.rows[0]!.id)
+    sel = v.rows.find((r) => r.selected)
+  }
   const selId = sel ? list.find((x) => x.label === sel.id)?.id : list[0]?.id
   const detail = selId ? await compareDetail(page, v, selId, label) : null
   return { v, list, summary, detail }

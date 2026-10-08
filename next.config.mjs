@@ -60,7 +60,14 @@ const nextConfig = {
       // Reset links arrive as /reset/<token> or /reset-password?token=<token> (backend notifications); one page serves both.
       { source: '/reset/:token', destination: '/reset?token=:token' },
       { source: '/reset-password', destination: '/reset' },
-      ...(apiOrigin ? [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }] : []),
+      ...(apiOrigin
+        ? [
+            { source: '/api/:path*', destination: `${apiOrigin}/api/:path*` },
+            // the API's simulator object store (STORAGE_PROVIDER=fs, never production) is served from this origin too, so
+            // photos stay same-origin under the CSP and reachable through a tunnel or proxy; production uses presigned S3 URLs
+            { source: '/dev-storage/:path*', destination: `${apiOrigin}/dev-storage/:path*` },
+          ]
+        : []),
     ]
   },
   // Parity builds go to their own directory (deploys refuse to ship .next-parity).

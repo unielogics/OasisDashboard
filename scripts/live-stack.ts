@@ -163,7 +163,8 @@ async function up(): Promise<void> {
     HOOKS_PORT: '0',
     COOKIE_SECURE: has('--secure-cookies') ? 'true' : 'false',
     SESSION_SECRET: randomBytes(32).toString('base64'),
-    PUBLIC_API_URL: apiUrl,
+    // what the browser uses: the API's own links (dev object store, arrival links) go through the dashboard origin
+    PUBLIC_API_URL: extraOrigins[0] ?? webUrl,
     PUBLIC_DASHBOARD_URL: extraOrigins[0] ?? webUrl,
     ALLOWED_ORIGINS: [webUrl, `http://localhost:${webPort}`, ...extraOrigins].join(','),
     PGBOSS_SCHEMA: `pgboss_${name}`,
