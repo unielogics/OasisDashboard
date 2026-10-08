@@ -1,6 +1,7 @@
 // A free bay's "Next" line follows the range tab and the search (the design builds it from the filtered list); found by the
 // live parity run on Tomorrow, where the server's range-blind nextUp named today's car.
 import { describe, expect, it } from 'vitest'
+import { bayVM } from '@/lib/operations/live/board'
 import { withWindowNextUp } from './LiveLogic'
 import { clone, fixtures } from './live-testkit'
 
@@ -33,5 +34,26 @@ describe('withWindowNextUp', () => {
       nextUp: 'No vehicles queued',
       nextUpAppointmentId: null,
     })
+  })
+})
+
+describe('bayVM: a job in a bay with nobody assigned', () => {
+  it('shows "Unassigned" with the avatar "U", as the design derives it from the name', () => {
+    const s = snap()
+    const bay = s.bays.find((b) => b.occupant)!
+    bay.occupant = { ...bay.occupant!, worker: null }
+    const vm = bayVM(
+      bay,
+      {
+        dark: false,
+        dragId: null,
+        dropTarget: null,
+        nowMs: Date.parse('2026-06-13T14:36:00Z'),
+        tz: 'America/New_York',
+      },
+      {} as never,
+    )
+    expect(vm.worker).toBe('Unassigned')
+    expect(vm.workerInitials).toBe('U')
   })
 })

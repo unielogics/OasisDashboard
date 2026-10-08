@@ -311,7 +311,8 @@ export function bayVM(b: OpsBay, ui: BoardUi, h: BoardHandlers): VM {
     service: card.service,
     statusColor: meta.c,
     worker: occ.worker?.name ?? 'Unassigned',
-    workerInitials: occ.worker?.initials ?? '—',
+    // nobody assigned: the design derives the avatar from the name it shows ("Unassigned" -> "U")
+    workerInitials: occ.worker?.initials ?? 'U',
     showProgress: showProg,
     elapsed: showProg ? clock.elapsed : '—',
     eta: clock.eta,

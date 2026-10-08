@@ -18,9 +18,6 @@ export interface LiveScreen {
   note: string
 }
 
-const WRITES =
-  'the gesture writes through the real API (assign-bay or advance), so the stack would no longer hold the design state for the next run; pnpm e2e:operations --phase write covers the command'
-
 export const LIVE_SCREENS: Record<Screen, LiveScreen> = {
   payments: {
     status: 'live',
@@ -41,12 +38,7 @@ export const LIVE_SCREENS: Record<Screen, LiveScreen> = {
     profiles: ['design', 'parity-ops'],
     stack: 'lpops',
     ports: { api: 4064, web: 3264 },
-    skip: {
-      'touch-long-press-drag': WRITES,
-      'touch-swipe-advance': WRITES,
-      'mouse-drag-to-bay': WRITES,
-    },
-    note: 'the design seed and the design day of the Command Center (parity-ops: eleven appointments, their invoices, members and texts)',
+    note: 'the design seed and the design day of the Command Center (parity-ops: the twelve fixture appointments, their invoices, members and texts, and the generated calendar days)',
   },
 }
 
