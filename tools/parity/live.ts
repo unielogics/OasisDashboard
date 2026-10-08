@@ -31,31 +31,45 @@ const EVENTS_PATH = '/api/v1/events'
  */
 export const HELD_TIMER_MS = 3000
 
-/** Installed before the page's scripts: holds long setTimeout timers until `__parityAdvance(ms)` moves time on. */
-export function holdLongTimersScript(threshold: number): string {
+/**
+ * Installed before the page's scripts. Every setTimeout is recorded with its due instant on the pinned Date; a short one
+ * also runs in real time (react-query, debounces, the long-press), a long one waits. `__parityDue(t)` lists the timers
+ * due by instant t in order and `__parityFire(id)` runs one now, so the harness can step the pinned Date through them
+ * like a fake clock does.
+ */
+export function timerControlScript(threshold: number): string {
   return `(function () {
-  if (window.__parityAdvance) return;
+  if (window.__parityFire) return;
   var realSet = window.setTimeout.bind(window), realClear = window.clearTimeout.bind(window);
-  var held = [], next = 2e9;
+  var timers = new Map(), next = 2e9;
   window.setTimeout = function (fn, ms) {
-    var args = Array.prototype.slice.call(arguments, 2);
-    if (typeof ms === 'number' && ms >= ${threshold} && typeof fn === 'function') {
-      var h = { id: ++next, fn: fn, args: args, left: ms };
-      held.push(h);
-      return h.id;
-    }
-    return realSet.apply(window, arguments);
+    if (typeof fn !== 'function') return realSet.apply(window, arguments);
+    var args = Array.prototype.slice.call(arguments, 2), wait = Math.max(0, Number(ms) || 0), id = ++next;
+    var t = { fn: fn, args: args, due: Date.now() + wait, seq: id, real: null };
+    if (wait < ${threshold})
+      t.real = realSet(function () { if (timers.delete(id)) fn.apply(window, args); }, wait);
+    timers.set(id, t);
+    return id;
   };
   window.clearTimeout = function (id) {
-    for (var i = 0; i < held.length; i++) if (held[i].id === id) { held.splice(i, 1); return; }
-    return realClear(id);
+    var t = timers.get(id);
+    if (!t) return realClear(id);
+    timers.delete(id);
+    if (t.real !== null) realClear(t.real);
   };
-  window.__parityAdvance = function (ms) {
-    var due = [];
-    held = held.filter(function (h) { h.left -= ms; if (h.left <= 0) { due.push(h); return false; } return true; });
-    due.sort(function (a, b) { return a.left - b.left; });
-    due.forEach(function (h) { realSet(function () { h.fn.apply(window, h.args); }, 0); });
-    return due.length;
+  window.__parityDue = function (until) {
+    var out = [];
+    timers.forEach(function (t, id) { if (t.due <= until) out.push([id, t.due, t.seq]); });
+    out.sort(function (a, b) { return a[1] - b[1] || a[2] - b[2]; });
+    return out.map(function (x) { return [x[0], x[1]]; });
+  };
+  window.__parityFire = function (id) {
+    var t = timers.get(id);
+    if (!t) return false;
+    timers.delete(id);
+    if (t.real !== null) realClear(t.real);
+    t.fn.apply(window, t.args);
+    return true;
   };
 })();`
 }
@@ -108,7 +122,7 @@ export class LiveDriver extends PageDriver {
   protected async attach(): Promise<void> {
     const { page } = this
     this.now = new Date(this.target.frozen).getTime()
-    await page.addInitScript(holdLongTimersScript(HELD_TIMER_MS))
+    await page.addInitScript(timerControlScript(HELD_TIMER_MS))
     page.on('request', (r) => {
       const u = new URL(r.url())
       if (u.pathname.startsWith(API_PREFIX) && u.pathname !== EVENTS_PATH) this.pending.add(r)
@@ -125,17 +139,25 @@ export class LiveDriver extends PageDriver {
   }
 
   /**
-   * Time moves like on the originals' paused clock: the pinned Date moves on by `ms` (bay timers, elapsed labels), the
-   * held long timers that fall due fire, and the short ones get the same span of real time.
+   * Time moves like on the originals' paused clock: the timers due within `ms` fire in order, each with the pinned Date
+   * set to its own due instant (a long-press fires at +380 ms, not at +400), then the Date rests at the end of the span.
    */
   protected async advance(ms: number): Promise<void> {
-    this.now += ms
-    await this.page.clock.setFixedTime(new Date(this.now))
-    await this.page.evaluate(
-      (n) => (window as unknown as { __parityAdvance(ms: number): number }).__parityAdvance(n),
-      ms,
-    )
-    await this.page.waitForTimeout(ms)
+    const { page } = this
+    const end = this.now + ms
+    type W = { __parityDue(t: number): Array<[number, number]>; __parityFire(id: number): boolean }
+    for (let i = 0; i < 10_000; i++) {
+      const due = await page.evaluate((t) => (window as unknown as W).__parityDue(t), end)
+      if (!due.length) break
+      const [id, at] = due[0]!
+      if (at > this.now) {
+        this.now = at
+        await page.clock.setFixedTime(new Date(at))
+      }
+      await page.evaluate((x) => (window as unknown as W).__parityFire(x), id)
+    }
+    this.now = end
+    await page.clock.setFixedTime(new Date(end))
   }
 
   protected async waitReady(): Promise<void> {

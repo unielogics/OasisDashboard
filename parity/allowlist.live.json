@@ -1271,6 +1271,18 @@
           "h": 34
         }
       }
+    },
+    {
+      "id": "L-operations-62",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-414: the bay timer runs on the server's start instant: a job dropped onto a bay is stamped by the server's clock, which on the parity stack is frozen at the design's instant (10:36:00), while the oracle stamped it with its own clock after the scenario's long-press. The oracle stamps the drop with the same frozen instant before it renders.",
+      "swap": {
+        "find": "a.bay=num; a.status='cleaning'; a.startedAt=Date.now();",
+        "replace": "a.bay=num; a.status='cleaning'; a.startedAt=Date.parse('2026-06-13T10:36:00-04:00');",
+        "count": 1,
+        "target": "logic"
+      }
     }
   ]
 }
