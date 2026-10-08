@@ -917,7 +917,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const calendar = s.view === 'calendar' ? this.calendarVals(today, ui) : {}
 
     const groups = snap ? groupVMs(snap, ui, bh) : []
-    const bays = snap ? snap.bays.map((b) => bayVM(b, ui, bh)) : []
+    const bays = snap ? snap.bays.map((b) => bayVM(withWindowNextUp(b, snap), ui, bh)) : []
     const arrivals = snap ? snap.arrivals.map((a) => arrivalVM(a, ui, bh)) : []
     const completedJobs = snap ? snap.completed.items.map((c) => completedVM(c, ui, bh)) : []
     const queue = snap ? snap.queue.map((c) => cardVM(c, ui, bh)) : []
@@ -1332,4 +1332,17 @@ export function createLiveOperationsLogic(make: () => LiveOpsDeps = defaultLiveO
       super(props, make())
     }
   }
+}
+
+/**
+ * A free bay's "Next" line follows the range tab and the search like the rest of the board, as in the design: the first
+ * appointment of the shown timeline (upcoming, not in a bay, not done) planned for that bay. The server's own nextUp
+ * ignores the range, so on Tomorrow it named today's car.
+ */
+export function withWindowNextUp(b: OpsBay, snap: Pick<OpsSnapshot, 'timeline'>): OpsBay {
+  for (const g of snap.timeline.groups)
+    for (const c of g.items)
+      if (c.bay?.number === b.number)
+        return { ...b, nextUp: `Next: ${c.customer.name} · ${c.time}`, nextUpAppointmentId: c.id }
+  return { ...b, nextUp: 'No vehicles queued', nextUpAppointmentId: null }
 }

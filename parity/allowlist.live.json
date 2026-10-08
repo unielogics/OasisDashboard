@@ -618,6 +618,9 @@
       "screen": "operations",
       "kind": "reorder",
       "reason": "DV-106: the live class builds renderVals with the bridge's keys (`live`, `nf`, `loading`) in its own order; the template binds by name, so the order is never rendered.",
+      "expect": {
+        "min": 0
+      },
       "scope": {
         "checks": ["vals"]
       },
