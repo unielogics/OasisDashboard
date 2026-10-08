@@ -378,6 +378,252 @@
         "loc": ["root>div[0]", "root>div[0]>div[0]"],
         "name": "--*"
       }
+    },
+    {
+      "id": "L-operations-01",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-101: the header chip shows the session's role title (GET /me displayRole, Rafael's first role 'Management'); the Command Center design prints 'Manager'. The oracle gets the same title before it renders.",
+      "swap": {
+        "find": "font-weight:600;\">Manager</div>",
+        "replace": "font-weight:600;\">Management</div>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-02",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: money arrives in integer cents and shows cents only when the amount is not whole (formatCentsCompact); the design rounded every amount to whole dollars. The oracle's money() gets the same rule before it renders.",
+      "swap": {
+        "find": "money(n){ return '$' + Math.round(n).toLocaleString('en-US'); }",
+        "replace": "money(n){ const c=Math.round(n*100); return '$'+(c%100===0?(c/100).toLocaleString('en-US'):(c/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})); }",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-03",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: the 'N booked' sub-label is the server's count of upcoming booked and confirmed appointments (7 on the design day); the design printed the literal '12 booked'.",
+      "swap": {
+        "find": "sub:'12 booked'",
+        "replace": "sub:'7 booked'",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-04",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: 'Bay time free' is the server's open bay time left today (2.8h on the design day); the design printed the literal '3.5h'.",
+      "swap": {
+        "find": "value:'3.5h'",
+        "replace": "value:'2.8h'",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-05",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-412: 'Simulate arrival' is 'Check in', the real arrive command.",
+      "swap": {
+        "find": ">Simulate arrival</button>",
+        "replace": ">Check in</button>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-06",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-414: the bay timer and its estimated completion run on the server's start instant (finish = max(start + duration, now)); the design added the duration to the booked time. The oracle computes the same finish from its own start before it renders.",
+      "swap": {
+        "find": "const etaMin = this.parseT(occ.time)+occ.dur;",
+        "replace": "const etaMin = occ.startedAt ? Math.round(Math.max(s.NOW + occ.dur - elapsedMs/60000, s.NOW)) : this.parseT(occ.time)+occ.dur;",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-07",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: Aisha Rahman is a VIP client in the Settings design and in the seed (plan default 'Aisha Rahman VIP in seed (per Settings)'); the Command Center fixture forgot the flag. The oracle's a9 gets vip:true before it renders.",
+      "swap": {
+        "find": "{ id:'a9', day:0, time:'12:00 PM', status:'confirmed', staff:'Marco R.',",
+        "replace": "{ id:'a9', day:0, time:'12:00 PM', status:'confirmed', staff:'Marco R.', vip:true,",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-08",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: tax is 7% half-up to the cent on every invoice (the server's calc); the design rounded the tax to whole dollars, so its totals, balances and KPIs were whole. The oracle's total() gets the cent tax before it renders (L-operations-02 then prints the cents).",
+      "swap": {
+        "find": "const tax=Math.round((sub-credit)*0.07);",
+        "replace": "const tax=Math.round((sub-credit)*7)/100;",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-09",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-102: the chip is wrapped in the sign-out menu (a relative wrapper with data-live-menu and the closed dropdown); the chip itself is the design's.",
+      "scope": {
+        "checks": ["dom"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/header[1]/div[7]/div[9]",
+          "div[0]/div[0]/div[0]/header[1]/div[7]/div[9]/**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-10",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-102: the chip sits inside the sign-out menu wrapper, so everything under the header's chip slot is one level deeper than in the design (identical boxes: pixels are at zero).",
+      "scope": {
+        "checks": ["style"]
+      },
+      "matcher": {
+        "loc": [
+          "root>div[0]>div[0]>div[0]>header[0]>div[2]>div[0]",
+          "root>div[0]>div[0]>div[0]>header[0]>div[2]>div[0]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-11",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-106: the live class adds the `live` root (user chip, sign-out, view-as) to renderVals.",
+      "matcher": {
+        "loc": "live"
+      }
+    },
+    {
+      "id": "L-operations-12",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-414: a staff column's avatar colour is the employee record's (the Settings design colours its employees by list position, and the seed follows it: Marco #7A3B8A, Lena #C2740B, Sofia #0D9488); the Command Center design used its own fixed map. The oracle gets the employees' colours before it renders.",
+      "swap": {
+        "find": "const avatarColors={'Marco R.':'#2563EB','Lena K.':'#0E9E6E','Sofia D.':'#7A3B8A','Unassigned':'#6B7280'};",
+        "replace": "const avatarColors={'Marco R.':'#7A3B8A','Lena K.':'#C2740B','Sofia D.':'#0D9488','Unassigned':'#6B7280'};",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-13",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-401: appointments carry the server's ids (UUIDv7) where the fixture had a1..a12; ids are never rendered.",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": "**.id",
+        "orig": "^a\\d+$",
+        "port": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      }
+    },
+    {
+      "id": "L-operations-14",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-401: the timeline groups are keyed by the real business date and start instant (the first divider is the real day); the fixture keyed them by a day offset and the time label. Keys are never rendered.",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["groups[*].key", "groups[*].day"],
+        "orig": "^(\\d+\\|.*|\\d+)$",
+        "port": "^\\d{4}-\\d\\d-\\d\\d(\\|\\d{4}-.*)?$"
+      }
+    },
+    {
+      "id": "L-operations-15",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-413: the calendar's rows, headings and modes come from GET /calendar/* and are built only while the Calendar view is open; until then they are empty (opened, they must equal the design's).",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": [
+          "calRows",
+          "calRows[*]",
+          "calDow",
+          "calDow[*]",
+          "calModes",
+          "calModes[*]",
+          "calLabel",
+          "calSub",
+          "calHint"
+        ],
+        "port": "^$"
+      }
+    },
+    {
+      "id": "L-operations-16",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-402: the New Appointment packages and slots come from GET /services and GET /availability and are built only while the sheet is open; until then they are empty (opened, they must equal the design's).",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": ["newSlots", "newSlots[*]", "newServices", "newServices[*]"],
+        "port": "^$"
+      }
+    },
+    {
+      "id": "L-operations-17",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-401: a card's hasNotes is the server's boolean flag; the fixture passed the note text itself as the truthy value. Only the sc-if reads it.",
+      "expect": {
+        "min": 0
+      },
+      "matcher": {
+        "loc": "**.hasNotes",
+        "orig": ".+",
+        "port": "^true$"
+      }
+    },
+    {
+      "id": "L-operations-18",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-403/DV-106: the live class adds the New Appointment form state (`nf`) and its `loading` flag to renderVals.",
+      "matcher": {
+        "loc": ["nf", "loading"]
+      }
+    },
+    {
+      "id": "L-operations-19",
+      "screen": "operations",
+      "kind": "reorder",
+      "reason": "DV-106: the live class builds renderVals with the bridge's keys (`live`, `nf`, `loading`) in its own order; the template binds by name, so the order is never rendered.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "matcher": {
+        "loc": "$"
+      }
     }
   ]
 }
