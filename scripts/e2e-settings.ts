@@ -221,6 +221,69 @@ try {
   // a run that was interrupted can leave its closures behind
   for (const c of (await api(req, '/closures')).upcoming)
     if (/^E2E /.test(c.name)) await write(bg, 'DELETE', `/closures/${c.id}`)
+  // ---- signed out: the fragment survives the sign-in, and a wrong address is the 404 card ------------------------------
+  await step(
+    'sign-in keeps the fragment: /settings#emergency while signed out lands on #emergency',
+    async () => {
+      const octx = await browser.newContext({
+        viewport: { width: 1480, height: 1000 },
+        timezoneId: 'America/New_York',
+      })
+      const op = await octx.newPage()
+      watch(op, 'signed-out')
+      // GET /me from the 404 page answers 401 while signed out
+      expected4xx = [/^401 GET \/api\/v1\/me/]
+      try {
+        await op.goto(`${stack.webUrl}/nope-${Date.now()}`, { waitUntil: 'load' })
+        await op.getByText('Page not found', { exact: true }).waitFor()
+        eq(
+          await op
+            .locator('#__next a')
+            .evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')])),
+          [['Sign in', '/login']],
+          'signed out, the 404 card offers Sign in only',
+        )
+        await shot(op, 'not-found-signed-out')
+        await op.goto(`${stack.webUrl}/settings#emergency`, { waitUntil: 'load' })
+        await op.waitForURL((u) => u.pathname === '/login')
+        eq(new URL(op.url()).hash, '#emergency', 'the browser carried the fragment onto the sign-in page')
+        await op.getByLabel(/email/i).fill(EMAILS.manager)
+        await op.getByLabel(/password/i).fill(stack.devPassword)
+        await Promise.all([
+          op.waitForURL((u) => u.pathname === '/settings', { timeout: 20_000 }),
+          op.getByRole('button', { name: /sign in/i }).click(),
+        ])
+        eq(new URL(op.url()).hash, '#emergency', 'signed in, back on /settings#emergency')
+        await op
+          .getByText(/Open now|Closed now|Closed today/)
+          .first()
+          .waitFor()
+        check(
+          await op.getByText('Emergency closing', { exact: true }).first().isVisible(),
+          'the Emergency section is open',
+        )
+        await op.goto(`${stack.webUrl}/nope-${Date.now()}`, { waitUntil: 'load' })
+        await op.getByText('Page not found', { exact: true }).waitFor()
+        await op.getByRole('link', { name: 'Settings' }).waitFor()
+        eq(
+          await op
+            .locator('#__next a')
+            .evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')])),
+          [
+            ['Operations', '/operations'],
+            ['Payments', '/payments'],
+            ['Settings', '/settings'],
+          ],
+          'signed in, the 404 card links the screens Management can open',
+        )
+        await shot(op, 'not-found-signed-in')
+      } finally {
+        expected4xx = []
+        await octx.close()
+      }
+    },
+  )
+
   const { ctx: mctx, page } = await session(EMAILS.manager, 'manager')
   await open(page)
   await page.waitForSelector('text=Working hours')
