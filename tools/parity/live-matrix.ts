@@ -1,4 +1,5 @@
 import type { AllowEntry } from './allowlist'
+import type { HarnessResult } from './harness'
 import type { Screen, Theme } from './config'
 import { CHECK_NAMES, type StepResult, type UnitResult } from './types'
 
@@ -121,5 +122,38 @@ export function formatUsage(entries: readonly AllowEntry[], u: UsageInput): stri
     }
     lines.push(`| ${e.id} | ${e.screen} | ${e.kind} | ${dv} | ${use} |`)
   }
+  return lines.join('\n')
+}
+
+/**
+ * One result for runs made screen by screen (each screen on its own stack): units and problems in order, the usage of a
+ * diff-side entry summed, and every swap once per screen.
+ */
+export function mergeResults(results: readonly HarnessResult[], outDir: string): HarnessResult {
+  const usage = new Map<string, { id: string; matched: number; steps: number }>()
+  for (const r of results)
+    for (const u of r.usage) {
+      const prev = usage.get(u.id) ?? { id: u.id, matched: 0, steps: 0 }
+      usage.set(u.id, { id: u.id, matched: prev.matched + u.matched, steps: prev.steps + u.steps })
+    }
+  const swaps = new Map<string, { screen: Screen; id: string; found: number }>()
+  for (const r of results) for (const s of r.swaps) swaps.set(`${s.screen}/${s.id}`, s)
+  const units = results.flatMap((r) => r.units)
+  const problems = results.flatMap((r) => r.problems)
+  return {
+    ok: results.length > 0 && results.every((r) => r.ok),
+    units,
+    problems,
+    outDir,
+    usage: [...usage.values()],
+    swaps: [...swaps.values()],
+  }
+}
+
+export function formatSkipped(
+  rows: ReadonlyArray<{ screen: Screen; scenario: string; reason: string }>,
+): string {
+  const lines = ['| left out of the live run | why |', '| --- | --- |']
+  for (const r of rows) lines.push(`| ${r.screen} / ${r.scenario} | ${r.reason} |`)
   return lines.join('\n')
 }

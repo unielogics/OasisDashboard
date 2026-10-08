@@ -12,6 +12,9 @@
 // API accepts --origin as extra browser origins (CSRF origin check), so a remote browser can sign in. --secure-cookies marks
 // the session cookie Secure, for a stack reached over HTTPS (a tunnel or proxy in front of it). --jobs also runs the real
 // worker (src/worker.ts) on its own pg-boss schema, so crons, reminders and the SMS dispatcher run as in production.
+// Each stack has its own dashboard build (.next-live/stacks/<name>, made for its own API origin), so several stacks of one
+// worktree run side by side; --skip-build reuses it only when it was built for the same API origin. A plain `pnpm build:live`
+// empties .next-live, stacks included: stop the stacks first.
 // It prints a JSON summary and writes .live-stack/<name>.json (ports, pids, URLs, logs). Seeded logins are
 // <first name>@oasisautospa.com (rafael, amara, sofia, marco, lena, daniel) with the dev password.
 // Use one name, one API port and one web port per agent/worktree so concurrent stacks never collide.
@@ -57,6 +60,10 @@ interface State {
   webLog: string
   workerPid?: number
   workerLog?: string
+  /** the backend checkout the stack runs (migrations, seeds, API) */
+  backend: string
+  /** the stack's own dashboard build, made for apiUrl */
+  distDir: string
 }
 
 function readEnvFile(file: string): Record<string, string> {
@@ -195,15 +202,25 @@ async function up(): Promise<void> {
 
   // 3. the live dashboard, built against this API (the rewrites are baked in at build time)
   const webLog = path.join(stateDir, `${name}.web.log`)
-  if (!has('--skip-build') || !fs.existsSync(path.join(root, '.next-live'))) {
-    run('build:live', 'pnpm', ['build:live'], root, { ...base, API_ORIGIN: apiUrl })
+  const distDir = path.join('.next-live', 'stacks', name)
+  const marker = path.join(root, distDir, 'oasis-stack.json')
+  const builtFor = fs.existsSync(marker)
+    ? (JSON.parse(fs.readFileSync(marker, 'utf8')) as { apiUrl?: string }).apiUrl
+    : undefined
+  if (!has('--skip-build') || builtFor !== apiUrl) {
+    if (has('--skip-build'))
+      console.error(
+        `[live-stack] --skip-build ignored: ${distDir} was not built for ${apiUrl} (${builtFor ?? 'no build'})`,
+      )
+    run('build:live', 'pnpm', ['build:live'], root, { ...base, API_ORIGIN: apiUrl, LIVE_DIST_DIR: distDir })
+    fs.writeFileSync(marker, JSON.stringify({ apiUrl }) + '\n')
   }
   const webFd = fs.openSync(webLog, 'w')
   const web = spawn('pnpm', ['start:live'], {
     cwd: root,
     detached: true,
     stdio: ['ignore', webFd, webFd],
-    env: { ...base, API_ORIGIN: apiUrl, PORT: String(webPort), WEB_HOST: webHost },
+    env: { ...base, API_ORIGIN: apiUrl, LIVE_DIST_DIR: distDir, PORT: String(webPort), WEB_HOST: webHost },
   })
   web.unref()
   await waitFor(`${webUrl}/login`, 90_000, (s) => s === 200)
@@ -223,6 +240,8 @@ async function up(): Promise<void> {
     apiLog,
     webLog,
     ...(worker ? { workerPid: worker.pid, workerLog: worker.log } : {}),
+    backend,
+    distDir,
   }
   fs.writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n')
   console.log(JSON.stringify(state, null, 2))

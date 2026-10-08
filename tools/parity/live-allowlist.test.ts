@@ -53,10 +53,26 @@ describe('parity/allowlist.live.json', () => {
 })
 
 describe('live registry', () => {
-  it('registers every screen, with Operations pending and Payments and Settings live', () => {
+  it('registers every screen as live, each on its own stack with its own ports and seed profiles', () => {
     expect(Object.keys(LIVE_SCREENS).sort()).toEqual([...SCREENS].sort())
-    expect(liveScreens().sort()).toEqual(['payments', 'settings'])
-    expect(LIVE_SCREENS.operations.status).toBe('pending')
-    expect(LIVE_SCREENS.payments.profiles).toContain('parity-pay')
+    expect(liveScreens().sort()).toEqual(['operations', 'payments', 'settings'])
+    expect(LIVE_SCREENS.payments.profiles.sort()).toEqual(['design', 'parity-pay'])
+    expect(LIVE_SCREENS.operations.profiles.sort()).toEqual(['design', 'parity-ops'])
+    expect(LIVE_SCREENS.settings.profiles.sort()).toEqual(['design', 'parity-ops'])
+    const stacks = SCREENS.map((s) => LIVE_SCREENS[s].stack)
+    expect(new Set(stacks).size).toBe(stacks.length)
+    const ports = SCREENS.flatMap((s) => [LIVE_SCREENS[s].ports.api, LIVE_SCREENS[s].ports.web])
+    expect(new Set(ports).size).toBe(ports.length)
+  })
+
+  it('leaves out only scenarios of the catalogue, each with a reason', () => {
+    for (const s of SCREENS)
+      for (const [id, reason] of Object.entries(LIVE_SCREENS[s].skip ?? {})) {
+        expect(
+          ALL_SCENARIOS.some((x) => x.screen === s && x.id === id),
+          `${s}/${id}`,
+        ).toBe(true)
+        expect(reason.length).toBeGreaterThan(20)
+      }
   })
 })
