@@ -24,6 +24,42 @@ const QUIET_MS = 900
 const API_PREFIX = '/api/v1/'
 const EVENTS_PATH = '/api/v1/events'
 
+/**
+ * Page timers of at least this many milliseconds are held by the harness and fire only when a scenario advances time
+ * (`runFor`), like every timer of the originals on their paused clock. Without it a toast (3.2 s) could expire in real
+ * time while the harness waits for the page to settle after a command, and the snapshot would miss it.
+ */
+export const HELD_TIMER_MS = 3000
+
+/** Installed before the page's scripts: holds long setTimeout timers until `__parityAdvance(ms)` moves time on. */
+export function holdLongTimersScript(threshold: number): string {
+  return `(function () {
+  if (window.__parityAdvance) return;
+  var realSet = window.setTimeout.bind(window), realClear = window.clearTimeout.bind(window);
+  var held = [], next = 2e9;
+  window.setTimeout = function (fn, ms) {
+    var args = Array.prototype.slice.call(arguments, 2);
+    if (typeof ms === 'number' && ms >= ${threshold} && typeof fn === 'function') {
+      var h = { id: ++next, fn: fn, args: args, left: ms };
+      held.push(h);
+      return h.id;
+    }
+    return realSet.apply(window, arguments);
+  };
+  window.clearTimeout = function (id) {
+    for (var i = 0; i < held.length; i++) if (held[i].id === id) { held.splice(i, 1); return; }
+    return realClear(id);
+  };
+  window.__parityAdvance = function (ms) {
+    var due = [];
+    held = held.filter(function (h) { h.left -= ms; if (h.left <= 0) { due.push(h); return false; } return true; });
+    due.sort(function (a, b) { return a.left - b.left; });
+    due.forEach(function (h) { realSet(function () { h.fn.apply(window, h.args); }, 0); });
+    return due.length;
+  };
+})();`
+}
+
 /** Texts that mean the screen is still waiting for data (boot splash, loading cards). */
 const LOADING_RE = /Loading settings|Loading payments|Loading…|Loading\.\.\.|Reconnecting|Connection lost/
 
@@ -44,6 +80,8 @@ export class LiveDriver extends PageDriver {
   private pending = new Set<Request>()
   private sseConnected = false
   private apiFailures: string[] = []
+  /** the pinned instant of the page's Date (moves only with runFor) */
+  private now = 0
 
   constructor(
     browser: Browser,
@@ -69,6 +107,8 @@ export class LiveDriver extends PageDriver {
 
   protected async attach(): Promise<void> {
     const { page } = this
+    this.now = new Date(this.target.frozen).getTime()
+    await page.addInitScript(holdLongTimersScript(HELD_TIMER_MS))
     page.on('request', (r) => {
       const u = new URL(r.url())
       if (u.pathname.startsWith(API_PREFIX) && u.pathname !== EVENTS_PATH) this.pending.add(r)
@@ -84,7 +124,17 @@ export class LiveDriver extends PageDriver {
     })
   }
 
+  /**
+   * Time moves like on the originals' paused clock: the pinned Date moves on by `ms` (bay timers, elapsed labels), the
+   * held long timers that fall due fire, and the short ones get the same span of real time.
+   */
   protected async advance(ms: number): Promise<void> {
+    this.now += ms
+    await this.page.clock.setFixedTime(new Date(this.now))
+    await this.page.evaluate(
+      (n) => (window as unknown as { __parityAdvance(ms: number): number }).__parityAdvance(n),
+      ms,
+    )
     await this.page.waitForTimeout(ms)
   }
 

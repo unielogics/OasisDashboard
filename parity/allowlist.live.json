@@ -407,10 +407,10 @@
       "id": "L-operations-03",
       "screen": "operations",
       "kind": "text",
-      "reason": "DV-401: the 'N booked' sub-label is the server's count of upcoming booked and confirmed appointments (7 on the design day); the design printed the literal '12 booked'.",
+      "reason": "DV-401: the 'N booked' sub-label is the server's count of the window's upcoming booked and confirmed appointments (review B29: 7 on the design day, 6 once a gesture starts or checks in Marcus Webb); the design printed the literal '12 booked'. The oracle counts its own appointments the same way before it renders.",
       "swap": {
         "find": "sub:'12 booked'",
-        "replace": "sub:'7 booked'",
+        "replace": "sub:all.filter(a=>a.day<=1&&(a.status==='booked'||a.status==='confirmed')).length+' booked'",
         "count": 1,
         "target": "logic"
       }
@@ -530,13 +530,13 @@
       "id": "L-operations-13",
       "screen": "operations",
       "kind": "wiring",
-      "reason": "DV-401: appointments carry the server's ids (UUIDv7) where the fixture had a1..a12; ids are never rendered.",
+      "reason": "DV-401: appointments carry the server's ids (UUIDv7) where the fixture had a1..a12 and its calendar generator g<day>_<n>; ids are never rendered.",
       "expect": {
         "min": 0
       },
       "matcher": {
         "loc": "**.id",
-        "orig": "^a\\d+$",
+        "orig": "^(a\\d+|g\\d+_\\d+)$",
         "port": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
       }
     },
@@ -939,9 +939,9 @@
       },
       "matcher": {
         "rect": {
-          "x": 886,
+          "x": 878,
           "y": 440,
-          "w": 404,
+          "w": 430,
           "h": 240
         }
       }
@@ -1237,6 +1237,39 @@
         "replace": "payStyle: { fontSize:'11.5px',fontWeight:800, color: a.pay==='none' ? 'var(--ink3)' : a.pay==='paid' ? (dark?'#5FC9A6':'#0D9488') : '#C2410C' }",
         "count": 1,
         "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-60",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-401: 'Bay time free' is the server's free bay time left today; when a gesture puts Marcus Webb's job in Bay 2 it drops from 2.8h to 2.4h, while the design's figure is a literal (L-operations-04 gives the oracle the 2.8h of the untouched day).",
+      "scope": {
+        "scenarios": ["touch-long-press-drag", "mouse-drag-to-bay"],
+        "steps": ["drop", "toast-expired"]
+      },
+      "matcher": {
+        "loc": ["kpis[4].value", "div[0]/div[0]/div[0]/div[3]/div[9]/div[5]/div[1]/span[0]/#text[0]"],
+        "orig": "^2\\.8h$",
+        "port": "^2\\.4h$"
+      }
+    },
+    {
+      "id": "L-operations-61",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-401: pixels of the 'Bay time free' figure after a drop (see L-operations-60).",
+      "scope": {
+        "scenarios": ["touch-long-press-drag", "mouse-drag-to-bay"],
+        "steps": ["drop", "toast-expired"]
+      },
+      "matcher": {
+        "rect": {
+          "x": 862,
+          "y": 128,
+          "w": 60,
+          "h": 34
+        }
       }
     }
   ]
