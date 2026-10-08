@@ -4,6 +4,9 @@
 //   pnpm live:up --name payments --api-port 4022 --web-port 3222 --profile design,parity-pay
 //   pnpm e2e:payments --name payments [--phase read|write|roles|all] [--keep-going]
 //
+// The run reads every list and invoice it checks through the person's own session; on a fast box that can pass the API's
+// default 300 requests per person and minute (a 429 then fails the run), so start the stack with RATE_LIMIT_PER_MIN=1200.
+//
 // Phases (the stack must be freshly seeded; `write` changes data, `read` and `roles` are repeatable until `write` ran):
 //   read   Management: ranges, filters, search, one invoice of every status, the banner's Review, reload, every visible
 //          figure against the API response (independent formatters), the golden values of the original bundle
