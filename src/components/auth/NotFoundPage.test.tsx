@@ -60,6 +60,20 @@ describe('the 404 page', () => {
     expect(links()).toEqual([['Sign out', '/logout']])
   })
 
+  it('asks who is there once, however often it renders (the default loader is stable)', async () => {
+    const get = vi.spyOn(api, 'get').mockRejectedValue(Object.assign(new Error('401'), { status: 401 }))
+    vi.stubEnv('NEXT_PUBLIC_VARIANT', 'live')
+    try {
+      await act(async () => root.render(createElement(NotFoundPage)))
+      await act(async () => root.render(createElement(NotFoundPage)))
+      await act(async () => new Promise((r) => setTimeout(r, 20)))
+    } finally {
+      vi.unstubAllEnvs()
+    }
+    expect(links()).toEqual([['Sign in', '/login']])
+    expect(get.mock.calls.filter((c) => c[0] === '/me')).toHaveLength(1)
+  })
+
   it('shows no link until it knows who is there', async () => {
     await act(async () =>
       root.render(createElement(NotFoundPage, { load: () => new Promise<NotFoundState>(() => {}) })),

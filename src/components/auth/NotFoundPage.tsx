@@ -27,11 +27,9 @@ export async function whoCanGo(live: boolean): Promise<NotFoundState> {
   }
 }
 
-export default function NotFoundPage({
-  load = () => whoCanGo(process.env.NEXT_PUBLIC_VARIANT === 'live'),
-}: {
-  load?: () => Promise<NotFoundState>
-}) {
+const loadForThisBuild = () => whoCanGo(process.env.NEXT_PUBLIC_VARIANT === 'live')
+
+export default function NotFoundPage({ load = loadForThisBuild }: { load?: () => Promise<NotFoundState> }) {
   const [state, setState] = useState<NotFoundState>(null)
   useEffect(() => {
     let alive = true
