@@ -2,7 +2,7 @@
 //
 //   pnpm tsx scripts/live-stack.ts up --name settings [--profile design[,parity-pay]] [--api-port 4010] [--web-port 3210]
 //        [--backend ~/oasis/backend] [--dev-password oasis-dev-pass-1234] [--freeze 2026-06-13T10:36:00-04:00] [--skip-build]
-//        [--host 127.0.0.1] [--origin http://100.x.y.z:3240[,https://...]] [--secure-cookies]
+//        [--host 127.0.0.1] [--origin http://100.x.y.z:3240[,https://...]] [--secure-cookies] [--jobs]
 //   pnpm tsx scripts/live-stack.ts down --name settings [--drop]
 //   pnpm tsx scripts/live-stack.ts status --name settings
 //
@@ -10,7 +10,8 @@
 // (src/server.ts) on --api-port (jobs off, SMS dispatch inline, hooks listener off), builds the live dashboard with API_ORIGIN pointing at it and serves it on --web-port.
 // The web server binds to --host (loopback unless told otherwise; pass a tailnet IP to review from another machine) and the
 // API accepts --origin as extra browser origins (CSRF origin check), so a remote browser can sign in. --secure-cookies marks
-// the session cookie Secure, for a stack reached over HTTPS (a tunnel or proxy in front of it).
+// the session cookie Secure, for a stack reached over HTTPS (a tunnel or proxy in front of it). --jobs also runs the real
+// worker (src/worker.ts) on its own pg-boss schema, so crons, reminders and the SMS dispatcher run as in production.
 // It prints a JSON summary and writes .live-stack/<name>.json (ports, pids, URLs, logs). Seeded logins are
 // <first name>@oasisautospa.com (rafael, amara, sofia, marco, lena, daniel) with the dev password.
 // Use one name, one API port and one web port per agent/worktree so concurrent stacks never collide.
@@ -54,6 +55,8 @@ interface State {
   frozen: string | null
   apiLog: string
   webLog: string
+  workerPid?: number
+  workerLog?: string
 }
 
 function readEnvFile(file: string): Record<string, string> {
@@ -127,6 +130,7 @@ async function up(): Promise<void> {
   const extraOrigins = (flag('--origin') ?? '').split(',').filter(Boolean)
   const profiles = flag('--profile', 'design')!.split(',').filter(Boolean)
   const frozen = flag('--freeze') ?? null
+  const jobs = has('--jobs')
   const apiUrl = `http://127.0.0.1:${apiPort}`
   const webUrl = `http://${webHost}:${webPort}`
 
@@ -144,35 +148,49 @@ async function up(): Promise<void> {
   }
   // 1. fresh isolated schema, migrated and seeded
   psql(dbUrl, `drop schema if exists ${schema} cascade`)
+  psql(dbUrl, `drop schema if exists pgboss_${name} cascade`)
   run('migrate', 'pnpm', ['migrate', 'up', '--schema', schema], backend, base)
   for (const p of profiles) run(`seed ${p}`, 'pnpm', ['seed', '--', '--profile', p], backend, base)
 
-  // 2. the real API (no jobs: nothing in the e2e stack needs the scheduler; pg-boss would need its own schema)
+  // 2. the real API. Without --jobs nothing is enqueued and the SMS outbox drains inside the API process; with --jobs the
+  // worker below runs every job on the stack's own pg-boss schema. The tailnet-only hooks listener stays off either way.
+  const serverEnv: NodeJS.ProcessEnv = {
+    ...base,
+    NODE_ENV: 'development',
+    HOST: '127.0.0.1',
+    JOBS_ENABLED: jobs ? 'true' : 'false',
+    SMS_DISPATCH_MODE: jobs ? 'jobs' : 'inline',
+    HOOKS_PORT: '0',
+    COOKIE_SECURE: has('--secure-cookies') ? 'true' : 'false',
+    SESSION_SECRET: randomBytes(32).toString('base64'),
+    PUBLIC_API_URL: apiUrl,
+    PUBLIC_DASHBOARD_URL: extraOrigins[0] ?? webUrl,
+    ALLOWED_ORIGINS: [webUrl, `http://localhost:${webPort}`, ...extraOrigins].join(','),
+    PGBOSS_SCHEMA: `pgboss_${name}`,
+  }
   const apiLog = path.join(stateDir, `${name}.api.log`)
   const apiFd = fs.openSync(apiLog, 'w')
   const api = spawn('pnpm', ['exec', 'tsx', 'src/server.ts'], {
     cwd: backend,
     detached: true,
     stdio: ['ignore', apiFd, apiFd],
-    env: {
-      ...base,
-      NODE_ENV: 'development',
-      HOST: '127.0.0.1',
-      PORT: String(apiPort),
-      JOBS_ENABLED: 'false',
-      // no worker in the stack: the SMS outbox drains inside the API process, and the tailnet-only hooks listener stays off
-      SMS_DISPATCH_MODE: 'inline',
-      HOOKS_PORT: '0',
-      COOKIE_SECURE: has('--secure-cookies') ? 'true' : 'false',
-      SESSION_SECRET: randomBytes(32).toString('base64'),
-      PUBLIC_API_URL: apiUrl,
-      PUBLIC_DASHBOARD_URL: extraOrigins[0] ?? webUrl,
-      ALLOWED_ORIGINS: [webUrl, `http://localhost:${webPort}`, ...extraOrigins].join(','),
-      PGBOSS_SCHEMA: `pgboss_${name}`,
-    },
+    env: { ...serverEnv, PORT: String(apiPort) },
   })
   api.unref()
   await waitFor(`${apiUrl}/readyz`, 90_000, (s) => s === 200)
+  let worker: { pid: number; log: string } | null = null
+  if (jobs) {
+    const log = path.join(stateDir, `${name}.worker.log`)
+    const fd = fs.openSync(log, 'w')
+    const w = spawn('pnpm', ['exec', 'tsx', 'src/worker.ts'], {
+      cwd: backend,
+      detached: true,
+      stdio: ['ignore', fd, fd],
+      env: serverEnv,
+    })
+    w.unref()
+    worker = { pid: w.pid!, log }
+  }
 
   // 3. the live dashboard, built against this API (the rewrites are baked in at build time)
   const webLog = path.join(stateDir, `${name}.web.log`)
@@ -203,6 +221,7 @@ async function up(): Promise<void> {
     frozen,
     apiLog,
     webLog,
+    ...(worker ? { workerPid: worker.pid, workerLog: worker.log } : {}),
   }
   fs.writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n')
   console.log(JSON.stringify(state, null, 2))
@@ -216,12 +235,21 @@ async function down(announce = true): Promise<void> {
   const s = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as State
   kill(s.webPid)
   kill(s.apiPid)
-  for (let i = 0; i < 20 && (alive(s.webPid) || alive(s.apiPid)); i++)
+  if (s.workerPid) kill(s.workerPid)
+  // the worker drains for up to a minute on SIGTERM (sms.dispatch holds its window)
+  for (
+    let i = 0;
+    i < 280 && (alive(s.webPid) || alive(s.apiPid) || (s.workerPid ? alive(s.workerPid) : false));
+    i++
+  )
     await new Promise((r) => setTimeout(r, 250))
   fs.rmSync(stateFile)
   if (has('--drop')) {
     const be = readEnvFile(path.join(backend, '.env'))
-    if (be.DATABASE_URL) psql(be.DATABASE_URL, `drop schema if exists ${s.schema} cascade`)
+    if (be.DATABASE_URL) {
+      psql(be.DATABASE_URL, `drop schema if exists ${s.schema} cascade`)
+      psql(be.DATABASE_URL, `drop schema if exists pgboss_${s.name} cascade`)
+    }
   }
   if (announce) console.log(`stack ${name} stopped${has('--drop') ? ` and schema ${s.schema} dropped` : ''}`)
 }
@@ -229,7 +257,8 @@ async function down(announce = true): Promise<void> {
 function status(): void {
   if (!fs.existsSync(stateFile)) return void console.log(JSON.stringify({ name, running: false }))
   const s = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as State
-  console.log(JSON.stringify({ ...s, running: alive(s.apiPid) && alive(s.webPid) }, null, 2))
+  const running = alive(s.apiPid) && alive(s.webPid) && (s.workerPid ? alive(s.workerPid) : true)
+  console.log(JSON.stringify({ ...s, running }, null, 2))
 }
 
 if (cmd === 'up') await up()
