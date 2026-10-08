@@ -954,39 +954,40 @@ async function phaseRead(browser: Browser): Promise<void> {
 }
 
 /**
- * The refund sheet's inline check against the server, on invoices of the 7-day list chosen for the review findings the
- * caps exist for: card money below the other money (2: cash paid, the card cap is smaller), non-credit money below what is
- * refundable (14: store credit applied), and a pending refund (7) when one is listed. For each destination and every
- * amount one cent above a cap the sheet must name the server's refusal word for word and disable its button; the server
- * is then asked (POST /invoices/:id/refunds, refused, so nothing changes) and must answer 422 with that same detail. An
- * amount the sheet allows is never sent.
+ * The refund sheet's inline check against the server, on invoices the run has put in the states the caps exist for:
+ * INV-20603 (paid with $20.00 of store credit and the rest in cash: review findings 2 and 14), INV-20606 (card, part
+ * refunded to card and to cash) and a seeded invoice with a refund waiting for approval (finding 7). For each
+ * destination and every amount one cent above a cap the sheet must name the server's refusal word for word and disable
+ * its button; the server is then asked (POST /invoices/:id/refunds, refused, so nothing changes) and must answer 422
+ * with that same detail. An amount the sheet allows is never sent. The refusals it provokes are taken off the list of
+ * unexpected 4xx answers, exactly as many as it made.
  */
 async function refundCapsAgainstServer(page: Page): Promise<void> {
-  const rows = (await apiList(page, '7d')).filter((r) => r.paidCents > 0)
+  const rows = await apiList(page, '30d')
+  const pick = [
+    rows.find((r) => r.label === 'INV-20603'),
+    rows.find((r) => r.label === 'INV-20606'),
+    rows.find((r) => r.refundPending),
+  ].filter((r, i, a) => r && a.findIndex((x) => x?.id === r.id) === i)
   const details: any[] = []
-  for (const r of rows) details.push((await api(page, 'GET', `/invoices/${r.id}`)).body)
+  for (const r of pick) details.push((await api(page, 'GET', `/invoices/${r.id}`)).body)
   const caps = (d: any) => d.refundCaps as { cardCents: number; otherCents: number; totalCents: number }
   ok(
-    details.length > 0 && details.every((d) => d.refundCaps && Number.isInteger(caps(d).totalCents)),
-    'GET /invoices/:id carries refundCaps on every paid invoice of the week',
+    details.length === 3 && details.every((d) => d.refundCaps && caps(d).totalCents === d.calc.refundable),
+    'GET /invoices/:id carries refundCaps (totalCents is calc.refundable)',
+    details.map((d) => [d.label, d.refundCaps]),
   )
+  const mixed = details.find((d) => d.label === 'INV-20603')
   ok(
-    details.every((d) => caps(d).totalCents === d.calc.refundable),
-    'refundCaps.totalCents is calc.refundable',
+    mixed && caps(mixed).cardCents === 0 && caps(mixed).otherCents < caps(mixed).totalCents,
+    'INV-20603 (credit + cash): nothing goes back to a card, the store credit does not go back as cash',
+    mixed?.refundCaps,
   )
-  const pick = (pred: (d: any) => boolean) => details.find((d) => pred(d) && caps(d).totalCents > 0)
-  const chosen = [
-    pick((d) => caps(d).cardCents < caps(d).otherCents),
-    pick((d) => caps(d).otherCents < caps(d).totalCents),
-    pick((d) => d.calc.pendingN > 0),
-  ].filter((d, i, a) => d && a.findIndex((x) => x?.id === d.id) === i)
-  ok(
-    chosen.length >= 2,
-    'the week has invoices with cash money and with store credit money to check',
-    chosen.length,
-  )
-  for (const d of chosen) {
+  let refused = 0
+  for (const d of details) {
     const c = caps(d)
+    if (c.totalCents <= 0) continue
+    await setRange(page, '30 days')
     await openSheet(page, d.label, /^Refund$/)
     await sheetButton(page, /^Custom$/).click()
     for (const [label, dest] of [
@@ -1015,6 +1016,7 @@ async function refundCapsAgainstServer(page: Page): Promise<void> {
           amountCents: cents,
           dest,
         })
+        refused++
         ok(res.status === 422, `refund caps: the server refuses ${what}`, res.body)
         ok(
           typeof res.body?.detail === 'string' && txt.includes(res.body.detail),
@@ -1027,6 +1029,14 @@ async function refundCapsAgainstServer(page: Page): Promise<void> {
     const after = (await api(page, 'GET', `/invoices/${d.id}`)).body
     eq(caps(after), c, `refund caps: ${d.label} unchanged by the refused requests`)
   }
+  ok(refused > 0, 'refund caps: the server was asked about refused amounts', refused)
+  await sleep(300)
+  const key = `${EMAILS.manager}: 422 POST /api/v1/invoices/:id/refunds`
+  for (let i = 0; i < refused; i++) {
+    const at = client4xx.lastIndexOf(key)
+    if (at >= 0) client4xx.splice(at, 1)
+  }
+  await setRange(page, '7 days')
 }
 
 // ---- phase: write ---------------------------------------------------------------------------------------------------
