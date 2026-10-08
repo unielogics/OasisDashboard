@@ -52,8 +52,29 @@ export function saveSchema(stack: Pick<StackFile, 'schema' | 'backend' | 'name'>
   ])
   return {
     restore() {
+      // sequences keep moving forward: the running API remembers ids it has seen (the realtime event log's cursor), and
+      // an id handed out again after a restore would be taken for an event it already delivered
+      const seq = run('psql', [
+        url,
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-qtAc',
+        `select sequencename || ' ' || coalesce(last_value, 0) from pg_sequences where schemaname = '${stack.schema}'`,
+      ])
+        .split('\n')
+        .map((l) => l.trim().split(' '))
+        .filter(
+          (x): x is [string, string] => x.length === 2 && /^[a-z0-9_]+$/.test(x[0]) && /^\d+$/.test(x[1]),
+        )
       run('psql', [url, '-v', 'ON_ERROR_STOP=1', '-qc', `drop schema if exists ${stack.schema} cascade`])
       run('pg_restore', ['--dbname', url, '--no-owner', '--exit-on-error', dump])
+      const forward = seq
+        .filter(([, v]) => Number(v) > 0)
+        .map(
+          ([name, v]) =>
+            `select setval('${stack.schema}.${name}', greatest(${v}, (select coalesce(last_value, 1) from pg_sequences where schemaname = '${stack.schema}' and sequencename = '${name}')))`,
+        )
+      if (forward.length) run('psql', [url, '-v', 'ON_ERROR_STOP=1', '-qtAc', forward.join('; ')])
     },
     dispose() {
       fs.rmSync(dir, { recursive: true, force: true })
