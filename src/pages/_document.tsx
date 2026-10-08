@@ -2,21 +2,12 @@ import { Html, Head, Main, NextScript } from 'next/document'
 import type { DocumentProps } from 'next/document'
 
 /**
- * Pages whose first screen is set in Manrope and Bricolage Grotesque: the three screens and the login family (their card
- * and header use both). Everything else (`/` redirects, `/logout` leaves at once, `/_error`) would download the fonts for
- * nothing and log "preloaded but not used".
+ * The three screens preload the two fonts their first render sets text in. The login family and the 404 page do not: they
+ * render on the client after their script arrives, and on a slow link that is later than the few seconds after the load
+ * event that Chrome allows a preload, so it logs "preloaded but not used" (their fonts load from the stylesheet when the
+ * card renders). `/` redirects and `/logout` leaves at once.
  */
-export const FONT_PAGES: readonly string[] = [
-  '/operations',
-  '/payments',
-  '/settings',
-  '/login',
-  '/forgot',
-  '/reset',
-  '/invite',
-  '/invite/[token]',
-  '/404',
-]
+export const FONT_PAGES: readonly string[] = ['/operations', '/payments', '/settings']
 
 export const FONT_PRELOADS = ['/fonts/manrope-latin.woff2', '/fonts/bricolage-grotesque-latin.woff2'] as const
 

@@ -231,6 +231,11 @@ try {
       })
       const op = await octx.newPage()
       watch(op, 'signed-out')
+      const preloadWarnings: string[] = []
+      op.on('console', (m) => {
+        if (/preloaded using link preload but not used/.test(m.text()))
+          preloadWarnings.push(`${op.url()}: ${m.text()}`)
+      })
       // GET /me from the 404 page answers 401 while signed out
       expected4xx = [/^401 GET \/api\/v1\/me/]
       try {
@@ -244,6 +249,14 @@ try {
           'signed out, the 404 card offers Sign in only',
         )
         await shot(op, 'not-found-signed-out')
+        // the 404 page and the login family preload no font, so a slow first render logs no preload warning
+        await op.waitForTimeout(4000)
+        for (const p of ['/login', '/forgot']) {
+          await op.goto(`${stack.webUrl}${p}`, { waitUntil: 'load' })
+          await op.getByRole('button').first().waitFor()
+          await op.waitForTimeout(4000)
+        }
+        eq(preloadWarnings, [], 'no "preloaded but not used" warning on /404, /login and /forgot')
         await op.goto(`${stack.webUrl}/settings#emergency`, { waitUntil: 'load' })
         await op.waitForURL((u) => u.pathname === '/login')
         eq(new URL(op.url()).hash, '#emergency', 'the browser carried the fragment onto the sign-in page')
@@ -277,6 +290,9 @@ try {
           'signed in, the 404 card links the screens Management can open',
         )
         await shot(op, 'not-found-signed-in')
+      } catch (e) {
+        await shot(op, 'FAILED-signed-out-page')
+        throw e
       } finally {
         expected4xx = []
         await octx.close()

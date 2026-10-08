@@ -7,19 +7,21 @@ import { FONT_PAGES, FONT_PRELOADS, preloadsFonts } from '../../src/pages/_docum
 const pagesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'pages')
 
 describe('font preloads', () => {
-  it('only the screens and the login family preload the two fonts', () => {
+  it('only the three screens preload the two fonts; the login family, 404, / and /logout do not', () => {
+    for (const p of ['/operations', '/payments', '/settings']) expect(preloadsFonts(p), p).toBe(true)
     for (const p of [
-      '/operations',
-      '/payments',
-      '/settings',
       '/login',
       '/forgot',
       '/reset',
+      '/invite',
       '/invite/[token]',
+      '/logout',
       '/404',
+      '/',
+      '/_error',
+      '/500',
+      undefined,
     ])
-      expect(preloadsFonts(p), p).toBe(true)
-    for (const p of ['/', '/logout', '/_error', '/500', undefined])
       expect(preloadsFonts(p), String(p)).toBe(false)
   })
 
