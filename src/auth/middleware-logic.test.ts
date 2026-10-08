@@ -106,6 +106,15 @@ describe('src/middleware.ts (the Next entry)', () => {
     vi.stubEnv('OASIS_SESSION_COOKIE_NAME', 'my_sid')
     expect(mw(req('/payments', 'my_sid=1')).headers.get('x-middleware-next')).toBe('1')
   })
+  it('the redirect keeps the host the browser used (Next turns 127.0.0.1 into localhost in req.url)', async () => {
+    const mw = await load('live')
+    const res = mw(new NextRequest('http://127.0.0.1:3266/settings', { headers: { host: '127.0.0.1:3266' } }))
+    expect(res.headers.get('location')).toBe('http://127.0.0.1:3266/login?next=%2Fsettings')
+    const pub = mw(
+      new NextRequest('http://localhost:3200/payments', { headers: { host: 'oasis.example.com' } }),
+    )
+    expect(pub.headers.get('location')).toBe('http://oasis.example.com/login?next=%2Fpayments')
+  })
   it('the matcher excludes assets, fonts, api and favicon', async () => {
     const { config } = await import('../middleware')
     const re = new RegExp('^' + config.matcher[0]!.replace('/((?!', '/((?!').replace(/\\\\/g, '\\') + '$')

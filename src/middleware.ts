@@ -16,7 +16,10 @@ export function middleware(req: NextRequest) {
     extraCookieNames: extra,
   })
   if (d.action === 'next') return NextResponse.next()
-  return NextResponse.redirect(new URL(d.location, req.url))
+  // the address the browser used: Next rewrites a loopback host (127.0.0.1) to localhost in req.url, and a redirect to
+  // another host than the one that holds the session cookie signs the person out
+  const host = req.headers.get('host')
+  return NextResponse.redirect(new URL(d.location, host ? `${req.nextUrl.protocol}//${host}` : req.url))
 }
 
 export const config = {
