@@ -143,6 +143,33 @@ describe('/login', () => {
     }
   })
 
+  it('keeps the fragment the middleware redirect carried onto the login URL (/settings#emergency)', async () => {
+    const was = window.location.href
+    try {
+      for (const [next, hash, want] of [
+        ['/settings', '#emergency', '/settings#emergency'],
+        [undefined, '#emergency', '/operations#emergency'],
+        ['/settings#hours', '#emergency', '/settings#hours'],
+      ] as const) {
+        act(() => root.unmount())
+        root = createRoot(container)
+        router.query = next ? { next } : {}
+        window.history.replaceState(
+          null,
+          '',
+          `/login${next ? `?next=${encodeURIComponent(next)}` : ''}${hash}`,
+        )
+        const { navigate } = await setup()
+        await type('email', 'a@b.co')
+        await type('password', 'x')
+        await submit()
+        expect(navigate, `${next} ${hash}`).toHaveBeenCalledWith(want)
+      }
+    } finally {
+      window.history.replaceState(null, '', was)
+    }
+  })
+
   it('shows the server sentence for wrong credentials and lets the person retry', async () => {
     const a = auth({
       login: vi.fn(async () => {

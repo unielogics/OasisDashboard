@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useRouter } from 'next/router'
+import { nextAfterLogin } from '@/auth/next'
 import { failureOf, validateEmail } from '@/auth/validation'
 import type { FormFailure } from '@/auth/validation'
 import type { AuthApi } from '@/data/http/endpoints'
-import { safeNext } from '@/lib/url'
 import { AuthFrame } from './Frame'
 import { Card, linkRowStyle } from './Card'
 import { Field } from './Field'
@@ -48,7 +48,7 @@ export default function LoginPage({ auth: authProp, navigate = go }: Props) {
     setBusy(true)
     try {
       await auth.login({ email: email.trim(), password })
-      navigate(safeNext(router.query.next))
+      navigate(nextAfterLogin(router.query.next, window.location.hash))
     } catch (err) {
       setFail(failureOf(err))
       setBusy(false)
