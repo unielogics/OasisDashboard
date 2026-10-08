@@ -13,7 +13,8 @@ import { SessionProvider } from './session'
 export function LiveProviders({ children }: { children: ReactNode }) {
   const qc = getQueryClient()
   const router = useRouter()
-  const pub = isPublicPath(router.pathname)
+  // the 404 page asks GET /me itself: a wrong address must not bounce a signed-out visitor to the sign-in page
+  const pub = isPublicPath(router.pathname) || router.pathname === '/404' || router.pathname === '/_error'
   return (
     <QueryClientProvider client={qc}>
       {pub ? (

@@ -1,6 +1,10 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { SESSION_COOKIE_NAMES, decide } from './middleware-logic'
+import { isPublicPath } from '@/lib/url'
+import { SESSION_COOKIE_NAMES, SESSION_PAGES, decide } from './middleware-logic'
 
 const d = (pathname: string, cookies: string[] = [], search = '', extra?: string[]) =>
   decide({ pathname, search, cookieNames: cookies, extraCookieNames: extra })
@@ -48,8 +52,25 @@ describe('middleware decision', () => {
       expect(d(p), p).toEqual({ action: 'next' })
   })
   it('a hostile path cannot smuggle an off-site next', () => {
-    const r = d('//evil.test/x')
-    expect(r).toEqual({ action: 'redirect', location: '/login' })
+    expect(d('//evil.test/x')).toEqual({ action: 'next' })
+    expect(d('/payments//evil.test')).toEqual({
+      action: 'redirect',
+      location: '/login?next=%2Fpayments%2F%2Fevil.test',
+    })
+  })
+  it('an address that is no page reaches the 404 page signed out (it offers Sign in) instead of the sign-in page', () => {
+    for (const p of ['/nope', '/settingsx', '/operation', '/404', '/payments-old'])
+      expect(d(p), p).toEqual({ action: 'next' })
+    expect(d('/settings/emergency')).toMatchObject({ action: 'redirect' })
+  })
+  it('SESSION_PAGES is exactly the pages under src/pages outside the login family and the special pages', () => {
+    const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'pages')
+    const pages = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isFile() && /\.tsx?$/.test(e.name))
+      .map((e) => '/' + e.name.replace(/\.tsx?$/, '').replace(/^index$/, ''))
+      .filter((p) => !isPublicPath(p) && !['/_app', '/_document', '/_error', '/404', '/500'].includes(p))
+    expect(pages.sort()).toEqual([...SESSION_PAGES].sort())
   })
 })
 
