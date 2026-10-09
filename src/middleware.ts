@@ -16,7 +16,15 @@ export function middleware(req: NextRequest) {
     extraCookieNames: extra,
   })
   if (d.action === 'next') return NextResponse.next()
-  return NextResponse.redirect(new URL(d.location, req.url))
+  return redirectTo(d.location)
+}
+
+/**
+ * A redirect with a relative Location (`/login?next=...`). Behind nginx, `req.url` carries the server's own address
+ * (https://localhost:3200/...), not the public host, so an absolute URL built from it sent signed-out visitors to localhost.
+ */
+export function redirectTo(location: string): NextResponse {
+  return new NextResponse(null, { status: 307, headers: { Location: location } })
 }
 
 export const config = {
