@@ -97,8 +97,8 @@ describe('src/middleware.ts (the Next entry)', () => {
     const mw = await load('live')
     const redirect = mw(req('/payments?range=7d'))
     expect(redirect.status).toBe(307)
-    // relative: behind nginx the request URL is the server's own address, never the public host
-    expect(redirect.headers.get('location')).toBe('/login?next=%2Fpayments%3Frange%3D7d')
+    const loc = new URL(redirect.headers.get('location')!)
+    expect(loc.pathname + loc.search).toBe('/login?next=%2Fpayments%3Frange%3D7d')
     expect(mw(req('/payments', 'oasis_sid=abc')).headers.get('x-middleware-next')).toBe('1')
     expect(mw(req('/payments', '__Host-oasis_sid=abc')).headers.get('x-middleware-next')).toBe('1')
     expect(mw(req('/login')).headers.get('x-middleware-next')).toBe('1')

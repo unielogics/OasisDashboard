@@ -16,15 +16,22 @@ export function middleware(req: NextRequest) {
     extraCookieNames: extra,
   })
   if (d.action === 'next') return NextResponse.next()
-  return redirectTo(d.location)
+  return NextResponse.redirect(new URL(d.location, publicOrigin(req)))
 }
 
 /**
- * A redirect with a relative Location (`/login?next=...`). Behind nginx, `req.url` carries the server's own address
- * (https://localhost:3200/...), not the public host, so an absolute URL built from it sent signed-out visitors to localhost.
+ * The origin the visitor used. Next requires an absolute redirect URL, but behind nginx `req.url` carries the server's own
+ * address (https://localhost:3200/...), which sent the first real visitors to localhost. nginx sets X-Forwarded-Host and
+ * X-Forwarded-Proto from the request it accepted (deploy/nginx/oasis-proxy.conf.template); without a proxy the Host header is
+ * the address the browser used. The redirect only ever goes back to the person who asked, to the host they asked for.
  */
-export function redirectTo(location: string): NextResponse {
-  return new NextResponse(null, { status: 307, headers: { Location: location } })
+export function publicOrigin(req: NextRequest): string {
+  const host =
+    req.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || req.headers.get('host') || req.nextUrl.host
+  const forwarded = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
+  const proto =
+    forwarded === 'https' || forwarded === 'http' ? forwarded : req.nextUrl.protocol.replace(/:$/, '')
+  return `${proto}://${host}`
 }
 
 export const config = {
