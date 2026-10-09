@@ -14,14 +14,14 @@ tools/dc-compile + design-patches/live   the live variant of the compiler
 
 ## Build flavours
 
-|                                                          | default (`pnpm build`)                 | parity (`pnpm build:parity`)                      | live (`pnpm build:live`)                                    |
-| -------------------------------------------------------- | -------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------- |
-| screens                                                  | fixture classes, prod template         | same, `data-dc-tpl` stamped, `__oasisParity` hook | live template patches + bridge on the original classes      |
-| `NEXT_PUBLIC_VARIANT`                                    | `''`                                   | `''`                                              | `live`                                                      |
-| `_app` providers, session gate, SSE, middleware redirect | none                                   | none                                              | yes                                                         |
-| compiler output dir                                      | `src/generated`                        | `.generated-parity`                               | `.generated-live`                                           |
-| distDir                                                  | `.next`                                | `.next-parity`                                    | `.next-live`                                                |
-| `/api/*`                                                 | not proxied unless `API_ORIGIN` is set | same                                              | rewritten to `API_ORIGIN` (default `http://localhost:4000`) |
+|                                                          | default (`pnpm build`)                 | parity (`pnpm build:parity`)                      | live (`pnpm build:live`)                               |
+| -------------------------------------------------------- | -------------------------------------- | ------------------------------------------------- | ------------------------------------------------------ |
+| screens                                                  | fixture classes, prod template         | same, `data-dc-tpl` stamped, `__oasisParity` hook | live template patches + bridge on the original classes |
+| `NEXT_PUBLIC_VARIANT`                                    | `''`                                   | `''`                                              | `live`                                                 |
+| `_app` providers, session gate, SSE, middleware redirect | none                                   | none                                              | yes                                                    |
+| compiler output dir                                      | `src/generated`                        | `.generated-parity`                               | `.generated-live`                                      |
+| distDir                                                  | `.next`                                | `.next-parity`                                    | `.next-live`                                           |
+| `/api/*`                                                 | not proxied unless `API_ORIGIN` is set | same                                              | same (no default: production's nginx serves `/api`)    |
 
 `next.config.mjs` also rewrites `/reset/:token` and `/reset-password` to `/reset?token=` in every build (the login pages
 exist everywhere). In the live variant it disables gzip (it would buffer SSE through the rewrite) and sets
@@ -29,8 +29,10 @@ exist everywhere). In the live variant it disables gzip (it would buffer SSE thr
 (`proxy_buffering off`, `proxy_read_timeout 1h`), as the backend's api-spec section 7 requires; Next rewrites are
 only the dev and fake-API path.
 
-Env: `API_ORIGIN` (build time for `next start`, runtime for `next dev`), `OASIS_SESSION_COOKIE_NAME` (extra accepted
-cookie name in middleware), `OASIS_BACKEND_PATH` or `OASIS_OPENAPI` (for `gen:api`), `PORT` (`start:live`, default 3200).
+Env: `API_ORIGIN` (build time for `next start`, runtime for `next dev`; unset means no `/api` or `/dev-storage` rewrite at
+all, see docs/security-headers.md), `OASIS_PHOTOS_ORIGINS` and `OASIS_PUBLIC_HOSTS` (build time, docs/security-headers.md),
+`OASIS_SESSION_COOKIE_NAME` (extra accepted cookie name in middleware), `OASIS_BACKEND_PATH` or `OASIS_OPENAPI` (for
+`gen:api`), `PORT` (`start:live`, default 3200).
 
 ## Typed API client (`src/data/http`)
 

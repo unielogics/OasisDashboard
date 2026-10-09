@@ -101,7 +101,7 @@ after 5 failures (429 + `Retry-After`) and real view-as, so everything above can
 
 ```bash
 pnpm fake-api &                 # :4000
-pnpm build:live                 # needs API_ORIGIN at build time if not http://localhost:4000 (rewrites are baked in)
+API_ORIGIN=http://localhost:4000 pnpm build:live   # /api is proxied only when API_ORIGIN is set at build time (baked in)
 pnpm start:live                 # :3200 (PORT=... to change)
 ```
 
