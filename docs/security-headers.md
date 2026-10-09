@@ -61,5 +61,5 @@ a build with:
 ```bash
 grep -c localhost:4000 .next-live/routes-manifest.json            # 0
 grep -o 'img-src[^;]*' .next-live/routes-manifest.json | head -1  # the bucket origins, no *.amazonaws.com
-grep -rl app.oasisautospanj.com .next-live/server/middleware.js   # the allowlist is inlined
+grep -l app.oasisautospanj.com .next-live/server/src/middleware.js # the allowlist is inlined
 ```
