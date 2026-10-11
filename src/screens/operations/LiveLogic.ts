@@ -73,6 +73,8 @@ import type { BoardUi, GestureEvent } from '@/lib/operations/live/board'
 import { calVM, navigate, summaryRange } from '@/lib/operations/live/calendar'
 import type { CalHandlers } from '@/lib/operations/live/calendar'
 import { fileVM } from '@/lib/operations/live/file'
+import { categoryCountVMs, categoryFilterVMs, categoryInfoOf } from '@/lib/operations/live/categories'
+import { categoryChips } from '@/lib/categories'
 import type { FileHandlers, FileUi } from '@/lib/operations/live/file'
 import {
   bookingRequest,
@@ -130,6 +132,8 @@ export interface LiveState {
   payLinkError: string
   /** Names of requests in flight that the UI reflects (photo categories, 'send'). */
   busy: string[]
+  /** The board's category filter: `all`, a category key or `mixed` (DV-423). */
+  catFilter: string
 }
 
 export interface LiveOpsDeps {
@@ -288,6 +292,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       payLinkUrl: '',
       payLinkError: '',
       busy: [],
+      catFilter: 'all',
     }
   }
 
@@ -910,9 +915,22 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const nowMs = this.deps.now()
     const tz = this.tz()
     const today = businessToday(nowMs, tz)
-    const ui: BoardUi = { dark, dragId: s.dragId, dropTarget: s.dropTarget, nowMs, tz }
-
     const snap = this.snapshot()
+    // a filter on a category the board no longer lists (turned off meanwhile) shows everything
+    const catFilter =
+      s.catFilter !== 'all' && snap?.categoryCounts?.items.some((i) => i.key === s.catFilter)
+        ? s.catFilter
+        : 'all'
+    const ui: BoardUi = {
+      dark,
+      dragId: s.dragId,
+      dropTarget: s.dropTarget,
+      nowMs,
+      tz,
+      cats: categoryInfoOf(snap),
+      catFilter,
+    }
+
     const bh = this.boardHandlers()
 
     // calendar reads follow the view
@@ -1028,7 +1046,11 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       createAppt: () => void this.book(),
       kpis: snap ? kpiVMs(snap.kpis) : placeholderKpis(),
       groups,
-      apptCount: snap?.timeline.count ?? 0,
+      apptCount: snap
+        ? catFilter === 'all'
+          ? snap.timeline.count
+          : groups.reduce((n, g) => n + (g.items as unknown[]).length, 0)
+        : 0,
       bays,
       arrivals,
       inFacilityLabel: snap?.inFacilityLabel ?? '0 in facility',
@@ -1054,10 +1076,26 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     }
     // calendar roots the template reads even outside the Calendar view
     for (const k of CAL_DEFAULTS) if (!(k in vals)) vals[k] = CAL_EMPTY[k]
-    vals.live = chrome ? chrome.vals() : {}
+    vals.live = { ...(chrome ? chrome.vals() : {}), ...this.categoryVals(snap) }
     if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
       document.documentElement.setAttribute('data-theme', s.theme)
     return vals
+  }
+
+  /** The per-category counts under the KPI tiles and the board's category filter (live.*; DV-423, DV-424). */
+  private categoryVals(snap: OpsSnapshot | undefined): VM {
+    const counts = categoryCountVMs(snap?.categoryCounts)
+    const view = this.state.view
+    const filters = categoryFilterVMs(snap?.categoryCounts, this.state.catFilter, (k) =>
+      this.setState({ catFilter: k }),
+    )
+    return {
+      hasCatCounts: counts.items.length > 0,
+      catCountsLabel: counts.label,
+      catCounts: counts.items,
+      hasCatFilter: filters.length > 1 && (view === 'timeline' || view === 'staff'),
+      catFilters: filters,
+    }
   }
 
   private onSearch(v: string): void {
@@ -1191,7 +1229,11 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       },
       isThumbBroken: (url) => this.brokenThumbs.has(url),
     }
-    return fileVM(f, thread, mem, fui, h, renderIcon)
+    // the visit's category chips in the header (DV-422), coloured like the board's
+    return {
+      ...fileVM(f, thread, mem, fui, h, renderIcon),
+      cats: categoryChips(f.categories, ui.cats ?? [], ui.dark, 'file'),
+    }
   }
 
   private newVals(today: string): { services: VM[]; slots: VM[]; form: VM } {

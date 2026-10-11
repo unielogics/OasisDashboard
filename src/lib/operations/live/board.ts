@@ -13,6 +13,8 @@ import type {
   OpsStaffColumn,
 } from '@/data/ports/operations'
 import { hexA, lighten } from '@/lib/color'
+import { categoryChips, matchesCategory } from '@/lib/categories'
+import type { CategoryInfo } from '@/lib/categories'
 import { businessClock } from '@/lib/tz'
 import { memberMeta } from '../status'
 import type { GestureCtx } from '../gesture'
@@ -37,7 +39,15 @@ export interface BoardUi {
   dropTarget: string | null
   nowMs: number
   tz: string
+  /** The categories' labels and colours (the snapshot's categoryCounts); chips fall back to a neutral without them. */
+  cats?: readonly CategoryInfo[]
+  /** The board's category filter (`all`, a category key or `mixed`): the timeline and the staff columns follow it. */
+  catFilter?: string
 }
+
+/** Does a card pass the board's category filter? */
+export const passesFilter = (c: Pick<OpsCard, 'categories' | 'category'>, ui: BoardUi): boolean =>
+  matchesCategory(ui.catFilter ?? 'all', c)
 
 export interface BoardHandlers {
   /** Opens the file from a card (honours the click suppression after a gesture). */
@@ -118,6 +128,9 @@ export function cardVM(c: OpsCard, ui: BoardUi, h: BoardHandlers): VM {
     id: c.id,
     name: c.customer.name,
     vehicleLine: c.vehicleLine,
+    // the visit's categories as chips in their colours (ADR 0160 plan K, DV-422)
+    cats: categoryChips(c.categories, ui.cats ?? [], dark, 'card'),
+    hasCats: (c.categories ?? []).length > 0,
     short: c.vehicleShort,
     service: c.service,
     time: c.time,
@@ -203,7 +216,20 @@ export function cardVM(c: OpsCard, ui: BoardUi, h: BoardHandlers): VM {
 // ---- timeline -------------------------------------------------------------------------------------------------------
 
 export function groupVMs(snap: OpsSnapshot, ui: BoardUi, h: BoardHandlers): VM[] {
-  return snap.timeline.groups.map((g) => ({
+  // With a category filter on, a time with no matching card goes away; its day divider moves to the day's next time.
+  const groups: OpsSnapshot['timeline']['groups'] = []
+  let carry: string | null = null
+  for (const g of snap.timeline.groups) {
+    const items = g.items.filter((c) => passesFilter(c, ui))
+    if (!items.length) {
+      if (g.divider) carry = g.divider
+      continue
+    }
+    const sameDay = carry !== null && !g.divider
+    groups.push({ ...g, items, divider: sameDay && carry !== null ? carry : g.divider })
+    carry = null
+  }
+  return groups.map((g) => ({
     key: g.key,
     day: g.bizDate,
     time: g.time,
@@ -442,7 +468,7 @@ const AVATAR_DEFAULT = '#6B7280'
 export function staffVM(s: OpsStaffColumn, ui: BoardUi, h: BoardHandlers): VM {
   const color = s.employeeId ? (s.avatarColor ?? AVATAR_DEFAULT) : AVATAR_DEFAULT
   const dark = ui.dark
-  const jobs = s.jobs.map((c) => cardVM(c, ui, h))
+  const jobs = s.jobs.filter((c) => passesFilter(c, ui)).map((c) => cardVM(c, ui, h))
   return {
     name: s.name,
     role: s.role,

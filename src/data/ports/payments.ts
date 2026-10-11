@@ -79,6 +79,8 @@ export interface PaymentsSummary {
   filterCounts: Record<InvoiceFilter, number>
   pendingApprovals: { count: number; text: string; first: PendingApproval | null; all: PendingApproval[] }
   awaitingProcessor: { count: number; cents: number }
+  /** The range's invoices split by visit category (ADR 0160 plan K); absent from an older server. */
+  byCategory?: CategorySplit[]
 }
 
 export interface InvoiceListRow {
@@ -101,6 +103,22 @@ export interface InvoiceListRow {
   /** Card money recorded by staff and not yet confirmed in Squarespace (a refund wins over a payment). */
   awaiting: 'payment' | 'refund' | null
   adjusted: boolean
+  /** The visit's category keys (ADR 0160 plan K): the appointment's, else those of the invoiced services. */
+  categories?: string[]
+  /** The one word the invoice counts under: a category, `mixed`, `addons` for add-ons alone, null for none. */
+  category?: string | null
+}
+
+/** One entry of the summary's split by visit category (each invoice once; the entries add up to the KPIs). */
+export interface CategorySplit {
+  key: string
+  label: string
+  /** #RRGGBB; null for `mixed` and `_none`. */
+  colour: string | null
+  count: number
+  grossCents: number
+  netCents: number
+  outstandingCents: number
 }
 
 export interface InvoiceCalc {

@@ -1,0 +1,5 @@
+<sc-if value="{{ live.hasCatFilter }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;align-items:center;gap:4px;padding:4px;background:var(--panel2);border:1px solid var(--line);border-radius:13px;">
+    <sc-for list="{{ live.catFilters }}" as="f" hint-placeholder-count="5"><button sc-camel-on-click="{{ f.onClick }}" style="{{ f.style }}"><span style="{{ f.swatch }}"></span>{{ f.label }}</button></sc-for>
+  </div>
+</sc-if>

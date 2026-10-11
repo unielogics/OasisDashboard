@@ -291,6 +291,36 @@
       "expectTag": "div",
       "expect": "{{ sel.name }} is a strong upgrade candidate — 4 visits in 60 days. Offer Essential at check-out.",
       "with": "{{= sel.upgradeText }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 55,
+      "expectTag": "sc-for",
+      "htmlFile": "ops-kpi-cats.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 68,
+      "expectTag": "sc-if",
+      "htmlFile": "ops-cat-filter.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 109,
+      "expectTag": "sc-if",
+      "htmlFile": "ops-card-cats.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 293,
+      "expectTag": "div",
+      "htmlFile": "ops-staff-cats.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 383,
+      "expectTag": "span",
+      "htmlFile": "ops-file-cats.html"
     }
   ]
 }
