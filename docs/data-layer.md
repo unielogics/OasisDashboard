@@ -133,7 +133,11 @@ SSE invalidation work.
   sends the person to `/login`. An `auth.expired` event does the same. `reconnectNow()` runs on tab visibility and
   `online` events.
 - **Invalidation:** `keysForEvent` maps an event to query families and `InvalidationCoalescer` turns a burst into one
-  `invalidateQueries` per family per 250 ms window. `rbac.changed` refetches `['me']` and `['settings']`. Events are
+  `invalidateQueries` per family per 250 ms window. `rbac.changed` refetches `['me']` and `['settings']`. A
+  `settings.changed` refetches `['settings', section]`, and a few sections reach further (`SETTINGS_ALSO`, ADR 0160):
+  `services` and `catalog` also refetch Settings → Catalog (`['settings','catalog']`), `ops` and `payments` (category
+  colours and names on the board and in Payments); `catalog`, `reviews`, `status_texts` and `leads` refetch Settings →
+  Reminders & texts (`['settings','reminders']`). Events are
   hints (payloads are ids and a version); the stale-version rule of the design is moot because every event is a refetch.
 
 ## Server clock and business time (`src/lib`)

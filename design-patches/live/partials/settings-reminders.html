@@ -1,6 +1,6 @@
 <sc-if value="{{ live.secReminders }}" hint-placeholder-val="{{ false }}">
   <div style="padding:14px 16px;background:var(--accentSoft);border:1px solid var(--accentBrd);border-radius:14px;margin-bottom:18px;color:var(--accentInk);font-size:13.5px;font-weight:700;line-height:1.45;">Texts clients get from the shop’s number. Every one follows the client’s SMS consent and STOP. {{ live.rem.quiet }}</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start;">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;">
     <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
       <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
         <div style="font-weight:800;font-size:15px;">Appointment reminders</div>
@@ -53,7 +53,7 @@
               <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
                 <div style="flex:1;font-size:12.5px;font-weight:700;color:var(--ink2);">{{ x.label }}</div>
                 <button sc-camel-on-click="{{ x.dec }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">−</button>
-                <span style="min-width:110px;text-align:center;font-weight:800;font-size:13.5px;">{{ x.val }}</span>
+                <span style="min-width:96px;text-align:center;font-weight:800;font-size:13.5px;">{{ x.val }}</span>
                 <button sc-camel-on-click="{{ x.inc }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">+</button>
               </div>
             </sc-for>
@@ -73,7 +73,7 @@
               <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
                 <div style="flex:1;font-size:12.5px;font-weight:700;color:var(--ink2);">{{ x.label }}</div>
                 <button sc-camel-on-click="{{ x.dec }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">−</button>
-                <span style="min-width:110px;text-align:center;font-weight:800;font-size:13.5px;">{{ x.val }}</span>
+                <span style="min-width:96px;text-align:center;font-weight:800;font-size:13.5px;">{{ x.val }}</span>
                 <button sc-camel-on-click="{{ x.inc }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">+</button>
               </div>
             </sc-for>

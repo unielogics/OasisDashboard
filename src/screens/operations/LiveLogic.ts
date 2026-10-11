@@ -73,7 +73,7 @@ import type { BoardUi, GestureEvent } from '@/lib/operations/live/board'
 import { calVM, navigate, summaryRange } from '@/lib/operations/live/calendar'
 import type { CalHandlers } from '@/lib/operations/live/calendar'
 import { fileVM } from '@/lib/operations/live/file'
-import { categoryCountVMs, categoryFilterVMs, categoryInfoOf } from '@/lib/operations/live/categories'
+import { categoryCountVMs, categoryInfoOf } from '@/lib/operations/live/categories'
 import { categoryChips } from '@/lib/categories'
 import type { FileHandlers, FileUi } from '@/lib/operations/live/file'
 import {
@@ -1076,25 +1076,19 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     }
     // calendar roots the template reads even outside the Calendar view
     for (const k of CAL_DEFAULTS) if (!(k in vals)) vals[k] = CAL_EMPTY[k]
-    vals.live = { ...(chrome ? chrome.vals() : {}), ...this.categoryVals(snap) }
+    vals.live = { ...(chrome ? chrome.vals() : {}), ...this.categoryVals(snap, catFilter) }
     if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
       document.documentElement.setAttribute('data-theme', s.theme)
     return vals
   }
 
-  /** The per-category counts under the KPI tiles and the board's category filter (live.*; DV-423, DV-424). */
-  private categoryVals(snap: OpsSnapshot | undefined): VM {
-    const counts = categoryCountVMs(snap?.categoryCounts)
-    const view = this.state.view
-    const filters = categoryFilterVMs(snap?.categoryCounts, this.state.catFilter, (k) =>
-      this.setState({ catFilter: k }),
-    )
+  /** Today's per-category counts under the KPI tiles, which are also the board's category filter (live.*; DV-423, DV-424). */
+  private categoryVals(snap: OpsSnapshot | undefined, current: string): VM {
+    const counts = categoryCountVMs(snap?.categoryCounts, current, (k) => this.setState({ catFilter: k }))
     return {
       hasCatCounts: counts.items.length > 0,
       catCountsLabel: counts.label,
       catCounts: counts.items,
-      hasCatFilter: filters.length > 1 && (view === 'timeline' || view === 'staff'),
-      catFilters: filters,
     }
   }
 

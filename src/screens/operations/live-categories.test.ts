@@ -4,7 +4,7 @@
 // timeline and staff cards and in the file header, today's per-category counts under the KPI tiles (the server's
 // categoryCounts, whatever the window or the search) and the board filter (a wash with a tint shows under both).
 import { describe, expect, it } from 'vitest'
-import { categoryCountVMs, categoryFilterVMs, categoryInfoOf } from '@/lib/operations/live/categories'
+import { categoryCountVMs, categoryInfoOf } from '@/lib/operations/live/categories'
 import { groupVMs } from '@/lib/operations/live/board'
 import type { OpsSnapshot } from '@/data/ports/operations'
 import { FILES, clone, fixtures, makeLive, stubPort } from './live-testkit'
@@ -81,10 +81,11 @@ describe('board categories (pure)', () => {
     }
   })
 
-  it('counts: the label, every category with its count, mixed without a colour of its own', () => {
+  it('counts: the label, All, every category with its count, mixed without a colour of its own', () => {
     const c = categoryCountVMs(COUNTS)
     expect(c.label).toBe('Today by category · 7 jobs')
-    expect(c.items.map((i: any) => i.label + ' ' + i.count)).toEqual([
+    expect(c.items.map((i: any) => (i.label + ' ' + i.count).trim())).toEqual([
+      'All',
       'Wash 4',
       'Add-ons 0',
       'Tint 1',
@@ -92,26 +93,27 @@ describe('board categories (pure)', () => {
       'Quote 0',
       'Mixed 1',
     ])
-    expect((c.items[5] as any).swatch.background).toBe('#6B7280')
+    expect((c.items[6] as any).swatch.background).toBe('#6B7280')
     expect(categoryCountVMs({ ...COUNTS, total: 1 }).label).toBe('Today by category · 1 job')
     expect(categoryCountVMs(undefined)).toEqual({ label: '', items: [] })
   })
 
-  it('filter buttons: All first, the chosen one filled, a second click goes back to All', () => {
+  it('the counts are the board filter: the chosen one filled, a second click goes back to All', () => {
     const picked: string[] = []
-    const f = categoryFilterVMs(COUNTS, 'tint', (k) => picked.push(k))
-    expect(f.map((x: any) => x.label)).toEqual(['All', 'Wash', 'Add-ons', 'Tint', 'Detail', 'Quote', 'Mixed'])
-    expect((f[3] as any).style.background).toBe('var(--accent)')
-    ;(f[3] as any).onClick()
-    ;(f[1] as any).onClick()
-    expect(picked).toEqual(['all', 'wash'])
-    expect((categoryFilterVMs(COUNTS, 'gone', () => {})[0] as any).style.background).toBe('var(--accent)')
-    expect(categoryFilterVMs(undefined, 'all', () => {})).toEqual([])
+    const f = categoryCountVMs(COUNTS, 'tint', (k) => picked.push(k)).items as any[]
+    expect(f[3].style.background).toBe('var(--accentSoft)')
+    expect(f[0].style.background).toBe('var(--panel)')
+    expect(f[3].title).toBe('Show only Tint on the board')
+    f[3].onClick()
+    f[1].onClick()
+    f[0].onClick()
+    expect(picked).toEqual(['all', 'wash', 'all'])
+    expect((categoryCountVMs(COUNTS, 'gone').items[0] as any).style.background).toBe('var(--accentSoft)')
   })
 })
 
 describe('board categories (view model)', () => {
-  it('live values: counts under the KPIs, the filter on the timeline and staff views only, chips in the file header', async () => {
+  it('live values: counts under the KPIs that filter the timeline and staff columns, chips in the file header', async () => {
     const port = stubPort()
     port.snap = categorized()
     const l = makeLive(undefined, port)
@@ -120,20 +122,18 @@ describe('board categories (view model)', () => {
     let v = l.vals()
     expect(v.live.hasCatCounts).toBe(true)
     expect(v.live.catCountsLabel).toBe('Today by category · 7 jobs')
-    expect(v.live.hasCatFilter).toBe(true)
     const before = v.apptCount
+    const allCards = cards(v.groups).length
     // filter: Tint
-    v.live.catFilters[3].onClick()
+    v.live.catCounts[3].onClick()
     v = l.vals()
     expect(cards(v.groups)).toHaveLength(2)
     expect(v.apptCount).toBe(2)
     expect(before).not.toBe(2)
     expect(v.staffCols.every((c: any) => c.jobs.length === 0)).toBe(true)
-    // the calendar and bay views have no filter
-    l.logic.setState({ view: 'calendar' })
-    expect(l.vals().live.hasCatFilter).toBe(false)
-    l.logic.setState({ view: 'staff' })
-    expect(l.vals().live.hasCatFilter).toBe(true)
+    expect(v.live.catCounts[3].style.background).toBe('var(--accentSoft)')
+    v.live.catCounts[3].onClick()
+    expect(cards(l.vals().groups).length).toBe(allCards)
     // the file header
     const f = clone(FILES.late) as any
     f.categories = ['wash', 'tint']
@@ -156,16 +156,16 @@ describe('board categories (view model)', () => {
     const all = cards(l.vals().groups).length
     l.logic.setState({ catFilter: 'polish' } as any)
     expect(cards(l.vals().groups)).toHaveLength(all)
-    expect(l.vals().live.catFilters[0].style.background).toBe('var(--accent)')
+    expect(l.vals().live.catCounts[0].style.background).toBe('var(--accentSoft)')
   })
 
-  it('an older server without categories: no counts, no filter, no chips', async () => {
+  it('an older server without categories: no counts (so no filter), no chips', async () => {
     const l = makeLive()
     l.vals()
     await l.settle()
     const v = l.vals()
     expect(v.live.hasCatCounts).toBe(false)
-    expect(v.live.hasCatFilter).toBe(false)
+    expect(v.live.catCounts).toEqual([])
     expect(cards(v.groups)[0].cats).toEqual([])
   })
 })

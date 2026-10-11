@@ -15,51 +15,55 @@ export function categoryInfoOf(snap: Pick<OpsSnapshot, 'categoryCounts'> | undef
   return items.map((i) => ({ key: i.key, label: i.label, colour: i.colour }))
 }
 
-/** "Today by category · 7 jobs", then one count per category (zeros included, as the server lists them). */
-export function categoryCountVMs(counts: Counts | undefined | null): { label: string; items: VM[] } {
-  if (!counts || !counts.items.length) return { label: '', items: [] }
-  return {
-    label: 'Today by category · ' + (counts.total === 1 ? '1 job' : counts.total + ' jobs'),
-    items: counts.items.map((i) => ({
-      key: i.key,
-      label: i.label,
-      count: String(i.count),
-      swatch: swatchStyle(i.key === MIXED || i.key === NONE ? NEUTRAL : i.colour),
-    })),
-  }
-}
-
-/** The filter's buttons: All, then each category the snapshot lists (not "no category"); the chosen one is filled. */
-export function categoryFilterVMs(
+/**
+ * "Today by category · 7 jobs", then one count per category (zeros included, as the server lists them), preceded by All.
+ * Each count is also the board's category filter (DV-423): a click shows only the visits holding that category on the
+ * Timeline and Staff views, a second click (or All) shows everything again.
+ */
+export function categoryCountVMs(
   counts: Counts | undefined | null,
-  current: string,
-  pick: (key: string) => void,
-): VM[] {
-  const items = (counts?.items ?? []).filter((i) => i.key !== NONE)
-  if (!items.length) return []
+  current = 'all',
+  pick: (key: string) => void = () => {},
+): { label: string; items: VM[] } {
+  const items = (counts?.items ?? []).filter((i) => i.key !== NONE || i.count > 0)
+  if (!counts || !items.length) return { label: '', items: [] }
+  const known = current === 'all' || items.some((i) => i.key === current)
+  const cur = known ? current : 'all'
   const style = (on: boolean): Style => ({
     display: 'inline-flex',
     alignItems: 'center',
     gap: '7px',
-    height: '36px',
-    padding: '0 12px',
-    borderRadius: '10px',
-    fontSize: '13px',
+    height: '30px',
+    padding: '0 11px',
+    background: on ? 'var(--accentSoft)' : 'var(--panel)',
+    border: '1px solid ' + (on ? 'var(--accentBrd)' : 'var(--line)'),
+    borderRadius: '9px',
+    fontSize: '12px',
     fontWeight: 700,
-    background: on ? 'var(--accent)' : 'transparent',
-    color: on ? '#fff' : 'var(--ink2)',
+    color: on ? 'var(--accentInk)' : 'var(--ink2)',
     whiteSpace: 'nowrap',
   })
-  const known = current === 'all' || items.some((i) => i.key === current)
-  const cur = known ? current : 'all'
-  return [
-    { key: 'all', label: 'All', swatch: { display: 'none' }, style: style(cur === 'all'), onClick: () => pick('all') },
-    ...items.map((i) => ({
-      key: i.key,
-      label: i.label,
-      swatch: swatchStyle(i.key === MIXED ? NEUTRAL : i.colour, 8),
-      style: style(cur === i.key),
-      onClick: () => pick(cur === i.key ? 'all' : i.key),
-    })),
-  ]
+  return {
+    label: 'Today by category · ' + (counts.total === 1 ? '1 job' : counts.total + ' jobs'),
+    items: [
+      {
+        key: 'all',
+        label: 'All',
+        count: '',
+        swatch: { display: 'none' },
+        style: style(cur === 'all'),
+        title: 'Show every visit on the board',
+        onClick: () => pick('all'),
+      },
+      ...items.map((i) => ({
+        key: i.key,
+        label: i.label,
+        count: String(i.count),
+        swatch: swatchStyle(i.key === MIXED || i.key === NONE ? NEUTRAL : i.colour),
+        style: style(cur === i.key),
+        title: 'Show only ' + i.label + ' on the board',
+        onClick: () => pick(cur === i.key || i.key === NONE ? 'all' : i.key),
+      })),
+    ],
+  }
 }

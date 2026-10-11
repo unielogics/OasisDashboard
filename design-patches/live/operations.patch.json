@@ -299,16 +299,18 @@
       "htmlFile": "ops-kpi-cats.html"
     },
     {
-      "op": "insert-after",
-      "tpl": 68,
-      "expectTag": "sc-if",
-      "htmlFile": "ops-cat-filter.html"
+      "op": "set-attr",
+      "tpl": 113,
+      "expectTag": "div",
+      "name": "style",
+      "expect": "font-size:12.5px;color:var(--ink);font-weight:600;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;",
+      "value": "font-size:12.5px;color:var(--ink);font-weight:600;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;"
     },
     {
-      "op": "insert-after",
-      "tpl": 109,
-      "expectTag": "sc-if",
-      "htmlFile": "ops-card-cats.html"
+      "op": "wrap",
+      "tpl": 113,
+      "expectTag": "div",
+      "htmlFile": "ops-card-service-cats.html"
     },
     {
       "op": "insert-after",

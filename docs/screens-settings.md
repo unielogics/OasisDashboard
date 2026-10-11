@@ -132,6 +132,8 @@ held (Crew). Inside the screen:
 | VIP program             | `cli.member`         | `cli.member`: `Your role can’t manage memberships`                                                 |
 | Arrival & check-in      | any signed-in person | `cli.member`                                                                                       |
 | Packages & checklists   | any signed-in person | `set.services`: `Your role can’t edit packages and checklists`                                     |
+| Catalog, Categories     | any signed-in person | `set.services` (live only, DV-317, DV-318)                                                          |
+| Reminders & texts       | any signed-in person | `set.hours`: `Your role can’t change hours and closures` (live only, DV-319)                        |
 
 Sections that cannot be read show the locked card; a write that cannot be done shows the toast and sends no request. The
 server enforces the same rules (403 and the Super-only guards come back as toasts if the client was wrong). Pay type and
@@ -167,6 +169,54 @@ exception (27 rows), and the e2e compares every person's 27 rows against the liv
 The live variant relabels WhatsApp to SMS (D1): `Sent by SMS` (emergency option) and `Preview · SMS to {first name}`; the
 drawer's `They’ll get an SMS invite` is already SMS. The other live-only differences are in `design-patches/DEVIATIONS.md`
 (DV-301 to DV-316).
+
+## Catalog, Categories and Reminders & texts (live only; ADR 0160 plan A, I, K; DV-317..DV-321)
+
+Three sections the design does not have. They exist only in the live variant: the nav buttons and the sections are live
+template patches (`design-patches/live/partials/settings-{nav-catalog,nav-reminders,catalog,categories,reminders,
+reminders-bar,services-price-note,extra-sections}.html`), and the fixture and parity builds never open them (`SectionKey`
+gains `catalog`, `categories`, `reminders`; nothing in the design's view model state changes, so the differential test
+still compares the port with the original class key by key).
+
+```
+src/screens/settings/live/extras.ts        SettingsExtras: reads, drafts, writes and the live.* values of the three sections
+src/screens/settings/live/extras-testkit.ts  GET /catalog and /settings/reminders shapes and a stateful fake of their endpoints
+src/lib/settings/catalog.ts                dollars <-> cents, the PUT bodies, the server's limits in plain words, keys from names
+src/lib/settings/reminders.ts              the reminders draft, its PUT body, offset and delay labels, the steppers' bounds
+src/lib/categories.ts                      chips, swatches, labels and the board filter rule (shared with Operations, Payments)
+```
+
+`SettingsExtras` is created by `Screen.tsx` in the live variant and handed to `createSettingsLogic(data, extras)`. The view
+model binds it on mount (section, navigation, toast, re-render) and spreads `extras.vals(section, gate, dark)` into `live`;
+`gate()` asks it whether a section's read is there (loading card, failed card with `Try again`). Its drafts live in the
+extras object, never in `SettingsLogic.state`.
+
+| Section | Reads | Writes (permission) | What is on screen |
+| --- | --- | --- | --- |
+| Catalog | `GET /catalog` (`['settings','catalog']`) | `PUT /catalog/services/:id` (whole website fields + version), `PUT /catalog/guest-markup`, `PUT /catalog/plans/:key`, `PUT /catalog/tint-matrix` (`set.services`) | the note that prices are changed only here; Packages / Add-ons list with category swatch, member price, `hidden`, `unsaved`; the selected service's website name, description, category chips, member and guest price (empty guest = member + markup, said under the box), VIP inclusion and note, shown on the website, quote only, order; guest prices card (markup ±5 %, the guest booking fee); a card per plan (website name, $ / month, perks one per line, Squarespace checkout link, never public); the window tint table (member and guest from–to per vehicle type × film) |
+| Categories | the same read | `POST`, `PATCH /:key` (label, colour, sort, active; version), `DELETE /:key` (version) (`set.services`) | one row per category: swatch, name, `#RRGGBB` box, eight swatches, order ↑ ↓, on/off, remove for custom ones, key, built in and how many active services use it; `+ Add category` (the key is made from the name; `mixed` and taken names refused) |
+| Reminders & texts | `GET /settings/reminders` (`['settings','reminders']`); `POST /settings/reminders/preview` with the draft, 300 ms after the last edit | `PUT /settings/reminders` (all three groups + version) (`set.hours`) | quiet hours; reminder offsets (≤ 5) and add chips, Ask to confirm, Review request; a preparation line per active category (≤ 160 characters); the status texts with their waits; the lead follow-up; the preview of every text with its timing, `OFF` when off, segments and encoding; the Save bar of the hours section (`Unsaved changes to reminders and texts`) |
+
+Rules: edits are drafts until Save (an edit back to the saved value is clean again); a person without the write
+permission gets `Your role can’t …` on the first edit and nothing is sent; what the server would refuse is said in the
+form before sending (a guest price below the member price, a checkout link off squarespace.com, a half-filled tint row, a
+category colour that is not `#RRGGBB`, a prep line over 160 characters); the server's own 422/409 answer shows in the
+form or the Save bar, a stale version (412) keeps the draft and says to save again; on success the toast names what was
+saved and the event stream refreshes everything else (DV-321: `services` and `catalog` events also refetch the catalog,
+`ops` and `payments`; `reviews`, `status_texts`, `leads` and `catalog` refetch the reminders).
+
+Packages & checklists gets one line (DV-320): `Prices are set in Catalog: …` with `Open Catalog`. The plain service
+price (`price_cents`, what a booking charges) is never edited in the dashboard: the backend keeps it equal to the guest
+price set in Catalog (`bookingPriceOf`, ADR 0160 W2a).
+
+Known: clearing a service's member price after it had one leaves the booking charge (`priceCents`, shown as `Booking
+charges $X` under the name) at the last guest price; the backend only syncs it while the service is priced on the website
+(`bookingPriceOf`). The plain price can then only be changed through `PATCH /services/:id` (no dashboard control, by
+design: prices are set in Catalog); the e2e restores it that way.
+
+e2e: `pnpm e2e:catalog --name <stack>` (`scripts/e2e-catalog.ts`) on a `design,demo` stack edits each section in the page,
+reloads and compares with the API, recolours Wash and checks the board's chips, makes an add-on of an open visit a tint
+and checks the Mixed chips, counts and file header, filters the board and checks the Payments split.
 
 ## Running it
 

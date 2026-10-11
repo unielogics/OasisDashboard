@@ -125,6 +125,25 @@ pending box with the amount) and `Payment pending · $X due` while a balance rem
 confirm the payment (`POST /ledger-events/:id/confirm-processor`, the Payments screen's button), which also pushes the
 change to every open board.
 
+## Categories (ADR 0160 plan K; DV-422..DV-424)
+
+Every card, the file and the command answers carry `categories` (the visit's category keys in the categories' order) and
+`category` (the one word it counts under: a category, `mixed`, `addons` for add-ons alone, null for none). The snapshot
+carries `categoryCounts {bizDate, total, items[{key, label, colour, count}]}`: today's jobs (not canceled or no-show) per
+category, every active one with zeros, then `mixed`, whatever the window or the search. `src/lib/operations/live/
+categories.ts` and `src/lib/categories.ts` turn them into template values:
+
+| where | value | rule |
+| --- | --- | --- |
+| timeline card, after the service name; Staff card under the service | `a.cats[]` `{label, style}`, `a.hasCats` | one chip per key, the category's colour from `categoryCounts` (unknown or mixed: the neutral `#6B7280`); a bright colour gets a darker ink on light; the service name shrinks (ellipsis) before the chips do |
+| file header, after the status badge | `sel.cats[]` | the same chips, file size |
+| under the KPI tiles | `live.hasCatCounts`, `live.catCountsLabel` (`Today by category · 7 jobs`), `live.catCounts[]` `{label, count, swatch, style, title, onClick}` | `All`, then the server's counts as they come; each is a button and the board's category filter: a category keeps the visits holding it (Timeline and Staff views), `Mixed` those counted mixed, a second click or `All` shows everything; the `in 24h` count follows; a filter on a category no longer listed shows everything |
+
+A colour or name changed in Settings → Categories reaches the board on its next read (the `catalog` settings event also
+refetches `ops`, DV-321). The Bay Board and the Calendar are not filtered (bays are places, the calendar has its own
+counts). An older server without the fields shows no chips, counts or filter. Tests: `src/screens/operations/
+live-categories.test.ts`; e2e: `scripts/e2e-catalog.ts`.
+
 ## Running it
 
 ```bash

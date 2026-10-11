@@ -390,7 +390,7 @@ export class SettingsExtras {
       const d = this.draftOf(s)
       const subs = [
         categoryLabel(s.category, info),
-        s.quoteOnly ? 'quote only' : s.memberPriceCents !== null ? money(s.memberPriceCents) : 'no price',
+        s.quoteOnly ? 'quote only' : s.memberPriceCents !== null ? money(s.memberPriceCents) : 'no website price',
       ]
       if (!s.visibleOnline) subs.push('hidden')
       if (this.svcDrafts[s.id]) subs.push('unsaved')
