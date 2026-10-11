@@ -42,6 +42,16 @@ export const SETTINGS_PATHS = [
   '/api/v1/vip/holds',
   '/api/v1/vip/holds/{id}',
   '/api/v1/arrival-settings',
+  '/api/v1/catalog',
+  '/api/v1/catalog/categories',
+  '/api/v1/catalog/categories/{key}',
+  '/api/v1/catalog/guest-markup',
+  '/api/v1/catalog/plans',
+  '/api/v1/catalog/plans/{key}',
+  '/api/v1/catalog/services/{id}',
+  '/api/v1/catalog/tint-matrix',
+  '/api/v1/settings/reminders',
+  '/api/v1/settings/reminders/preview',
 ] as const
 
 export async function generate(specText: string): Promise<string> {
