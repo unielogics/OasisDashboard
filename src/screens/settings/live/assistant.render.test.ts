@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The LIVE Settings template (with the live patches) rendered with the view model on LiveData: the "Oasis AI assistant"
-// nav entry in the Clients group, the section (status strip, switches, stage, pause, test numbers, questions and answers)
+// nav entry (a Texting group after the last one), the section (status strip, switches, stage, pause, test numbers, questions and answers)
 // and its own save bar (ADR 0160, DV-705..707). Every binding of the section exists in the values the view model gives.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -77,13 +77,13 @@ const atPath = (vals: any, p: string): any => {
 }
 
 describe('live Settings template: Oasis AI assistant', () => {
-  it('the nav entry sits after Arrival & check-in; the section is not shown elsewhere', async () => {
+  it('the nav entry is a Texting group after Packages & checklists; the section is not shown elsewhere', async () => {
     const logic = make()
     await vi.waitFor(() => expect(logic.renderVals().live.secOpen).toBe(true))
     const html = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
     expect(html).toContain('Oasis AI assistant')
-    expect(html.indexOf('Arrival &amp; check-in')).toBeLessThan(html.indexOf('Oasis AI assistant'))
-    expect(html.indexOf('Oasis AI assistant')).toBeLessThan(html.indexOf('Packages &amp; checklists'))
+    expect(html.indexOf('Packages &amp; checklists')).toBeLessThan(html.indexOf('>Texting<'))
+    expect(html.indexOf('>Texting<')).toBeLessThan(html.indexOf('Oasis AI assistant'))
     expect(html).not.toContain('Who it answers')
     expect(html).not.toContain('>ON<')
   })

@@ -354,6 +354,42 @@
       }
     },
     {
+      "id": "L-settings-71",
+      "screen": "settings",
+      "kind": "element-added",
+      "reason": "DV-705: the Settings nav gains a Texting group with the Oasis AI assistant entry after the last design group (Packages & checklists), so no design element moves.",
+      "scope": { "checks": ["dom"] },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/div[24]",
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/div[24]/**",
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/button[25]",
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/button[25]/**"
+        ]
+      }
+    },
+    {
+      "id": "L-settings-72",
+      "screen": "settings",
+      "kind": "element-added",
+      "reason": "DV-705: computed styles of the added Texting group heading and the Oasis AI assistant nav button (see L-settings-71).",
+      "scope": { "checks": ["style"] },
+      "matcher": {
+        "loc": [
+          "root>div[0]>div[0]>div[0]>main[0]>aside[0]>div[4]",
+          "root>div[0]>div[0]>div[0]>main[0]>aside[0]>button[8]",
+          "root>div[0]>div[0]>div[0]>main[0]>aside[0]>button[8]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-settings-73",
+      "screen": "settings",
+      "kind": "region-mask",
+      "reason": "DV-705: pixels of the nav's empty space under Packages & checklists, where the Texting group and the Oasis AI assistant entry are drawn.",
+      "matcher": { "rect": { "x": 28, "y": 632, "w": 246, "h": 112 } }
+    },
+    {
       "id": "L-all-01",
       "screen": "*",
       "kind": "computed-style",

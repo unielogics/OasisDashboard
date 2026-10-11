@@ -91,9 +91,9 @@
     },
     {
       "op": "insert-after",
-      "tpl": 66,
+      "tpl": 72,
       "expectTag": "button",
-      "expectTextStarts": "Arrival",
+      "expectTextStarts": "Packages",
       "htmlFile": "settings-nav-assistant.html"
     },
     {

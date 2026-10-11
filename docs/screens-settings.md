@@ -180,7 +180,7 @@ src/data/ports/assistant-api.ts            GET/PUT /settings/assistant (types fr
 src/screens/settings/live/assistant.ts     AssistantSection: its read, the working copy, the save; vals() = what live.asst.* binds
 src/screens/settings/live/LiveData.ts      builds the section when Screen.tsx passes `assistantApi` (its query: ['settings', 'assistant'])
 src/screens/settings/Logic.ts              gate('assistant'), live.secAssistant, live.asst (+ go, navStyle, dirty), #assistant
-design-patches/live/partials/settings-nav-assistant.html, settings-assistant.html, settings-assistant-save.html (after tpl 66, 415, 444)
+design-patches/live/partials/settings-nav-assistant.html, settings-assistant.html, settings-assistant-save.html (after tpl 72, 415, 444)
 ```
 
 | What                    | API                                                                       | Rule                                                                                                      |

@@ -117,7 +117,7 @@ async function open(m: ReturnType<typeof make>) {
 const saves = (m: ReturnType<typeof make>) => m.a.calls.filter((c) => c[0] === 'save')
 
 describe('the nav entry and the section', () => {
-  it('opens from the Clients group; the header names it; loading until the server answers', async () => {
+  it('opens from the Texting group; the header names it; loading until the server answers', async () => {
     const a = fakeAssistant()
     let release!: () => void
     const gate = new Promise<void>((r) => (release = r))
