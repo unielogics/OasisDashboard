@@ -25,6 +25,16 @@ describe('keysForEvent', () => {
     expect(keysForEvent(ev('notifications', 'auth.expired'))).toEqual([['me']])
     expect(keysForEvent(ev('weird', 'x'))).toEqual([])
   })
+
+  it('catalog, service and reminder sections also refresh where they show (ADR 0160 plan A, I, K)', () => {
+    const s = (section: string) => keysForEvent(ev('settings', 'settings.changed', { section }))
+    expect(s('services')).toEqual([['settings', 'services'], ['settings', 'catalog'], ['ops'], ['payments']])
+    expect(s('catalog')).toEqual([['settings', 'catalog'], ['settings', 'reminders'], ['ops'], ['payments']])
+    for (const x of ['reviews', 'status_texts', 'leads'])
+      expect(s(x)).toEqual([['settings', x], ['settings', 'reminders']])
+    expect(s('reminders')).toEqual([['settings', 'reminders']])
+    expect(s('constructor')).toEqual([['settings', 'constructor']])
+  })
 })
 
 const spyOn = (qc: QueryClient) => vi.spyOn(qc, 'invalidateQueries')

@@ -4,6 +4,19 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import type { RealtimeEvent, Timers } from './sse'
 import { realTimers } from './sse'
 
+/**
+ * Settings sections whose change shows elsewhere too (ADR 0160 plan A, I, K): a service's website fields and the
+ * catalog (categories, plans, tint, markup) are read whole by Settings → Catalog (['settings', 'catalog']); categories
+ * colour the board and Payments chips; the Reminders section reads five settings sections and the category list.
+ */
+const SETTINGS_ALSO: Record<string, QueryKey[]> = {
+  services: [['settings', 'catalog'], ['ops'], ['payments']],
+  catalog: [['settings', 'reminders'], ['ops'], ['payments']],
+  reviews: [['settings', 'reminders']],
+  status_texts: [['settings', 'reminders']],
+  leads: [['settings', 'reminders']],
+}
+
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */
 export function keysForEvent(e: RealtimeEvent): QueryKey[] {
   if (e.type === 'rbac.changed') return [['me'], ['settings']]
@@ -11,7 +24,8 @@ export function keysForEvent(e: RealtimeEvent): QueryKey[] {
   if (e.type === 'auth.expired') return [['me']]
   if (e.channel === 'settings') {
     const section = typeof e.payload.section === 'string' ? e.payload.section : null
-    return [section ? ['settings', section] : ['settings']]
+    if (!section) return [['settings']]
+    return [['settings', section], ...(Object.hasOwn(SETTINGS_ALSO, section) ? SETTINGS_ALSO[section]! : [])]
   }
   if (
     e.channel === 'ops' ||
