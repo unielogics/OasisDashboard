@@ -375,7 +375,12 @@ try {
   })
 
   // ---- closures --------------------------------------------------------------------------------------------------------
-  const closureDate = isoDate(75)
+  // the first day from 75 days ahead without a closure yet: the auto-added holidays move with the calendar (75 days from
+  // 2026-10-11 is Christmas Day, which already has one, so the step failed on that date)
+  const takenDays = new Set(((await api(req, '/closures')).upcoming as { date: string }[]).map((c) => c.date))
+  let daysAhead = 75
+  while (takenDays.has(isoDate(daysAhead))) daysAhead++
+  const closureDate = isoDate(daysAhead)
   await step('closures: validate, add with a real affected count, list, notify, remove', async () => {
     await section(page, 'closures')
     await page.getByRole('button', { name: 'Add closure' }).click()
