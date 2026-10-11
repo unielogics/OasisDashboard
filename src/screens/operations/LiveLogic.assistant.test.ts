@@ -196,6 +196,22 @@ describe('Overview: the Website PIN cell', () => {
     expect(calls(l, 'identity')).toHaveLength(0)
   })
 
+  it('opening a file reads the identity again (a PIN set on a link page announces nothing)', async () => {
+    const port = stubPort()
+    const l = await boot({ role: 'mgmt' }, port)
+    let v = await open(l, 'completed')
+    expect(v.sel.idShow).toBe(false)
+    // the file stays open: the 1 s tick does not read it again
+    l.vals()
+    await flushed(l)
+    expect(calls(l, 'identity')).toHaveLength(1)
+    port.identities.set(customerOf('completed'), trusted())
+    l.logic.setState({ selectedId: null })
+    v = await open(l, 'completed')
+    expect(calls(l, 'identity')).toHaveLength(2)
+    expect(v.sel.idValue).toBe('Set · trusted to Jul 10')
+  })
+
   it('a failed identity read shows nothing and no toast', async () => {
     const port = stubPort()
     port.fail.set('identity', new ApiError({ status: 500, title: 'Server error', detail: '' }))

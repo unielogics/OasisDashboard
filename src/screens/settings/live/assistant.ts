@@ -1,4 +1,4 @@
-// Settings → Oasis AI assistant, live variant only (ADR 0160, design section 8, plan G; DEVIATIONS.md DV-320..322).
+// Settings → Oasis AI assistant, live variant only (ADR 0160, design section 8, plan G; DEVIATIONS.md DV-705..707).
 // One section over GET/PUT /settings/assistant: the on/off switch, in-chat actions, the stage (who it answers), the test
 // numbers of the first stage, how long a staff reply pauses it, and the FAQ it answers from.
 //

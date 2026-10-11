@@ -15,7 +15,7 @@ export type SectionKey =
   | 'vip'
   | 'arrival'
   | 'services'
-  /** Live variant only: Settings → Oasis AI assistant (ADR 0160, DV-320). */
+  /** Live variant only: Settings → Oasis AI assistant (ADR 0160, DV-705). */
   | 'assistant'
 
 /** One weekday of the opening hours (the state array is indexed by weekday, 0 = Sunday). */

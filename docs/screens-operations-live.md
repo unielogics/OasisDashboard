@@ -199,6 +199,45 @@ Appointment 4.14, file tabs 0.19 to 3.34). Each difference is one of these; none
 | input boxes         | static boxes                                         | real inputs (the first draft rendered them bold in the system font; fixed with `font-family: inherit`) | DV-403; bug fixed                                                                   |
 | greyed slots        | greyed only when nobody may take them                | greyed whenever the slot would overbook a bay, pickable with an override reason for managers           | DV-402; bug fixed                                                                   |
 
+## AI assistant and phone identity (W3g, ADR 0160; DEVIATIONS.md DV-701 to DV-704)
+
+Design section 8 and plan G of the backend's `docs/design/ai-assistant-and-phone-identity.md`. Live variant only; with the
+production defaults (`AI_ENABLED=false`, Settings → Assistant off, `PUBLIC_LINKS_ENABLED=false`) none of it shows, so the file
+looks and behaves as before (the only new request is the quiet identity read of the Overview tab).
+
+```
+src/lib/operations/live/assistant.ts        pure wording: the tag, the "AI paused" line, the alert's tab, the Website PIN cell
+src/screens/operations/LiveLogic.ts         identityOf() (quiet read), the cell's handlers, clearPin(), alertOpen() by alertTab()
+src/screens/operations/live/commands.ts     OpsCommands.clearPin (cli.edit, one Idempotency-Key per client until it succeeds)
+src/data/ports/operations.ts                identity(customerId), clearPin(customerId) (types from src/data/http/schema.d.ts)
+design-patches/live/partials/ops-identity.html, ops-ai-line.html   (inserted after tpl 447 and tpl 524)
+scripts/e2e-assistant.ts                    the browser run (with Settings → Assistant), see "Running it" in screens-settings.md
+```
+
+| Root (`sel.*`)                                                             | Source                                                                                                                                  |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `messages[].channelTag`                                                    | S `author` of the message: `ai` -> `Oasis AI · SMS`, `from: system` -> `Automated · SMS` (DV-404), else none                           |
+| `aiLineShow aiLineText aiLineSub`                                          | S thread `assistantActive`, `handoff {open, since, reason}`, `aiPausedUntil`; D the wording and the time in the business timezone      |
+| `idShow idValue idCanClear`                                                | S `GET /customers/:id/identity` (`pin.status`, `pin.lockedUntil`, `trust.trusted`, `trust.until`), Overview tab only, read again whenever a file opens (a PIN set on a link page announces nothing) |
+| `idClear idConfirming idConfirmText idConfirm idCancel idConfirmStyle idConfirmBtnStyle` | U the inline confirmation (`pinConfirm`, reset when another file opens); `idConfirm` = `POST /customers/:id/identity/pin/clear` |
+
+| Control                      | Request                                       | Permission | Toast (success)                                                     |
+| ---------------------------- | --------------------------------------------- | ---------- | ------------------------------------------------------------------- |
+| `Clear PIN`, then `Clear PIN` | `POST /customers/:id/identity/pin/clear` (refetches `qk.ops('identity', id)`) | `cli.edit` | `Website PIN cleared · {first} confirms with a texted code next time` |
+| `Open messages` (AI handoff), picture message alert | opens the file on Messages (`alertTab`), or toasts the alert when it names no appointment | `cli.view` | |
+
+Wording (owner-facing, plain): `AI paused — waiting for a staff reply` + `The client asked for a person at 10:20 AM.` / `Oasis AI
+handed this chat to the team at …`; `AI paused — staff replying` + `Oasis AI answers again at 10:36 PM.` (`tomorrow at …`, `on Jun
+16 at …`); `Website PIN` `Set · trusted to Jul 13` (`Not set`, `Locked until 10:51 AM`, `Locked after too many wrong tries`,
+`Cleared`, `not trusted`); `Clear Dana’s website PIN? Their personal links stop working and they confirm with a texted code next
+time.` `Clear PIN` / `Keep it`.
+
+Known limits (backend, for the next wave): the board's external alerts (the handoff among them) are appended after the
+sorted ones, so a priority-1 handoff sits at the bottom of Needs attention (below the fold on a laptop); the `ai_handoff` alert carries no appointment (`appointmentId: null` in
+`messaging/adapters/alerts.ts`), so its button toasts the alert instead of opening the thread; and no alert of kind
+`sms.picture_message` is generated on the board yet (a client's picture message is a `new_reply`, which already opens Messages;
+a stranger's is in the quarantine). The dashboard opens Messages for both kinds as soon as the server names the appointment.
+
 ## Known limits
 
 - A walk-in takes the next slot of the grid like any booking. When no bay is free there the server refuses it; a manager is

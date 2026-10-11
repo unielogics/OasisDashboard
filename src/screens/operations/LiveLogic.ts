@@ -254,6 +254,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
   private thumbs = new Map<string, { url: string; at: number }>()
   /** thumbnail URLs that failed to load: their slots show the design's tile */
   private brokenThumbs = new Set<string>()
+  /** The file whose open read the client's identity again (Overview's Website PIN cell). */
+  private identityReadFor: string | null = null
   private markedRead = new Set<string>()
   private sending = false
 
@@ -476,9 +478,16 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
    * read shows nothing rather than a toast (the file looks as it always did).
    */
   private identityOf(customerId: string): ClientIdentity | undefined {
-    return this.deps.store.read(qk.ops('identity', customerId), () => this.deps.port.identity(customerId), {
-      staleTimeMs: FRESH_MS,
-    })
+    const key = qk.ops('identity', customerId)
+    const fetch = () => this.deps.port.identity(customerId)
+    // a PIN set or a number verified on a link page announces nothing on the stream: read it again each time a file opens
+    const opened = this.state.selectedId
+    if (opened && this.identityReadFor !== opened && this.deps.queryClient.getQueryData(key) !== undefined) {
+      this.identityReadFor = opened
+      void this.deps.store.refetch(key, fetch)
+    }
+    if (opened) this.identityReadFor = opened
+    return this.deps.store.read(key, fetch, { staleTimeMs: FRESH_MS })
   }
 
   private membershipOf(customerId: string): MembershipView | undefined {
@@ -506,6 +515,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       this.cmd.allow('cli.view')
       return
     }
+    this.identityReadFor = null
     this.setState({
       selectedId: id,
       modalTab: tab,

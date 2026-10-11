@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The LIVE Settings template (with the live patches) rendered with the view model on LiveData: the "Oasis AI assistant"
 // nav entry in the Clients group, the section (status strip, switches, stage, pause, test numbers, questions and answers)
-// and its own save bar (ADR 0160, DV-320..322). Every binding of the section exists in the values the view model gives.
+// and its own save bar (ADR 0160, DV-705..707). Every binding of the section exists in the values the view model gives.
 import fs from 'node:fs'
 import path from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'

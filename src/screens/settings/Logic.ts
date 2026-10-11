@@ -1244,7 +1244,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       emRequirement:
         access.requirement + ' · ' + (access.canClose ? 'you have access' : 'you don’t have access'),
       emPreviewLabel: 'Preview · SMS to ' + (preview.first || 'a customer'),
-      // Settings → Oasis AI assistant (ADR 0160, DV-320..322): the nav entry, the section and its save bar
+      // Settings → Oasis AI assistant (ADR 0160, DV-705..707): the nav entry, the section and its save bar
       secAssistant: sec === 'assistant' && !gate,
       asst: {
         ...(this.data.assistant?.vals() ?? {}),

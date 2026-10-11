@@ -168,6 +168,51 @@ The live variant relabels WhatsApp to SMS (D1): `Sent by SMS` (emergency option)
 drawer's `They’ll get an SMS invite` is already SMS. The other live-only differences are in `design-patches/DEVIATIONS.md`
 (DV-301 to DV-316).
 
+## Settings → Oasis AI assistant (live only; W3g, ADR 0160; DEVIATIONS.md DV-705 to DV-707)
+
+A section the design does not have, built from its own primitives (nav button, Arrival strip, VIP toggles, segments and
+stepper, the VIP clients list and input, the emergency textarea, the Working hours save bar). The fixture and parity builds
+never show it (`SectionKey` gains `assistant`, reachable only through the live patches and `#assistant` in the live data).
+
+```
+src/lib/settings/assistant.ts              pure: stages and their words, numbers (E.164 <-> "(201) 555-0142"), FAQ checks, changed fields, status
+src/data/ports/assistant-api.ts            GET/PUT /settings/assistant (types from src/data/http/schema.d.ts)
+src/screens/settings/live/assistant.ts     AssistantSection: its read, the working copy, the save; vals() = what live.asst.* binds
+src/screens/settings/live/LiveData.ts      builds the section when Screen.tsx passes `assistantApi` (its query: ['settings', 'assistant'])
+src/screens/settings/Logic.ts              gate('assistant'), live.secAssistant, live.asst (+ go, navStyle, dirty), #assistant
+design-patches/live/partials/settings-nav-assistant.html, settings-assistant.html, settings-assistant-save.html (after tpl 66, 415, 444)
+```
+
+| What                    | API                                                                       | Rule                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| read                    | `GET /settings/assistant` (any signed-in person), refetched on `settings.changed {section: assistant}` | loading and failed cards like the other sections; the nav `ON` badge is `active` (server switch and section) |
+| save                    | `PUT /settings/assistant` `{changed fields, version}`                    | `set.hours`; only the fields that differ from the server; FAQ lines trimmed                               |
+| change saved elsewhere  | the stream refetches the view                                            | fields nobody touched here follow it, edited fields stay (Working hours' rule, DV-309)                    |
+| 412 `VERSION_CONFLICT`  | `command()` refetches the view and toasts the server's words             | the edits stay over the new version; the next Save sends them with it                                    |
+| 422                     | `errors[].path` (`allowlist.1`, `faq.0.a`, `staffPauseHours`, `body.stage`) | under the field and in the save bar; no toast                                                          |
+| before asking           | numbers: 10-digit US/Canadian, once, 50 at most; FAQ: both lines, 500 characters, each question once, 40 pairs | inline, no request                                                        |
+
+Owner-facing words: `Oasis AI is off: texts reach the team as today.` (+ `It is also off on the server for now; you can set
+everything up here meanwhile.` while `AI_ENABLED` is off, or `Oasis AI is switched on here but still off on the server, so it
+answers nobody yet.`), `Oasis AI is answering texts.`; stages `Test numbers` (only the listed numbers; start with your own phones),
+`Clients` (every client on file; unknown numbers reach the team as today), `Everyone` (new numbers too; it asks a new texter's
+name and adds them as a client); `Pause after a staff reply` (1 to 72 hours); `Book, move and cancel by text` (each change waits
+for the client's 4-digit reply; off: a booking link instead). A role without `set.hours` reads the section; any change toasts
+`Your role can’t change the assistant settings` and sends nothing.
+
+Running the browser check (it changes data; reseed before running it again):
+
+```bash
+export AI_ENABLED=true ALLOW_DEV_ENDPOINTS=true SMS_ALLOWLIST=<the seeded numbers: "Running it" in screens-operations-live.md>
+pnpm live:up --name asst --api-port 4031 --web-port 3231 --profile design,parity-ops \
+     --freeze 2026-06-13T10:36:00-04:00 --backend ~/oasis/wt/ai-w3-dashapi
+pnpm e2e:assistant --name asst          # screenshots in parity-reports/e2e-assistant/
+pnpm live:down --name asst --drop
+```
+
+It writes three fixtures straight to the stack's database because nothing in this backend creates them yet: a PIN row and a
+30-day trust for Priya Nair (the link pages are wave 3) and one text with `sender_kind = 'ai'` (the assistant's turn is wave 3).
+
 ## Running it
 
 ```bash
