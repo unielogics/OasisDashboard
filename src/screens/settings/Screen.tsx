@@ -8,6 +8,7 @@ import { DCHost } from '@/dc/DCHost'
 import { ScreenStyle } from '@/dc/ScreenStyle'
 import { FixtureData } from './fixtures'
 import { LiveData } from './live/LiveData'
+import { SettingsExtras } from './live/extras'
 import { createSettingsLogic } from './Logic'
 import type { SettingsData } from './data'
 
@@ -20,7 +21,15 @@ const data: SettingsData = LIVE
       session: () => liveChrome.getSession(),
     })
   : new FixtureData()
-const Logic = createSettingsLogic(data)
+// Catalog, Categories and Reminders & texts: sections the design does not have, live only (DV-317..DV-321)
+const extras = LIVE
+  ? new SettingsExtras({
+      api: getDataPort().settings,
+      qc: getQueryClient(),
+      session: () => liveChrome.getSession(),
+    })
+  : null
+const Logic = createSettingsLogic(data, extras)
 
 export default function SettingsScreen() {
   return (

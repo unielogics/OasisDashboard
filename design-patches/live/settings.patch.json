@@ -88,6 +88,36 @@
       "tpl": 359,
       "expectTag": "div",
       "htmlFile": "settings-vip-candidates.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 66,
+      "expectTag": "button",
+      "htmlFile": "settings-nav-reminders.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 72,
+      "expectTag": "button",
+      "htmlFile": "settings-nav-catalog.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 432,
+      "expectTag": "div",
+      "htmlFile": "settings-services-price-note.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 415,
+      "expectTag": "sc-if",
+      "htmlFile": "settings-extra-sections.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 444,
+      "expectTag": "sc-if",
+      "htmlFile": "settings-reminders-bar.html"
     }
   ]
 }

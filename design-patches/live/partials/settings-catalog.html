@@ -1,0 +1,129 @@
+<sc-if value="{{ live.secCatalog }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:14px 16px;background:var(--accentSoft);border:1px solid var(--accentBrd);border-radius:14px;margin-bottom:18px;color:var(--accentInk);font-size:13.5px;font-weight:700;line-height:1.45;">{{ live.cat.note }}</div>
+  <div style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;align-items:start;">
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:12px;">
+      <div style="display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;">
+        <button sc-camel-on-click="{{ live.cat.kindPkg }}" style="{{ live.cat.kindPkgStyle }}">Packages</button>
+        <button sc-camel-on-click="{{ live.cat.kindAddon }}" style="{{ live.cat.kindAddonStyle }}">Add-ons</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <sc-for list="{{ live.cat.list }}" as="v" hint-placeholder-count="6">
+          <button sc-camel-on-click="{{ v.onClick }}" style="{{ v.style }}"><span style="{{ v.swatch }}"></span><span style="flex:1;min-width:0;text-align:left;padding:7px 0;"><span style="display:block;font-weight:700;font-size:13.5px;">{{ v.name }}</span><span style="display:block;font-size:11.5px;font-weight:700;color:var(--ink3);margin-top:2px;">{{ v.sub }}</span></span></button>
+        </sc-for>
+        <sc-if value="{{ live.cat.noItems }}" hint-placeholder-val="{{ false }}"><div style="padding:20px;text-align:center;color:var(--ink3);font-weight:600;font-size:13px;">Nothing here yet.</div></sc-if>
+      </div>
+    </div>
+    <sc-if value="{{ live.cat.has }}" hint-placeholder-val="{{ true }}">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:20px;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="{{ live.cat.svc.kindStyle }}">{{ live.cat.svc.kindLabel }}</span><span style="{{ live.cat.svc.chip.style }}">{{ live.cat.svc.chip.label }}</span></div>
+        <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:21px;letter-spacing:-0.02em;margin-top:8px;">{{ live.cat.svc.title }}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-top:3px;">{{ live.cat.svc.meta }}</div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 16px;margin-top:18px;">
+          <div style="grid-column:1/-1;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Name on the website</div>
+            <input value="{{ live.cat.svc.publicName }}" sc-camel-on-input="{{ live.cat.svc.setPublicName }}" placeholder="{{ live.cat.svc.namePlaceholder }}" style="width:100%;height:46px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;">
+          </div>
+          <div style="grid-column:1/-1;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Description</div>
+            <textarea value="{{ live.cat.svc.description }}" sc-camel-on-input="{{ live.cat.svc.setDescription }}" rows="3" placeholder="What is included, in a sentence or two" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;line-height:1.5;resize:vertical;"></textarea>
+          </div>
+          <div style="grid-column:1/-1;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Category</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ live.cat.svc.catOpts }}" as="o" hint-placeholder-count="5"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+          </div>
+          <div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Member price ($)</div>
+            <input value="{{ live.cat.svc.member }}" sc-camel-on-input="{{ live.cat.svc.setMember }}" inputmode="decimal" placeholder="No price" style="width:100%;height:46px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;">
+          </div>
+          <div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Guest price ($)</div>
+            <input value="{{ live.cat.svc.guest }}" sc-camel-on-input="{{ live.cat.svc.setGuest }}" inputmode="decimal" placeholder="Automatic" style="width:100%;height:46px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;">
+          </div>
+          <div style="grid-column:1/-1;margin-top:-6px;font-size:12px;font-weight:600;color:var(--ink3);">{{ live.cat.svc.guestHint }}</div>
+          <div style="grid-column:1/-1;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">VIP members</div>
+            <div style="display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;"><sc-for list="{{ live.cat.svc.vipOpts }}" as="o" hint-placeholder-count="3"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+            <sc-if value="{{ live.cat.svc.showVipNote }}" hint-placeholder-val="{{ false }}"><input value="{{ live.cat.svc.vipNote }}" sc-camel-on-input="{{ live.cat.svc.setVipNote }}" placeholder="{{ live.cat.svc.vipPlaceholder }}" style="width:100%;height:46px;margin-top:8px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"></sc-if>
+          </div>
+          <div style="grid-column:1/-1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 14px;">
+            <sc-for list="{{ live.cat.svc.toggles }}" as="o" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line2);">
+                <div style="flex:1;"><div style="font-weight:700;font-size:14px;">{{ o.label }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ o.sub }}</div></div>
+                <button sc-camel-on-click="{{ o.toggle }}" style="{{ o.track }}"><span style="{{ o.knob }}"></span></button>
+              </div>
+            </sc-for>
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+              <div style="flex:1;"><div style="font-weight:700;font-size:14px;">Order on the website</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">Lower numbers come first.</div></div>
+              <button sc-camel-on-click="{{ live.cat.svc.sortDec }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:800;">−</button>
+              <span style="min-width:44px;text-align:center;font-weight:800;font-size:14px;">{{ live.cat.svc.sort }}</span>
+              <button sc-camel-on-click="{{ live.cat.svc.sortInc }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:800;">+</button>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ live.cat.svc.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.cat.svc.error }}</div></sc-if>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <sc-if value="{{ live.cat.svc.dirty }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.cat.svc.discard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button></sc-if>
+          <button sc-camel-on-click="{{ live.cat.svc.save }}" style="{{ live.cat.svc.saveStyle }}">{{ live.cat.svc.saveLabel }}</button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start;margin-top:18px;">
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+      <div style="font-weight:800;font-size:15px;">Guest prices</div>
+      <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 14px;line-height:1.45;">{{ live.cat.markup.sub }}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;font-weight:700;font-size:14px;">Member price +</div>
+        <button sc-camel-on-click="{{ live.cat.markup.dec }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">−</button>
+        <span style="min-width:64px;text-align:center;font-weight:800;font-size:14px;">{{ live.cat.markup.val }}</span>
+        <button sc-camel-on-click="{{ live.cat.markup.inc }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">+</button>
+        <button sc-camel-on-click="{{ live.cat.markup.save }}" style="{{ live.cat.markup.saveStyle }}">{{ live.cat.markup.saveLabel }}</button>
+      </div>
+      <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:12px;">{{ live.cat.markup.feeLine }}</div>
+    </div>
+    <sc-for list="{{ live.cat.plans }}" as="p" hint-placeholder-count="2">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;">
+        <div style="font-weight:800;font-size:15px;">{{ p.title }}</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 14px;">{{ p.sub }}</div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:10px;">
+          <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Name on the website</div><input value="{{ p.label }}" sc-camel-on-input="{{ p.setLabel }}" placeholder="{{ p.labelPlaceholder }}" style="width:100%;height:46px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"></div>
+          <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">$ / month</div><input value="{{ p.monthly }}" sc-camel-on-input="{{ p.setMonthly }}" inputmode="decimal" placeholder="—" style="width:100%;height:46px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"></div>
+        </div>
+        <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin:14px 0 7px;">Perks (one per line)</div>
+        <textarea value="{{ p.perks }}" sc-camel-on-input="{{ p.setPerks }}" rows="4" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;line-height:1.5;resize:vertical;"></textarea>
+        <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin:14px 0 7px;">Squarespace checkout link</div>
+        <input value="{{ p.url }}" sc-camel-on-input="{{ p.setUrl }}" placeholder="https://…squarespace.com/…" style="width:100%;height:46px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;">
+        <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:6px;">Never shown publicly: a client gets it only after verifying on their personal link.</div>
+        <sc-if value="{{ p.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ p.error }}</div></sc-if>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+          <sc-if value="{{ p.dirty }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ p.discard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button></sc-if>
+          <button sc-camel-on-click="{{ p.save }}" style="{{ p.saveStyle }}">{{ p.saveLabel }}</button>
+        </div>
+      </div>
+    </sc-for>
+    <sc-if value="{{ live.cat.tint.has }}" hint-placeholder-val="{{ false }}">
+      <div style="grid-column:1/-1;background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;">
+        <div style="font-weight:800;font-size:15px;">Window tint prices</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 6px;line-height:1.45;">{{ live.cat.tint.sub }}</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;"><sc-for list="{{ live.cat.tint.films }}" as="f" hint-placeholder-count="2"><span style="font-size:12px;font-weight:700;color:var(--ink2);">{{ f.label }}</span></sc-for></div>
+        <div style="display:grid;grid-template-columns:minmax(150px,1.4fr) repeat(4,minmax(70px,1fr));gap:8px;align-items:center;font-size:10.5px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;padding:0 0 6px;">
+          <div>Vehicle · film</div><div>Member from</div><div>Member to</div><div>Guest from</div><div>Guest to</div>
+        </div>
+        <sc-for list="{{ live.cat.tint.rows }}" as="r" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:minmax(150px,1.4fr) repeat(4,minmax(70px,1fr));gap:8px;align-items:center;padding:4px 0;">
+            <div style="font-weight:700;font-size:13.5px;">{{ r.label }}</div>
+            <input value="{{ r.memberMin }}" sc-camel-on-input="{{ r.setMemberMin }}" inputmode="decimal" style="width:100%;min-width:0;height:42px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;">
+            <input value="{{ r.memberMax }}" sc-camel-on-input="{{ r.setMemberMax }}" inputmode="decimal" style="width:100%;min-width:0;height:42px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;">
+            <input value="{{ r.guestMin }}" sc-camel-on-input="{{ r.setGuestMin }}" inputmode="decimal" style="width:100%;min-width:0;height:42px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;">
+            <input value="{{ r.guestMax }}" sc-camel-on-input="{{ r.setGuestMax }}" inputmode="decimal" style="width:100%;min-width:0;height:42px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;">
+          </div>
+        </sc-for>
+        <sc-if value="{{ live.cat.tint.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.cat.tint.error }}</div></sc-if>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+          <sc-if value="{{ live.cat.tint.dirty }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.cat.tint.discard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button></sc-if>
+          <button sc-camel-on-click="{{ live.cat.tint.save }}" style="{{ live.cat.tint.saveStyle }}">{{ live.cat.tint.saveLabel }}</button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>

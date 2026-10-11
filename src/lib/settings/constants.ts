@@ -100,6 +100,13 @@ export const SECTION_META: Record<SectionKey, readonly [title: string, descripti
     'Packages & checklists',
     'Checklist tasks for each package and add-on. Jobs combine both automatically.',
   ],
+  // live variant only (DV-317..DV-321)
+  catalog: [
+    'Catalog',
+    'Names, descriptions, prices and plans the website, online booking and the text assistant show.',
+  ],
+  categories: ['Categories', 'Group services into categories. Their colours mark visits on the board and in Payments.'],
+  reminders: ['Reminders & texts', 'Appointment reminders, status texts as the car moves, and the lead follow-up.'],
 }
 
 export const MON = [

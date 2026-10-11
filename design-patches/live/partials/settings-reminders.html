@@ -1,0 +1,100 @@
+<sc-if value="{{ live.secReminders }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:14px 16px;background:var(--accentSoft);border:1px solid var(--accentBrd);border-radius:14px;margin-bottom:18px;color:var(--accentInk);font-size:13.5px;font-weight:700;line-height:1.45;">Texts clients get from the shop’s number. Every one follows the client’s SMS consent and STOP. {{ live.rem.quiet }}</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Appointment reminders</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 14px;line-height:1.45;">When booked clients get a reminder before their visit (up to five).</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <sc-for list="{{ live.rem.offsets }}" as="o" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;">
+              <span style="flex:1;font-weight:700;font-size:14px;">{{ o.label }}</span>
+              <button sc-camel-on-click="{{ o.remove }}" title="Remove" style="width:40px;height:40px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);color:var(--ink3);">✕</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{ live.rem.noOffsets }}" hint-placeholder-val="{{ false }}"><div style="padding:12px;text-align:center;font-size:13px;font-weight:600;color:var(--ink3);">No reminders: booked clients get none.</div></sc-if>
+        </div>
+        <sc-if value="{{ live.rem.canAdd }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin:14px 0 7px;">Add a reminder</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ live.rem.addOpts }}" as="o" hint-placeholder-count="6"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+        </sc-if>
+        <div style="margin-top:12px;">
+          <sc-for list="{{ live.rem.toggles }}" as="o" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line);">
+              <div style="flex:1;"><div style="font-weight:700;font-size:14px;">{{ o.label }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ o.sub }}</div></div>
+              <button sc-camel-on-click="{{ o.toggle }}" style="{{ o.track }}"><span style="{{ o.knob }}"></span></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Preparation by category</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 14px;line-height:1.45;">Added to the reminder of a visit in that category.</div>
+        <sc-for list="{{ live.rem.prep }}" as="p" hint-placeholder-count="4">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;"><span style="{{ p.swatch }}"></span><span style="flex:1;font-size:12.5px;font-weight:700;color:var(--ink2);">{{ p.label }}</span><span style="font-size:11px;font-weight:700;color:var(--ink3);">{{ p.count }}</span></div>
+            <input value="{{ p.value }}" sc-camel-on-input="{{ p.set }}" placeholder="{{ p.placeholder }}" style="width:100%;height:44px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;">
+            <sc-if value="{{ p.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12px;font-weight:700;color:#C2410C;">{{ p.error }}</div></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 18px;">
+        <div style="font-weight:800;font-size:15px;padding-top:12px;">Status texts</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 4px;line-height:1.45;">Sent as the car moves through the shop.</div>
+        <sc-for list="{{ live.rem.status }}" as="o" hint-placeholder-count="5">
+          <div style="padding:12px 0;border-bottom:1px solid var(--line);">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div style="flex:1;"><div style="font-weight:700;font-size:14px;">{{ o.label }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ o.sub }}</div></div>
+              <button sc-camel-on-click="{{ o.toggle }}" style="{{ o.track }}"><span style="{{ o.knob }}"></span></button>
+            </div>
+            <sc-for list="{{ o.steppers }}" as="x" hint-placeholder-count="1">
+              <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+                <div style="flex:1;font-size:12.5px;font-weight:700;color:var(--ink2);">{{ x.label }}</div>
+                <button sc-camel-on-click="{{ x.dec }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">−</button>
+                <span style="min-width:110px;text-align:center;font-weight:800;font-size:13.5px;">{{ x.val }}</span>
+                <button sc-camel-on-click="{{ x.inc }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">+</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 18px;">
+        <div style="font-weight:800;font-size:15px;padding-top:12px;">Lead follow-up</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 4px;line-height:1.45;">For people who texted about a service and did not book.</div>
+        <sc-for list="{{ live.rem.leads }}" as="o" hint-placeholder-count="2">
+          <div style="padding:12px 0;border-bottom:1px solid var(--line);">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div style="flex:1;"><div style="font-weight:700;font-size:14px;">{{ o.label }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ o.sub }}</div></div>
+              <button sc-camel-on-click="{{ o.toggle }}" style="{{ o.track }}"><span style="{{ o.knob }}"></span></button>
+            </div>
+            <sc-for list="{{ o.steppers }}" as="x" hint-placeholder-count="1">
+              <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+                <div style="flex:1;font-size:12.5px;font-weight:700;color:var(--ink2);">{{ x.label }}</div>
+                <button sc-camel-on-click="{{ x.dec }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">−</button>
+                <span style="min-width:110px;text-align:center;font-weight:800;font-size:13.5px;">{{ x.val }}</span>
+                <button sc-camel-on-click="{{ x.inc }}" style="width:38px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">+</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="grid-column:1/-1;background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;">
+      <div style="font-weight:800;font-size:15px;">Preview</div>
+      <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 6px;line-height:1.45;">{{ live.rem.previewNote }}</div>
+      <sc-if value="{{ live.rem.previewFailed }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:700;color:#C2410C;margin-bottom:6px;">{{ live.rem.previewError }}</div></sc-if>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">
+        <sc-for list="{{ live.rem.texts }}" as="t" hint-placeholder-count="4">
+          <div style="padding:12px 14px;background:var(--panel2);border:1px solid var(--line2);border-radius:14px;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-weight:800;font-size:13.5px;">{{ t.title }}</span><sc-if value="{{ t.off }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:6px;background:var(--panel3);color:var(--ink2);">OFF</span></sc-if></div>
+            <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ t.timing }}</div>
+            <div style="{{ t.bubbleStyle }}">{{ t.text }}</div>
+            <div style="font-size:11.5px;font-weight:700;color:var(--ink3);margin-top:6px;">{{ t.meta }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>

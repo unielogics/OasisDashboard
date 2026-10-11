@@ -7,7 +7,18 @@ export type { StyleObject }
 export type Theme = 'light' | 'dark'
 
 export type SectionKey =
-  'hours' | 'closures' | 'emergency' | 'employees' | 'roles' | 'vip' | 'arrival' | 'services'
+  | 'hours'
+  | 'closures'
+  | 'emergency'
+  | 'employees'
+  | 'roles'
+  | 'vip'
+  | 'arrival'
+  | 'services'
+  // live variant only (ADR 0160 plan A, I, K): the design has no such sections; the fixture build never opens them
+  | 'catalog'
+  | 'categories'
+  | 'reminders'
 
 /** One weekday of the opening hours (the state array is indexed by weekday, 0 = Sunday). */
 export interface HoursDay {
