@@ -215,6 +215,79 @@
       }
     },
     {
+      "id": "L-payments-17",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-224: each invoice row shows its visit's category chip before the items. The design's Payments set (parity-pay) bills wash packages under Wash and detail packages under Detail (an add-on alone never makes a visit Mixed), so the oracle's rows get the same chip from their first item before they render.",
+      "swap": {
+        "find": "  renderVals(){\n",
+        "replace": "  __catChip(colour,dark,size){ const HEX=/^#[0-9a-f]{6}$/i; const c=HEX.test(colour)?colour:'#6B7280'; const h=c.replace('#',''); const rgb=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)); const ch=rgb.map(x=>{ const v=x/255; return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4); }); const l=0.2126*ch[0]+0.7152*ch[1]+0.0722*ch[2]; const ink=dark?(l<0.3?'rgb('+rgb.map(x=>Math.round(x+(255-x)*0.45)).join(',')+')':c):(l>0.3?'rgb('+rgb.map(x=>Math.round(x*(1-(l>0.55?0.55:0.4)))).join(',')+')':c); return { display:'inline-flex',alignItems:'center',flex:'none',fontSize:size==='file'?'11px':size==='row'?'10.5px':'10px',fontWeight:800,padding:size==='file'?'3px 9px':size==='row'?'3px 7px':'2px 7px',borderRadius:size==='file'?'7px':'6px',background:'rgba('+rgb.join(',')+','+(dark?0.2:0.14)+')',color:ink,whiteSpace:'nowrap',letterSpacing:'0.02em' }; }\n  __rowCat(t,dark){ const k=/Wash/.test(t.items[0].name)?['Wash','#1FB6FF']:['Detail','#FFB547']; return { show:true, label:k[0], style:this.__catChip(k[1],dark,'row') }; }\n  renderVals(){\n",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-18",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-224: each invoice row shows its visit's category chip before the items. The design's Payments set (parity-pay) bills wash packages under Wash and detail packages under Detail (an add-on alone never makes a visit Mixed), so the oracle's rows get the same chip from their first item before they render.",
+      "swap": {
+        "find": "this.pill(c.status), onClick:()=>this.setState({ selId:t.id }),",
+        "replace": "this.pill(c.status), cat:this.__rowCat(t, this.state.theme==='dark'), onClick:()=>this.setState({ selId:t.id }),",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-19",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-224: each invoice row shows its visit's category chip before the items. The design's Payments set (parity-pay) bills wash packages under Wash and detail packages under Detail (an add-on alone never makes a visit Mixed), so the oracle's rows get the same chip from their first item before they render.",
+      "swap": {
+        "find": "<div style=\"min-width:0;font-size:12.5px;font-weight:600;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">{{ r.items }}</div>",
+        "replace": "<div style=\"min-width:0;display:flex;align-items:center;gap:6px;\"><sc-if value=\"{{ r.cat.show }}\" hint-placeholder-val=\"{{ false }}\"><span style=\"{{ r.cat.style }}\">{{ r.cat.label }}</span></sc-if><div style=\"min-width:0;font-size:12.5px;font-weight:600;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">{{ r.items }}</div></div>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-payments-20",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-225: a 'By category' strip under the KPI tiles with the server's byCategory gross, invoice count and open amount for the range (dimmed when empty). The oracle gets the same strip, fed by a constant per range (xlive) with the server's figures for the design's invoices, before it renders.",
+      "swap": {
+        "find": "    </sc-for>\n  </div>\n\n  <main style=\"flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 440px;",
+        "replace": "    </sc-for>\n  </div><sc-if value=\"{{ xlive.hasCatSplit }}\" hint-placeholder-val=\"{{ false }}\">\n  <div style=\"flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 26px 0;\">\n    <span style=\"font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em;margin-right:2px;\">{{ xlive.catSplitLabel }}</span>\n    <sc-for list=\"{{ xlive.catSplit }}\" as=\"c\" hint-placeholder-count=\"5\">\n      <span style=\"{{ c.style }}\"><span style=\"{{ c.swatch }}\"></span><span style=\"font-size:12.5px;font-weight:700;color:var(--ink2);\">{{ c.label }}</span><span style=\"font-size:13px;font-weight:800;\">{{ c.value }}</span><span style=\"font-size:11.5px;font-weight:600;color:var(--ink3);\">{{ c.sub }}</span></span>\n    </sc-for>\n  </div>\n</sc-if>\n\n  <main style=\"flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 440px;",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-payments-21",
+      "screen": "payments",
+      "kind": "text",
+      "reason": "DV-225: a 'By category' strip under the KPI tiles with the server's byCategory gross, invoice count and open amount for the range (dimmed when empty). The oracle gets the same strip, fed by a constant per range (xlive) with the server's figures for the design's invoices, before it renders.",
+      "swap": {
+        "find": "      ranges:[['today','Today'],",
+        "replace": "      xlive:({\"today\":{\"hasCatSplit\":true,\"catSplitLabel\":\"By category \u00b7 Saturday, June 13\",\"catSplit\":[{\"key\":\"wash\",\"label\":\"Wash\",\"value\":\"$548\",\"sub\":\"4 invoices \u00b7 $279 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#1FB6FF\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"addons\",\"label\":\"Add-ons\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#7FD6FF\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"tint\",\"label\":\"Tint\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#2EE59D\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"detail\",\"label\":\"Detail\",\"value\":\"$1,355\",\"sub\":\"4 invoices \u00b7 $228 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#FFB547\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"quote\",\"label\":\"Quote\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#8C97A1\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"mixed\",\"label\":\"Mixed\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#6B7280\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}}]},\"7d\":{\"hasCatSplit\":true,\"catSplitLabel\":\"By category \u00b7 Jun 7 \u2013 Jun 13\",\"catSplit\":[{\"key\":\"wash\",\"label\":\"Wash\",\"value\":\"$2,131\",\"sub\":\"18 invoices \u00b7 $279 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#1FB6FF\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"addons\",\"label\":\"Add-ons\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#7FD6FF\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"tint\",\"label\":\"Tint\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#2EE59D\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"detail\",\"label\":\"Detail\",\"value\":\"$5,035\",\"sub\":\"14 invoices \u00b7 $228 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#FFB547\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"quote\",\"label\":\"Quote\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#8C97A1\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"mixed\",\"label\":\"Mixed\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#6B7280\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}}]},\"30d\":{\"hasCatSplit\":true,\"catSplitLabel\":\"By category \u00b7 May 15 \u2013 Jun 13\",\"catSplit\":[{\"key\":\"wash\",\"label\":\"Wash\",\"value\":\"$5,639\",\"sub\":\"47 invoices \u00b7 $279 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#1FB6FF\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"addons\",\"label\":\"Add-ons\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#7FD6FF\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"tint\",\"label\":\"Tint\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#2EE59D\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"detail\",\"label\":\"Detail\",\"value\":\"$21,510\",\"sub\":\"58 invoices \u00b7 $228 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#FFB547\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"quote\",\"label\":\"Quote\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#8C97A1\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"mixed\",\"label\":\"Mixed\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#6B7280\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}}]},\"mtd\":{\"hasCatSplit\":true,\"catSplitLabel\":\"By category \u00b7 Jun 1 \u2013 Jun 13\",\"catSplit\":[{\"key\":\"wash\",\"label\":\"Wash\",\"value\":\"$3,334\",\"sub\":\"26 invoices \u00b7 $279 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#1FB6FF\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"addons\",\"label\":\"Add-ons\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#7FD6FF\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"tint\",\"label\":\"Tint\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#2EE59D\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"detail\",\"label\":\"Detail\",\"value\":\"$8,700\",\"sub\":\"23 invoices \u00b7 $228 open\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#FFB547\"},\"dim\":false,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":1}},{\"key\":\"quote\",\"label\":\"Quote\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#8C97A1\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}},{\"key\":\"mixed\",\"label\":\"Mixed\",\"value\":\"$0\",\"sub\":\"0 invoices\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#6B7280\"},\"dim\":true,\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"8px\",\"minHeight\":\"34px\",\"padding\":\"5px 12px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"11px\",\"opacity\":0.55}}]}})[s.range],\n      ranges:[['today','Today'],",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-payments-22",
+      "screen": "payments",
+      "kind": "wiring",
+      "reason": "DV-225: the oracle's own key for the split it is given (L-payments-20/21); the live screen keeps it under live.*.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "matcher": {
+        "loc": "xlive",
+        "port": "^$"
+      }
+    },
+    {
       "id": "L-settings-01",
       "screen": "settings",
       "kind": "text",
@@ -351,6 +424,67 @@
         "loc": ["emAffectedCount", "confirmText"],
         "orig": "^\"6 customers",
         "port": "^\"0 customers"
+      }
+    },
+    {
+      "id": "L-settings-12",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-317/DV-318/DV-319: three Settings sections the design does not have, with nav buttons after Packages & checklists (Catalog, Categories) and after Arrival & check-in (Reminders & texts), in the design's nav style. The oracle gets the same buttons (styled by its own navS) before it renders.",
+      "swap": {
+        "find": "<span style=\"flex:1;text-align:left;\">Arrival &amp; check-in</span></button>",
+        "replace": "<span style=\"flex:1;text-align:left;\">Arrival &amp; check-in</span></button><button sc-camel-on-click=\"{{ xlive.goReminders }}\" style=\"{{ xlive.xnav.reminders }}\"><svg width=\"18\" height=\"18\" sc-camel-view-box=\"0 0 24 24\" fill=\"none\"><path d=\"M6 16v-5a6 6 0 0112 0v5l2 2H4z\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linejoin=\"round\"></path><path d=\"M10 21a2 2 0 004 0\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"></path></svg><span style=\"flex:1;text-align:left;\">Reminders &amp; texts</span></button>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-settings-13",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-317/DV-318/DV-319: three Settings sections the design does not have, with nav buttons after Packages & checklists (Catalog, Categories) and after Arrival & check-in (Reminders & texts), in the design's nav style. The oracle gets the same buttons (styled by its own navS) before it renders.",
+      "swap": {
+        "find": "<span style=\"flex:1;text-align:left;\">Packages &amp; checklists</span></button>",
+        "replace": "<span style=\"flex:1;text-align:left;\">Packages &amp; checklists</span></button><button sc-camel-on-click=\"{{ xlive.goCatalog }}\" style=\"{{ xlive.xnav.catalog }}\"><svg width=\"18\" height=\"18\" sc-camel-view-box=\"0 0 24 24\" fill=\"none\"><path d=\"M3 12V4h8l10 10-8 8z\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linejoin=\"round\"></path><circle cx=\"7.5\" cy=\"7.5\" r=\"1.5\" stroke=\"currentColor\" stroke-width=\"2\"></circle></svg><span style=\"flex:1;text-align:left;\">Catalog</span></button>\n<button sc-camel-on-click=\"{{ xlive.goCategories }}\" style=\"{{ xlive.xnav.categories }}\"><svg width=\"18\" height=\"18\" sc-camel-view-box=\"0 0 24 24\" fill=\"none\"><rect x=\"4\" y=\"4\" width=\"7\" height=\"7\" rx=\"1.5\" stroke=\"currentColor\" stroke-width=\"2\"></rect><rect x=\"13\" y=\"4\" width=\"7\" height=\"7\" rx=\"1.5\" stroke=\"currentColor\" stroke-width=\"2\"></rect><rect x=\"4\" y=\"13\" width=\"7\" height=\"7\" rx=\"1.5\" stroke=\"currentColor\" stroke-width=\"2\"></rect><rect x=\"13\" y=\"13\" width=\"7\" height=\"7\" rx=\"1.5\" stroke=\"currentColor\" stroke-width=\"2\"></rect></svg><span style=\"flex:1;text-align:left;\">Categories</span></button>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-settings-14",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-317/DV-318/DV-319: three Settings sections the design does not have, with nav buttons after Packages & checklists (Catalog, Categories) and after Arrival & check-in (Reminders & texts), in the design's nav style. The oracle gets the same buttons (styled by its own navS) before it renders.",
+      "swap": {
+        "find": "      nav:{ hours:navS('hours'),",
+        "replace": "      xlive:{ xnav:{ catalog:navS('catalog'), categories:navS('categories'), reminders:navS('reminders') }, goCatalog:()=>{}, goCategories:()=>{}, goReminders:()=>{}, svcPriceNote:\"Prices are set in Catalog: the website, online booking and the text assistant read them from there, and a booking charges the guest price set there. A service without a member price keeps charging its last price.\" },\n      nav:{ hours:navS('hours'),",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-settings-15",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-320: Packages & checklists says that prices are set in Catalog, with an Open Catalog button, under the package note. The oracle gets the same note before it renders.",
+      "swap": {
+        "find": "{{ svcNote }}</div>",
+        "replace": "{{ svcNote }}</div><div style=\"display:flex;align-items:center;gap:12px;margin:-4px 0 16px;padding:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;\">\n  <div style=\"flex:1;font-size:12.5px;font-weight:700;color:var(--ink2);line-height:1.45;\">{{ xlive.svcPriceNote }}</div>\n  <button sc-camel-on-click=\"{{ xlive.goCatalog }}\" style=\"height:38px;padding:0 13px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);flex:none;\">Open Catalog</button>\n</div>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-settings-16",
+      "screen": "settings",
+      "kind": "wiring",
+      "reason": "DV-317/DV-320: the oracle's own key for the nav buttons and the price note it is given (L-settings-12..15); the live screen keeps them under live.*.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "matcher": {
+        "loc": "xlive",
+        "port": "^$"
       }
     },
     {
@@ -1282,6 +1416,115 @@
         "replace": "a.bay=num; a.status='cleaning'; a.startedAt=Date.parse('2026-06-13T10:36:00-04:00');",
         "count": 1,
         "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-63",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-422: category chips in the categories' colours on the timeline cards (after the service name, which may shrink), the Staff view cards and the appointment file header. The design seed puts every wash package in Wash and every detail package in Detail, and a visit with an add-on also holds Add-ons (the seed mirrors the fixture's services and add-ons), so the oracle's cards and file get the same chips from their own appointments before they render.",
+      "swap": {
+        "find": "  cardVM(a){\n",
+        "replace": "  __catChip(colour,dark,size){ const HEX=/^#[0-9a-f]{6}$/i; const c=HEX.test(colour)?colour:'#6B7280'; const h=c.replace('#',''); const rgb=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)); const ch=rgb.map(x=>{ const v=x/255; return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4); }); const l=0.2126*ch[0]+0.7152*ch[1]+0.0722*ch[2]; const ink=dark?(l<0.3?'rgb('+rgb.map(x=>Math.round(x+(255-x)*0.45)).join(',')+')':c):(l>0.3?'rgb('+rgb.map(x=>Math.round(x*(1-(l>0.55?0.55:0.4)))).join(',')+')':c); return { display:'inline-flex',alignItems:'center',flex:'none',fontSize:size==='file'?'11px':size==='row'?'10.5px':'10px',fontWeight:800,padding:size==='file'?'3px 9px':size==='row'?'3px 7px':'2px 7px',borderRadius:size==='file'?'7px':'6px',background:'rgba('+rgb.join(',')+','+(dark?0.2:0.14)+')',color:ink,whiteSpace:'nowrap',letterSpacing:'0.02em' }; }\n  __cats(a,dark,size){ const C={wash:['Wash','#1FB6FF'],addons:['Add-ons','#7FD6FF'],tint:['Tint','#2EE59D'],detail:['Detail','#FFB547'],quote:['Quote','#8C97A1']}; const order=['wash','addons','tint','detail','quote']; const ks=[/Wash/.test(a.svc)?'wash':'detail']; if(a.addons&&a.addons.length) ks.push('addons'); ks.sort((x,y)=>order.indexOf(x)-order.indexOf(y)); return ks.map(k=>({ key:k, label:C[k][0], style:this.__catChip(C[k][1],dark,size) })); }\n  cardVM(a){\n",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-64",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-422: category chips in the categories' colours on the timeline cards (after the service name, which may shrink), the Staff view cards and the appointment file header. The design seed puts every wash package in Wash and every detail package in Detail, and a visit with an add-on also holds Add-ons (the seed mirrors the fixture's services and add-ons), so the oracle's cards and file get the same chips from their own appointments before they render.",
+      "swap": {
+        "find": "      short:`${a.veh.make} ${a.veh.model}`,\n",
+        "replace": "      cats: this.__cats(a, dark, 'card'), hasCats: true,\n      short:`${a.veh.make} ${a.veh.model}`,\n",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-65",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-422: category chips in the categories' colours on the timeline cards (after the service name, which may shrink), the Staff view cards and the appointment file header. The design seed puts every wash package in Wash and every detail package in Detail, and a visit with an add-on also holds Add-ons (the seed mirrors the fixture's services and add-ons), so the oracle's cards and file get the same chips from their own appointments before they render.",
+      "swap": {
+        "find": "        quickMsg:()=>{ this.setState({modalTab:'messages'}); },",
+        "replace": "        quickMsg:()=>{ this.setState({modalTab:'messages'}); }, cats:this.__cats(sa, dark, 'file'),",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-66",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-422: category chips in the categories' colours on the timeline cards (after the service name, which may shrink), the Staff view cards and the appointment file header. The design seed puts every wash package in Wash and every detail package in Detail, and a visit with an add-on also holds Add-ons (the seed mirrors the fixture's services and add-ons), so the oracle's cards and file get the same chips from their own appointments before they render.",
+      "swap": {
+        "find": "<div style=\"font-size:12.5px;color:var(--ink);font-weight:600;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">{{ a.service }}</div>",
+        "replace": "<div style=\"display:flex;align-items:baseline;gap:7px;min-width:0;\"><div style=\"font-size:12.5px;color:var(--ink);font-weight:600;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;\">{{ a.service }}</div><sc-for list=\"{{ a.cats }}\" as=\"c\" hint-placeholder-count=\"1\"><span style=\"{{ c.style }}\">{{ c.label }}</span></sc-for></div>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-67",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-422: category chips in the categories' colours on the timeline cards (after the service name, which may shrink), the Staff view cards and the appointment file header. The design seed puts every wash package in Wash and every detail package in Detail, and a visit with an add-on also holds Add-ons (the seed mirrors the fixture's services and add-ons), so the oracle's cards and file get the same chips from their own appointments before they render.",
+      "swap": {
+        "find": "<div style=\"font-size:12px;color:var(--ink);font-weight:600;margin-top:6px;\">{{ a.service }}</div>",
+        "replace": "<div style=\"font-size:12px;color:var(--ink);font-weight:600;margin-top:6px;\">{{ a.service }}</div><sc-if value=\"{{ a.hasCats }}\" hint-placeholder-val=\"{{ false }}\"><div style=\"display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;\"><sc-for list=\"{{ a.cats }}\" as=\"c\" hint-placeholder-count=\"1\"><span style=\"{{ c.style }}\">{{ c.label }}</span></sc-for></div></sc-if>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-68",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-422: category chips in the categories' colours on the timeline cards (after the service name, which may shrink), the Staff view cards and the appointment file header. The design seed puts every wash package in Wash and every detail package in Detail, and a visit with an add-on also holds Add-ons (the seed mirrors the fixture's services and add-ons), so the oracle's cards and file get the same chips from their own appointments before they render.",
+      "swap": {
+        "find": "<span style=\"{{ sel.badgeStyle }}\">{{ sel.badgeLabel }}</span>",
+        "replace": "<span style=\"{{ sel.badgeStyle }}\">{{ sel.badgeLabel }}</span><sc-for list=\"{{ sel.cats }}\" as=\"c\" hint-placeholder-count=\"1\"><span style=\"{{ c.style }}\">{{ c.label }}</span></sc-for>",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-69",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-423/DV-424: 'Today by category' under the KPI tiles: All and today's jobs per category from the server (categoryCounts: Wash 6 and Detail 5 on the design day, zeros included, then Mixed), each a filter button. The oracle gets the same row under its tiles, fed by a constant (xlive) with the server's counts before it renders.",
+      "swap": {
+        "find": "    </sc-for>\n  </div>\n\n  <!-- ============ VIEW SWITCHER ============ -->",
+        "replace": "    </sc-for><sc-if value=\"{{ xlive.hasCatCounts }}\" hint-placeholder-val=\"{{ false }}\">\n  <div style=\"grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;\">\n    <span style=\"font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em;margin-right:2px;\">{{ xlive.catCountsLabel }}</span>\n    <sc-for list=\"{{ xlive.catCounts }}\" as=\"c\" hint-placeholder-count=\"6\">\n      <button sc-camel-on-click=\"{{ c.onClick }}\" title=\"{{ c.title }}\" style=\"{{ c.style }}\"><span style=\"{{ c.swatch }}\"></span>{{ c.label }}<span style=\"font-weight:800;color:var(--ink);\">{{ c.count }}</span></button>\n    </sc-for>\n  </div>\n</sc-if>\n  </div>\n\n  <!-- ============ VIEW SWITCHER ============ -->",
+        "count": 1,
+        "target": "template"
+      }
+    },
+    {
+      "id": "L-operations-70",
+      "screen": "operations",
+      "kind": "text",
+      "reason": "DV-423/DV-424: 'Today by category' under the KPI tiles: All and today's jobs per category from the server (categoryCounts: Wash 6 and Detail 5 on the design day, zeros included, then Mixed), each a filter button. The oracle gets the same row under its tiles, fed by a constant (xlive) with the server's counts before it renders.",
+      "swap": {
+        "find": "      kpis, groups, apptCount:tlList.length,",
+        "replace": "      xlive:{\"hasCatCounts\":true,\"catCountsLabel\":\"Today by category \u00b7 11 jobs\",\"catCounts\":[{\"key\":\"all\",\"label\":\"All\",\"count\":\"\",\"swatch\":{\"display\":\"none\"},\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"7px\",\"height\":\"30px\",\"padding\":\"0 11px\",\"background\":\"var(--accentSoft)\",\"border\":\"1px solid var(--accentBrd)\",\"borderRadius\":\"9px\",\"fontSize\":\"12px\",\"fontWeight\":700,\"color\":\"var(--accentInk)\",\"whiteSpace\":\"nowrap\"},\"title\":\"Show every visit on the board\",\"onClick\":()=>{}},{\"key\":\"wash\",\"label\":\"Wash\",\"count\":\"6\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#1FB6FF\"},\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"7px\",\"height\":\"30px\",\"padding\":\"0 11px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"9px\",\"fontSize\":\"12px\",\"fontWeight\":700,\"color\":\"var(--ink2)\",\"whiteSpace\":\"nowrap\"},\"title\":\"Show only Wash on the board\",\"onClick\":()=>{}},{\"key\":\"addons\",\"label\":\"Add-ons\",\"count\":\"0\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#7FD6FF\"},\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"7px\",\"height\":\"30px\",\"padding\":\"0 11px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"9px\",\"fontSize\":\"12px\",\"fontWeight\":700,\"color\":\"var(--ink2)\",\"whiteSpace\":\"nowrap\"},\"title\":\"Show only Add-ons on the board\",\"onClick\":()=>{}},{\"key\":\"tint\",\"label\":\"Tint\",\"count\":\"0\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#2EE59D\"},\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"7px\",\"height\":\"30px\",\"padding\":\"0 11px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"9px\",\"fontSize\":\"12px\",\"fontWeight\":700,\"color\":\"var(--ink2)\",\"whiteSpace\":\"nowrap\"},\"title\":\"Show only Tint on the board\",\"onClick\":()=>{}},{\"key\":\"detail\",\"label\":\"Detail\",\"count\":\"5\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#FFB547\"},\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"7px\",\"height\":\"30px\",\"padding\":\"0 11px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"9px\",\"fontSize\":\"12px\",\"fontWeight\":700,\"color\":\"var(--ink2)\",\"whiteSpace\":\"nowrap\"},\"title\":\"Show only Detail on the board\",\"onClick\":()=>{}},{\"key\":\"quote\",\"label\":\"Quote\",\"count\":\"0\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#8C97A1\"},\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"7px\",\"height\":\"30px\",\"padding\":\"0 11px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"9px\",\"fontSize\":\"12px\",\"fontWeight\":700,\"color\":\"var(--ink2)\",\"whiteSpace\":\"nowrap\"},\"title\":\"Show only Quote on the board\",\"onClick\":()=>{}},{\"key\":\"mixed\",\"label\":\"Mixed\",\"count\":\"0\",\"swatch\":{\"flex\":\"none\",\"width\":\"9px\",\"height\":\"9px\",\"borderRadius\":\"3px\",\"background\":\"#6B7280\"},\"style\":{\"display\":\"inline-flex\",\"alignItems\":\"center\",\"gap\":\"7px\",\"height\":\"30px\",\"padding\":\"0 11px\",\"background\":\"var(--panel)\",\"border\":\"1px solid var(--line)\",\"borderRadius\":\"9px\",\"fontSize\":\"12px\",\"fontWeight\":700,\"color\":\"var(--ink2)\",\"whiteSpace\":\"nowrap\"},\"title\":\"Show only Mixed on the board\",\"onClick\":()=>{}}]},\n      kpis, groups, apptCount:tlList.length,",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
+      "id": "L-operations-71",
+      "screen": "operations",
+      "kind": "wiring",
+      "reason": "DV-423/DV-424: the oracle's own key for the count row it is given (L-operations-69/70); the live screen keeps the row under live.*.",
+      "scope": {
+        "checks": ["vals"]
+      },
+      "matcher": {
+        "loc": "xlive",
+        "port": "^$"
       }
     }
   ]

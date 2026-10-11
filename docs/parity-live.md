@@ -302,6 +302,37 @@ entries (`L-payments-*`, `L-settings-*`, `L-all-*`) are unchanged from the first
 | L-operations-61 | region-mask     | DV-401                                         | touch-long-press-drag/mouse-drag-to-bay; steps drop, toast-expired | pixels of the 'Bay time free' figure after a drop (see L-operations-60).                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | L-operations-62 | swap (logic)    | DV-414                                         | every step                                                         | the bay timer runs on the server's start instant: a job dropped onto a bay is stamped by the server's clock, which on the parity stack is frozen at the design's instant (10:36:00), while the oracle stamped it with its own clock after the scenario's long-press. The oracle stamps the drop with the same frozen instant before it renders.                                                                                                                                                               |
 
+## Categories, Catalog and Reminders (ADR 0160 W3h)
+
+The W3h package added live-only surfaces to all three screens (DV-224/225, DV-317..321, DV-422..424): category chips on
+the timeline and Staff cards, in the file header and on the invoice rows, the per-category count row under the
+Operations KPI tiles (the board filter), the `By category` strip under the Payments tiles, three Settings nav buttons and
+the price note in Packages & checklists. They shift what follows them, so they are allow-listed the narrow way: the
+oracle is given the same markup (the live partials, verbatim) and the same values before it renders, and the five checks
+then compare everything else exactly. A run without these entries fails every step; with them it is clean.
+
+| id                                    | kind            | DV                     | what the oracle gets                                                                                                                                                                                                       |
+| ------------------------------------- | --------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L-operations-63..65                   | swap (logic)    | DV-422                 | `cats`/`hasCats` on every card (`cardVM`, so timeline, queue, Staff and calendar) and `sel.cats`, in the live key order: wash packages are Wash, the others Detail, plus Add-ons when the visit has an add-on (the design seed mirrors the fixture's services and add-ons); the chip style is `categoryChipStyle` copied |
+| L-operations-66..68                   | swap (template) | DV-422                 | the card's service line wrapped with its chips (`ops-card-service-cats.html`, with the line's `min-width:0;flex:0 1 auto`), the Staff card chips and the file header chips, as the live patch inserts them                       |
+| L-operations-69, 70                   | swap            | DV-423, DV-424         | the `Today by category` row (`ops-kpi-cats.html`) under its tiles, fed by `xlive`: the server's counts of the design day (All, Wash 6, Add-ons 0, Tint 0, Detail 5, Quote 0, Mixed 0; 11 jobs), constant over every step   |
+| L-operations-71                       | wiring          | DV-423, DV-424         | its `xlive` key (the live screen keeps the row under `live.*`)                                                                                                                                                             |
+| L-payments-17..19                     | swap            | DV-224                 | a row chip from the invoice's first item (wash packages Wash, the others Detail; an add-on alone never makes Mixed), placed after `statusStyle` like the live row, and `pay-row-cat.html` around the items text               |
+| L-payments-20, 21                     | swap            | DV-225                 | the split strip (`pay-cat-split.html`) under its tiles, fed by `xlive` per range: the server's byCategory gross, count and open amount for the design's invoices (constant over the steps of a range)                         |
+| L-payments-22                         | wiring          | DV-225                 | its `xlive` key                                                                                                                                                                                                            |
+| L-settings-12..14                     | swap            | DV-317, DV-318, DV-319 | the Reminders & texts button after Arrival & check-in and Catalog and Categories after Packages & checklists, styled by the oracle's own `navS`                                                                            |
+| L-settings-15                         | swap (template) | DV-320                 | the price note with `Open Catalog` under the package note                                                                                                                                                                  |
+| L-settings-16                         | wiring          | DV-317, DV-320         | its `xlive` key                                                                                                                                                                                                            |
+
+The appointment-file scenario clicks the file's tabs by their leading text; the count row has an `Add-ons` button too,
+so a tab is now a button with that text and no `title` (each count button has one; `tools/parity/scenarios/operations.ts`).
+The fixture run is unchanged by this (the original has no count row).
+
+Result on `dash-w3-settings` with backend `ai-w3-dashapi` (three stacks as above): `PASS 38 runs, 152 steps, 0 failing
+steps, 0 allow-list problems`; `38 runs, 152 steps: 0 zero, 152 allow-listed (22432 differences), 0 unresolved steps`.
+Every new entry applied (the wirings over all 78, 48 and 26 steps of their screen). The count row and the split are the
+server's figures for the design seeds: a different seed needs different constants, like the other seed-encoding swaps.
+
 ## Triage of the Operations run: where every difference went
 
 Every difference of the first Operations runs went into exactly one bucket.
