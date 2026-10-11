@@ -7,6 +7,10 @@
 // locked screen. It fails on any page error, any API 5xx, and on any API 4xx that the script did not expect.
 // Screenshots go to parity-reports/e2e-settings/ (not committed). Every change is undone at the end of its step so the
 // script can run again against the same stack.
+// Request counter: every /api/v1/ request of the pages (page.on('request')) and of the script's own API calls is logged
+// with its person, step and time; the summary prints the requests per step, the peak per person per minute (the API's
+// budget is RATE_LIMIT_PER_MIN per signed-in person) and what each save and each change made elsewhere set off on the
+// open page. The whole log goes to parity-reports/e2e-settings/requests.json.
 import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from '@playwright/test'
@@ -30,6 +34,32 @@ let expected4xx: RegExp[] = []
 let shotNo = 0
 let current: Page | null = null
 let stepName = ''
+
+// ---- request counter ------------------------------------------------------------------------------------------------
+
+interface ReqLine {
+  t: number
+  /** the person whose rate-limit budget the request spends */
+  user: string
+  /** 'page' for the browser, 'script' for this script's own API calls */
+  by: 'page' | 'script'
+  step: string
+  method: string
+  path: string
+}
+const reqLog: ReqLine[] = []
+const startedAt = Date.now()
+const userOf = new WeakMap<object, string>()
+function countRequest(user: string, by: ReqLine['by'], method: string, url: string): void {
+  reqLog.push({
+    t: Date.now(),
+    user,
+    by,
+    step: stepName || '(setup)',
+    method,
+    path: url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api\/v1/, '').replace(/\?.*$/, ''),
+  })
+}
 
 function check(cond: unknown, what: string): void {
   if (!cond) throw new Error(`assertion failed: ${what}`)
@@ -72,7 +102,10 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: path.join(shots, `${String(++shotNo).padStart(2, '0')}-${name}.png`) })
 }
 
-function watch(page: Page, who: string): void {
+function watch(page: Page, who: string, user = who): void {
+  page.on('request', (r) => {
+    if (r.url().includes('/api/v1/')) countRequest(user, 'page', r.method(), r.url())
+  })
   page.on('pageerror', (e) => problems.push(`[${who}] page error: ${String(e).slice(0, 300)}`))
   page.on('console', (m) => {
     if (m.type() !== 'error') return
@@ -90,9 +123,91 @@ function watch(page: Page, who: string): void {
 }
 
 async function api<T = any>(ctx: APIRequestContext, p: string): Promise<T> {
+  countRequest(userOf.get(ctx) ?? '?', 'script', 'GET', `/api/v1${p}`)
   const r = await ctx.get(`${stack.webUrl}/api/v1${p}`)
   if (!r.ok()) throw new Error(`GET ${p} -> ${r.status()}`)
   return (await r.json()) as T
+}
+
+/** "3 x GET /settings/hours, 1 x GET /me" */
+function summarize(lines: ReqLine[]): string {
+  const n = new Map<string, number>()
+  for (const l of lines) n.set(`${l.method} ${l.path}`, (n.get(`${l.method} ${l.path}`) ?? 0) + 1)
+  return [...n.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${v} x ${k}`)
+    .join(', ')
+}
+
+/** The most requests of one person inside any 60 s window, and inside one wall-clock minute. */
+function peaks(lines: ReqLine[]): { rolling: number; minute: number } {
+  const ts = lines.map((l) => l.t).sort((a, b) => a - b)
+  let rolling = 0
+  for (let i = 0, j = 0; i < ts.length; i++) {
+    while (ts[i]! - ts[j]! >= 60_000) j++
+    rolling = Math.max(rolling, i - j + 1)
+  }
+  const per = new Map<number, number>()
+  for (const t of ts) per.set(Math.floor(t / 60_000), (per.get(Math.floor(t / 60_000)) ?? 0) + 1)
+  return { rolling, minute: Math.max(0, ...per.values()) }
+}
+
+function requestReport(): void {
+  fs.writeFileSync(path.join(shots, 'requests.json'), JSON.stringify(reqLog, null, 1))
+  console.log(`\nREQ total ${reqLog.length} (page ${reqLog.filter((r) => r.by === 'page').length}) in ${Math.round((Date.now() - startedAt) / 1000)} s`)
+  console.log('REQ per step (page / script):')
+  const steps = [...new Set(reqLog.map((r) => r.step))]
+  for (const st of steps) {
+    const lines = reqLog.filter((r) => r.step === st)
+    const pg = lines.filter((r) => r.by === 'page')
+    console.log(`REQ   ${String(pg.length).padStart(4)} / ${String(lines.length - pg.length).padStart(3)}  ${st.slice(0, 90)}`)
+  }
+  console.log('REQ peak per person (all requests: rolling 60 s / wall-clock minute; page only):')
+  for (const u of [...new Set(reqLog.map((r) => r.user))]) {
+    const all = peaks(reqLog.filter((r) => r.user === u))
+    const pg = peaks(reqLog.filter((r) => r.user === u && r.by === 'page'))
+    console.log(`REQ   ${u.padEnd(8)} ${all.rolling} / ${all.minute}; page ${pg.rolling} / ${pg.minute}`)
+  }
+  const every = peaks(reqLog)
+  console.log(`REQ   everyone ${every.rolling} / ${every.minute}`)
+  // What one write sets off on the open pages: the GETs that follow it until the next write, the next page load
+  // (/settings/bundle) or 2 s, whichever comes first; a save counts its own page only, a write by the script (a change
+  // made elsewhere) every open page.
+  const after = new Map<string, number[]>()
+  const isWrite = (x: ReqLine) => x.method !== 'GET' && !/^\/auth\//.test(x.path)
+  reqLog.forEach((r, i) => {
+    if (!isWrite(r)) return
+    let n = 0
+    for (const x of reqLog.slice(i + 1)) {
+      if (x.t > r.t + 2000) break
+      if (x.by !== 'page' || (r.by === 'page' && x.user !== r.user)) continue
+      if (isWrite(x) || x.path === '/settings/bundle') break
+      if (x.method === 'GET') n++
+    }
+    const k = `${r.by === 'page' ? 'save' : 'elsewhere'} ${r.method} ${r.path.replace(/\/[0-9a-f-]{20,}/g, '/:id')}`
+    after.set(k, [...(after.get(k) ?? []), n])
+  })
+  console.log('REQ page GETs a write sets off (writes: min/avg/max):')
+  for (const [k, v] of [...after.entries()].sort()) {
+    const avg = v.reduce((a, b) => a + b, 0) / v.length
+    console.log(`REQ   ${k.padEnd(52)} ${v.length}: ${Math.min(...v)}/${avg.toFixed(1)}/${Math.max(...v)}`)
+  }
+  // a page load: the GETs of the same page within 300 ms of its /settings/bundle (session, stream, bundle, own reads)
+  const loads = reqLog.filter((r) => r.by === 'page' && r.path === '/settings/bundle')
+  const near = (b: ReqLine) =>
+    reqLog.filter((x) => x.by === 'page' && x.user === b.user && x.method === 'GET' && Math.abs(x.t - b.t) <= 300)
+  const first = loads.length ? near(loads[loads.length - 1]!) : []
+  console.log(
+    `REQ page loads ${loads.length}, ${(loads.reduce((n, b) => n + near(b).length, 0) / Math.max(1, loads.length)).toFixed(1)} GETs each (the last: ${summarize(first)})`,
+  )
+  const pageTop = new Map<string, number>()
+  for (const r of reqLog.filter((x) => x.by === 'page' && x.method === 'GET')) {
+    const k = r.path.replace(/\/[0-9a-f-]{20,}/g, '/:id')
+    pageTop.set(k, (pageTop.get(k) ?? 0) + 1)
+  }
+  console.log('REQ page GETs by path:')
+  for (const [k, v] of [...pageTop.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25))
+    console.log(`REQ   ${String(v).padStart(4)}  ${k}`)
 }
 
 // ---- page helpers -------------------------------------------------------------------------------------------------
@@ -175,6 +290,7 @@ async function write(
   data?: unknown,
 ): Promise<any> {
   const csrf = (await api(ctx.request, '/auth/csrf')).csrfToken as string
+  countRequest(userOf.get(ctx.request) ?? '?', 'script', method, `/api/v1${p}`)
   const r = await ctx.request.fetch(`${stack.webUrl}/api/v1${p}`, {
     method,
     headers: {
@@ -203,9 +319,10 @@ async function session(
     timezoneId: 'America/New_York',
     locale: 'en-US',
   })
+  userOf.set(ctx.request, email.split('@')[0]!)
   const page = await ctx.newPage()
   page.setDefaultTimeout(8000)
-  watch(page, who)
+  watch(page, who, email.split('@')[0]!)
   current = page
   await login(page, stack, email, next)
   return { ctx, page }
@@ -230,7 +347,7 @@ try {
         timezoneId: 'America/New_York',
       })
       const op = await octx.newPage()
-      watch(op, 'signed-out')
+      watch(op, 'signed-out', 'rafael')
       const preloadWarnings: string[] = []
       op.on('console', (m) => {
         if (/preloaded using link preload but not used/.test(m.text()))
@@ -883,6 +1000,50 @@ try {
     await shot(page, 'realtime-employee')
   })
 
+  // ---- request counter: an idle minute's share and one change made elsewhere --------------------------------------------
+  await step('requests: 15 s on the open page fetch nothing (no polling)', async () => {
+    await reload(page, 'hours')
+    await sleep(2000)
+    const from = Date.now()
+    await sleep(15_000)
+    const lines = reqLog.filter((r) => r.by === 'page' && r.t >= from)
+    console.log(`  REQ idle 15 s: ${lines.length} page requests ${summarize(lines)}`)
+    check(lines.length === 0, `no request while idle, got ${lines.length}: ${summarize(lines)}`)
+  })
+
+  await step('requests: one settings.changed from elsewhere refetches only its section', async () => {
+    await reload(page, 'arrival')
+    await sleep(2000)
+    for (const welcome of [false, true]) {
+      const a = await api(req, '/arrival-settings')
+      const from = Date.now()
+      await write(bg, 'PUT', '/arrival-settings', { welcome, version: a.version })
+      await sleep(4000)
+      const lines = reqLog.filter((r) => r.by === 'page' && r.t >= from)
+      console.log(`  REQ settings.changed(arrival) -> ${lines.length} page requests ${summarize(lines)}`)
+      check(lines.length <= 3, `at most 3 requests after one change, got ${lines.length}: ${summarize(lines)}`)
+    }
+  })
+
+  await step('requests: a role changed elsewhere (rbac.changed) refetches the session and the team only', async () => {
+    await reload(page, 'arrival')
+    await sleep(2000)
+    const roles = await api(req, '/roles')
+    const acct = roles.roles.find((r: any) => r.key === 'acct')
+    const was = roles.matrix[acct.id]['cli.export'] === true
+    for (const granted of [!was, was]) {
+      const from = Date.now()
+      await write(bg, 'PUT', `/roles/${acct.id}/permissions/cli.export`, { granted })
+      await sleep(4000)
+      const lines = reqLog.filter((r) => r.by === 'page' && r.user === 'rafael' && r.t >= from)
+      console.log(`  REQ rbac.changed (Accounting role) -> ${lines.length} requests of the manager's page ${summarize(lines)}`)
+      check(
+        !lines.some((r) => /^\/(settings\/hours|closures|vip|arrival-settings|services|emergency)/.test(r.path)),
+        `no section outside the team is read again: ${summarize(lines)}`,
+      )
+    }
+  })
+
   await step('theme: toggling saves the preference on the server', async () => {
     await page
       .locator('header button')
@@ -1028,6 +1189,7 @@ try {
 
 // ---- summary ---------------------------------------------------------------------------------------------------------
 
+requestReport()
 const failed = results.filter((r) => !r.ok)
 console.log(
   `\n${results.length - failed.length}/${results.length} steps passed; ${problems.length} page or API problems`,
