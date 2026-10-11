@@ -88,6 +88,25 @@
       "tpl": 359,
       "expectTag": "div",
       "htmlFile": "settings-vip-candidates.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 66,
+      "expectTag": "button",
+      "expectTextStarts": "Arrival",
+      "htmlFile": "settings-nav-assistant.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 415,
+      "expectTag": "sc-if",
+      "htmlFile": "settings-assistant.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 444,
+      "expectTag": "sc-if",
+      "htmlFile": "settings-assistant-save.html"
     }
   ]
 }

@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "actionsEnabled": false,
+  "stage": "allowlist",
+  "allowlist": [],
+  "staffPauseHours": 12,
+  "faq": [],
+  "server": { "aiEnabled": false, "actionsEnabled": false },
+  "active": false,
+  "version": 0
+}

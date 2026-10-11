@@ -116,6 +116,8 @@ const SECTION_PARTS: Record<SectionKey, SyncPartName[]> = {
   vip: ['vip'],
   arrival: ['arrival'],
   services: ['services'],
+  // its own read: see gate()
+  assistant: [],
 }
 
 export class SettingsLogic extends DCLogic<SettingsState> {
@@ -318,6 +320,10 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   private gate(section: SectionKey): 'locked' | 'loading' | 'failed' | null {
     if (!this.data.live) return null
     if (this.data.locked(section)) return 'locked'
+    if (section === 'assistant') {
+      const st = this.data.assistant?.state() ?? 'failed'
+      return st === 'ready' ? null : st
+    }
     const m = this.data.sync()
     const ready = SECTION_PARTS[section].every((p) => !!m?.[p])
     if (ready) return null
@@ -328,6 +334,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
 
   componentDidMount(): void {
     if (location.hash === '#emergency') this.setState({ section: 'emergency' })
+    else if (this.data.live && location.hash === '#assistant') this.setState({ section: 'assistant' })
     this.dataOff = this.data.subscribe(() => this.forceUpdate())
     const c = this.chrome()
     if (c) {
@@ -1237,6 +1244,14 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       emRequirement:
         access.requirement + ' · ' + (access.canClose ? 'you have access' : 'you don’t have access'),
       emPreviewLabel: 'Preview · SMS to ' + (preview.first || 'a customer'),
+      // Settings → Oasis AI assistant (ADR 0160, DV-320..322): the nav entry, the section and its save bar
+      secAssistant: sec === 'assistant' && !gate,
+      asst: {
+        ...(this.data.assistant?.vals() ?? {}),
+        go: () => this.setState({ section: 'assistant' }),
+        navStyle: navStyle(sec, 'assistant'),
+        dirty: sec === 'assistant' && !gate && !!this.data.assistant?.dirty(),
+      },
       hasCandidates: this.candidates.length > 0,
       candidates: this.candidates.map((c) => ({
         name: c.detail ? c.name + ' \u00b7 ' + c.detail : c.name,

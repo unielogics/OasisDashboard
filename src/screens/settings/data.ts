@@ -37,6 +37,7 @@ import type {
   Vip,
   VipKey,
 } from '@/lib/settings'
+import type { AssistantSection } from './live/assistant'
 
 export type MaybeAsync<T> = T | Promise<T>
 
@@ -229,4 +230,8 @@ export interface SettingsData {
   // services -------------------------------------------------------------------------------------------------------
   /** Stores the whole ordered checklist of one package or add-on; `op` is the edit that produced `tasks`. */
   saveChecklist(kind: SvcKind, name: string, tasks: string[], op: TaskOp): MaybeAsync<boolean>
+
+  // the AI assistant (live only, ADR 0160) -------------------------------------------------------------------------
+  /** Settings → Oasis AI assistant: its own read, working copy and save (src/screens/settings/live/assistant.ts). */
+  readonly assistant?: AssistantSection
 }
