@@ -116,6 +116,17 @@ describe('service website fields', () => {
   it('meta line and the guest hint', () => {
     expect(serviceMeta(signature)).toBe('Booking charges $54 · 45 min')
     expect(serviceMeta({ ...signature, quoteOnly: true })).toBe('Quote only · 45 min')
+    // no member price: the server leaves the booking charge at its last price (pricing.ts bookingPriceOf is null)
+    expect(serviceMeta({ ...signature, memberPriceCents: null, guestPriceCents: null })).toBe(
+      'Booking charges $54, its last price: a member price here changes it · 45 min',
+    )
+    expect(
+      serviceMeta({
+        ...signature,
+        memberPriceCents: null,
+        effective: { ...signature.effective, tintFilm: 'carbon' },
+      }),
+    ).toBe('Booking charges $54 · 45 min · priced by the tint table')
     const d = serviceDraft(signature)
     expect(guestHint(d, signature, 20)).toBe('Empty: guests pay $54 (member price + 20%).')
     expect(guestHint({ ...d, guest: '60' }, signature, 20)).toBe('Guests pay this price.')

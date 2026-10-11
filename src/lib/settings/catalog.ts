@@ -166,10 +166,17 @@ export function serviceBody(d: ServiceDraft, version: number): Checked<ServiceBo
   }
 }
 
-/** The meta line of the selected service: what a booking charges today and how long it takes. */
+/**
+ * The meta line of the selected service: what a booking charges today and how long it takes. Without a member price (and
+ * no tint film) the server keeps the booking charge at its last price (backend catalog/pricing.ts bookingPriceOf), so the
+ * line says that a member price is what changes it.
+ */
 export function serviceMeta(s: CatalogItem): string {
+  const kept = s.memberPriceCents === null && !s.effective.tintFilm
   const parts = [
-    s.quoteOnly ? 'Quote only' : 'Booking charges ' + money(s.priceCents),
+    s.quoteOnly
+      ? 'Quote only'
+      : 'Booking charges ' + money(s.priceCents) + (kept ? ', its last price: a member price here changes it' : ''),
     s.durationMin + ' min',
   ]
   if (s.effective.tintFilm) parts.push('priced by the tint table')

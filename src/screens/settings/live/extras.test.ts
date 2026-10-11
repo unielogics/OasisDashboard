@@ -153,7 +153,7 @@ describe('Settings extras: Catalog', () => {
     expect(vals(t.logic).live.cat.svc.dirty).toBe(true)
     t.fail.set('saveCatalogService', stale())
     call(t.logic, 'live.cat.svc.save')
-    await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.error).toMatch(/Someone else changed this/))
+    await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.error).toMatch(/^Someone else saved a change meanwhile/))
     expect(vals(t.logic).live.cat.svc.guest).toBe('60')
   })
 
@@ -453,6 +453,7 @@ describe('Settings extras: Packages & checklists', () => {
     const t = makeExtrasLogic()
     const v = vals(t.logic)
     expect(v.live.svcPriceNote).toMatch(/^Prices are set in Catalog/)
+    expect(v.live.svcPriceNote).toMatch(/A service without a member price keeps charging its last price\.$/)
     v.live.goCatalog()
     expect(t.logic.state.section).toBe('catalog')
   })

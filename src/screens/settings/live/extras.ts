@@ -8,6 +8,9 @@
 // reminders preview is POST /settings/reminders/preview, debounced, with the draft as it is typed.
 // Writes: command() (Idempotency-Key, "Your role can’t …", refetch on 409/412); set.services for the catalog and the
 // categories, set.hours for the reminders (the server's own rules: api-spec 15.6a, 15.8).
+// Drafts (lib/settings/drafts.ts) remember the server copy and version they started from and are rebased when a newer
+// copy arrives: what the person did not touch follows it, and a save sends the version of the copy the draft was merged
+// with, so someone else's change is never undone silently (a save on an older copy gets the server's 412).
 import { QueryObserver } from '@tanstack/react-query'
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import { deniedTitle } from '@/auth/permissions'
@@ -37,7 +40,6 @@ import {
   normalizeColour,
   planBody,
   planDraft,
-  sameDraft,
   serviceBody,
   serviceDraft,
   serviceMeta,
@@ -56,6 +58,8 @@ import type {
   TintMatrixView,
   VipInclusion,
 } from '@/lib/settings/catalog'
+import { CONFLICT_MESSAGE, DraftSet, STALE_ACTION_MESSAGE, STALE_DRAFT_MESSAGE } from '@/lib/settings/drafts'
+import type { DraftEntry } from '@/lib/settings/drafts'
 import {
   MAX_OFFSETS,
   OFFSET_CHOICES,
@@ -68,8 +72,8 @@ import {
   previewDraft,
   quietHoursText,
   remindersBody,
-  remindersDirty,
   remindersDraft,
+  sameReminders,
   stepValue,
 } from '@/lib/settings/reminders'
 import type { RemindersDraft, RemindersView, StepperKey } from '@/lib/settings/reminders'
@@ -115,6 +119,16 @@ function inlineMessage(e: ApiError): string {
   return e.errors[0]?.message || e.detail || e.title
 }
 
+/** The form's message: the refusal, or that someone else changed a field this person changed too. */
+function formError(err: string, entry: DraftEntry<unknown> | undefined): string {
+  if (entry?.conflict && (!err || err === STALE_DRAFT_MESSAGE)) return CONFLICT_MESSAGE
+  return err
+}
+
+type CategoryDraft = { label: string; colour: string }
+const sameCategory = (a: CategoryDraft, b: CategoryDraft): boolean =>
+  a.label === b.label && normalizeColour(a.colour) === normalizeColour(b.colour)
+
 const STEPPER_BTN = { dec: '−', inc: '+' } as const
 
 interface RemPreview {
@@ -138,20 +152,20 @@ export class SettingsExtras {
   // catalog
   private kind: 'pkg' | 'addon' = 'pkg'
   private selId: string | null = null
-  private svcDrafts: Record<string, ServiceDraft> = {}
+  private readonly svcDrafts = new DraftSet<ServiceDraft>()
   private svcErrors: Record<string, string> = {}
-  private markup: number | null = null
-  private plans: Record<string, PlanDraft> = {}
+  private readonly markup = new DraftSet<number>()
+  private readonly plans = new DraftSet<PlanDraft>()
   private planErrors: Record<string, string> = {}
-  private tint: TintDraft | null = null
+  private readonly tint = new DraftSet<TintDraft>()
   private tintError = ''
   // categories
-  private cats: Record<string, { label: string; colour: string }> = {}
+  private readonly cats = new DraftSet<CategoryDraft>(sameCategory)
   private catErrors: Record<string, string> = {}
   private adding: { label: string; colour: string } | null = null
   private addError = ''
   // reminders
-  private rem: RemindersDraft | null = null
+  private readonly rem = new DraftSet<RemindersDraft>(sameReminders)
   private remError = ''
   private preview: RemPreview = { key: '', value: null, failed: '' }
   private previewWanted = ''
@@ -254,6 +268,7 @@ export class SettingsExtras {
     request: (idem: string) => Promise<T>,
     deny: PermissionKey,
     invalidate: QueryKey[] = [],
+    staleMessage: string = STALE_DRAFT_MESSAGE,
   ): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
     if (this.busy.has(name)) return { ok: false, message: '' }
     this.busy.add(name)
@@ -271,11 +286,8 @@ export class SettingsExtras {
       const e = r.error
       if (e.isValidation || (e.isConflict && e.status === 409))
         return { ok: false, message: inlineMessage(e) }
-      if (e.status === 412)
-        return {
-          ok: false,
-          message: 'Someone else changed this meanwhile. Your edits are kept: save again to replace their change.',
-        }
+      // the draft was made on an older copy: command() refetches it and the draft is rebased on the newer one
+      if (e.status === 412) return { ok: false, message: staleMessage }
       if (!e.isUnauthenticated && e.kind !== 'aborted')
         this.emit(toastForError(e, { denyLabel: deniedTitle(deny).replace(/^Your role can’t /, '') }))
       return { ok: false, message: '' }
@@ -303,7 +315,7 @@ export class SettingsExtras {
       secCategories: sec === 'categories' && open,
       secReminders: sec === 'reminders' && open,
       svcPriceNote:
-        'Prices are set in Catalog: the website, online booking and the text assistant read them from there, and a booking charges the guest price set there.',
+        'Prices are set in Catalog: the website, online booking and the text assistant read them from there, and a booking charges the guest price set there. A service without a member price keeps charging its last price.',
     }
     const c = sec === 'catalog' || sec === 'categories' ? this.catalog() : undefined
     out.cat = this.catalogVals(sec === 'catalog' ? c : undefined, dark)
@@ -323,23 +335,26 @@ export class SettingsExtras {
     return list.find((s) => s.id === this.selId) ?? list[0] ?? null
   }
 
+  private svcEntry(s: CatalogItem): DraftEntry<ServiceDraft> | undefined {
+    return this.svcDrafts.get(s.id, serviceDraft(s), s.version)
+  }
+
   private draftOf(s: CatalogItem): ServiceDraft {
-    return this.svcDrafts[s.id] ?? serviceDraft(s)
+    return this.svcEntry(s)?.value ?? serviceDraft(s)
   }
 
   private editService(s: CatalogItem, patch: Partial<ServiceDraft>): void {
     if (!this.allowed(SERVICES_DENY)) return
-    const next = { ...this.draftOf(s), ...patch }
-    if (sameDraft(next, serviceDraft(s))) delete this.svcDrafts[s.id]
-    else this.svcDrafts[s.id] = next
+    this.svcDrafts.set(s.id, serviceDraft(s), s.version, { ...this.draftOf(s), ...patch })
     delete this.svcErrors[s.id]
     this.changed()
   }
 
   private async saveService(s: CatalogItem): Promise<void> {
     if (!this.allowed(SERVICES_DENY)) return
-    const d = this.draftOf(s)
-    const b = serviceBody(d, s.version)
+    const e = this.svcEntry(s)
+    if (!e) return
+    const b = serviceBody(e.value, e.version)
     if (!b.ok) {
       this.svcErrors[s.id] = b.message
       return this.changed()
@@ -355,7 +370,7 @@ export class SettingsExtras {
       if (r.message) this.svcErrors[s.id] = r.message
       return this.changed()
     }
-    delete this.svcDrafts[s.id]
+    this.svcDrafts.drop(s.id)
     delete this.svcErrors[s.id]
     const moved = r.data.appointmentsUpdated
     this.flash(
@@ -393,7 +408,7 @@ export class SettingsExtras {
         s.quoteOnly ? 'quote only' : s.memberPriceCents !== null ? money(s.memberPriceCents) : 'no website price',
       ]
       if (!s.visibleOnline) subs.push('hidden')
-      if (this.svcDrafts[s.id]) subs.push('unsaved')
+      if (this.svcEntry(s)) subs.push('unsaved')
       return {
         name: d.publicName.trim() || s.name,
         sub: subs.join(' · '),
@@ -408,7 +423,7 @@ export class SettingsExtras {
     const fee = c.guestBookingFeeCents
     return {
       note:
-        'What you set here is what the website, online booking and the text assistant show. Change prices only here: the price in Packages & checklists follows the guest price, and a booking charges it.',
+        'What you set here is what the website, online booking and the text assistant show. Change prices only here: the price in Packages & checklists follows the guest price, and a booking charges it. A service without a member price keeps charging its last price.',
       kindPkgStyle: seg(this.kind === 'pkg'),
       kindAddonStyle: seg(this.kind === 'addon'),
       kindPkg: () => {
@@ -448,9 +463,9 @@ export class SettingsExtras {
       const w = sw(on)
       return { label, sub, track: w.track, knob: w.knob, toggle: flip }
     }
-    const dirty = !!this.svcDrafts[s.id]
+    const dirty = !!this.svcEntry(s)
     const busy = this.busy.has('svc:' + s.id)
-    const err = this.svcErrors[s.id] ?? ''
+    const err = formError(this.svcErrors[s.id] ?? '', this.svcEntry(s))
     const cur = cats.find((x) => x.key === d.category)
     return {
       kindStyle: serviceKindStyle(s.kind === 'package'),
@@ -504,7 +519,7 @@ export class SettingsExtras {
       saveStyle: saveButtonStyle(dirty && !busy),
       save: () => void this.saveService(s),
       discard: () => {
-        delete this.svcDrafts[s.id]
+        this.svcDrafts.drop(s.id)
         delete this.svcErrors[s.id]
         this.changed()
       },
@@ -512,54 +527,60 @@ export class SettingsExtras {
   }
 
   private markupVals(c: CatalogRes, feeCents: number): Vals {
-    const value = this.markup ?? c.guestMarkup.pct
-    const dirty = this.markup !== null && this.markup !== c.guestMarkup.pct
+    const { pct, version } = c.guestMarkup
+    const entry = this.markup.get('markup', pct, version)
+    const value = entry?.value ?? pct
+    const dirty = !!entry
     const busy = this.busy.has('markup')
     const step = (dir: 1 | -1) => () => {
       if (!this.allowed(SERVICES_DENY)) return
-      this.markup = Math.min(200, Math.max(0, value + dir * 5))
+      this.markup.set('markup', pct, version, Math.min(200, Math.max(0, value + dir * 5)))
       this.changed()
     }
     return {
       val: value + '%',
-      sub: 'A service without its own guest price costs guests the member price plus this.',
+      sub: entry?.conflict
+        ? CONFLICT_MESSAGE
+        : 'A service without its own guest price costs guests the member price plus this.',
       dec: step(-1),
       inc: step(1),
       dirty,
       saveStyle: saveButtonStyle(dirty && !busy),
       saveLabel: busy ? 'Saving…' : 'Save',
-      save: () => void this.saveMarkup(c, value),
+      save: () => void this.saveMarkup(c),
       feeLine: 'Online booking fee for guests: ' + money(feeCents) + ' (members pay none).',
     }
   }
 
-  private async saveMarkup(c: CatalogRes, pct: number): Promise<void> {
-    if (!this.allowed(SERVICES_DENY) || this.markup === null || pct === c.guestMarkup.pct) return
+  private async saveMarkup(c: CatalogRes): Promise<void> {
+    if (!this.allowed(SERVICES_DENY)) return
+    const e = this.markup.get('markup', c.guestMarkup.pct, c.guestMarkup.version)
+    if (!e) return
     const r = await this.run(
       'markup',
       CATALOG_KEY,
-      (idem) => this.api.saveGuestMarkup({ pct, version: c.guestMarkup.version }, { idempotencyKey: idem }),
+      (idem) => this.api.saveGuestMarkup({ pct: e.value, version: e.version }, { idempotencyKey: idem }),
       SERVICES_DENY,
       [qk.settings('services')],
     )
     if (!r.ok) return void (r.message && this.flash(r.message))
-    this.markup = null
+    this.markup.drop('markup')
     this.flash('Guest prices saved · member price + ' + r.data.pct + '%')
   }
 
   private planVals(p: CatalogPlanItem): Vals {
-    const d = this.plans[p.key] ?? planDraft(p)
+    const entry = this.plans.get(p.key, planDraft(p), p.version)
+    const d = entry?.value ?? planDraft(p)
     const edit = (k: keyof PlanDraft) => (e: InputEvent) => {
       if (!this.allowed(SERVICES_DENY)) return
-      const next = { ...d, [k]: e.target.value }
-      if (sameDraft(next, planDraft(p))) delete this.plans[p.key]
-      else this.plans[p.key] = next
+      const cur = this.plans.value(p.key, planDraft(p), p.version)
+      this.plans.set(p.key, planDraft(p), p.version, { ...cur, [k]: e.target.value })
       delete this.planErrors[p.key]
       this.changed()
     }
-    const dirty = !!this.plans[p.key]
+    const dirty = !!entry
     const busy = this.busy.has('plan:' + p.key)
-    const err = this.planErrors[p.key] ?? ''
+    const err = formError(this.planErrors[p.key] ?? '', entry)
     const tier = p.websiteTier === 'gold' ? 'Gold' : p.websiteTier === 'vip' ? 'VIP' : null
     return {
       title: d.publicLabel.trim() || p.name,
@@ -584,7 +605,7 @@ export class SettingsExtras {
       saveLabel: busy ? 'Saving…' : 'Save plan',
       save: () => void this.savePlan(p),
       discard: () => {
-        delete this.plans[p.key]
+        this.plans.drop(p.key)
         delete this.planErrors[p.key]
         this.changed()
       },
@@ -593,9 +614,9 @@ export class SettingsExtras {
 
   private async savePlan(p: CatalogPlanItem): Promise<void> {
     if (!this.allowed(SERVICES_DENY)) return
-    const d = this.plans[p.key]
-    if (!d) return
-    const b = planBody(d, p.version)
+    const e = this.plans.get(p.key, planDraft(p), p.version)
+    if (!e) return
+    const b = planBody(e.value, e.version)
     if (!b.ok) {
       this.planErrors[p.key] = b.message
       return this.changed()
@@ -610,15 +631,16 @@ export class SettingsExtras {
       if (r.message) this.planErrors[p.key] = r.message
       return this.changed()
     }
-    delete this.plans[p.key]
+    this.plans.drop(p.key)
     this.flash('Saved the ' + (r.data.publicLabel || r.data.name) + ' plan')
   }
 
   private tintVals(m: TintMatrixView): Vals {
     if (!m.vehicleTypes.length || !m.films.length) return { has: false, rows: [], films: [] }
     const base = tintDraft(m)
-    const d = this.tint ?? base
-    const dirty = this.tint !== null && !sameDraft(this.tint, base)
+    const entry = this.tint.get('tint', base, m.version)
+    const d = entry?.value ?? base
+    const dirty = !!entry
     const busy = this.busy.has('tint')
     const rows: Vals[] = []
     for (const v of m.vehicleTypes)
@@ -627,9 +649,9 @@ export class SettingsExtras {
         const cell = d[k] ?? { memberMin: '', memberMax: '', guestMin: '', guestMax: '' }
         const set = (field: keyof TintCellDraft) => (e: InputEvent) => {
           if (!this.allowed(SERVICES_DENY)) return
-          const next = { ...(this.tint ?? base) }
-          next[k] = { ...cell, [field]: e.target.value }
-          this.tint = sameDraft(next, base) ? null : next
+          const next = { ...this.tint.value('tint', base, m.version) }
+          next[k] = { ...(next[k] ?? cell), [field]: e.target.value }
+          this.tint.set('tint', base, m.version, next)
           this.tintError = ''
           this.changed()
         }
@@ -650,14 +672,14 @@ export class SettingsExtras {
       rows,
       films: m.films.map((f) => ({ label: f.label + ': ' + f.vlt.map((x) => x + '%').join(', ') + ' shade' })),
       sub: 'Dollars from–to per vehicle type and film. The website and the assistant say “starts at” the lowest. Leave a row empty to not offer it.',
-      hasError: !!this.tintError,
-      error: this.tintError,
+      hasError: !!formError(this.tintError, entry),
+      error: formError(this.tintError, entry),
       dirty,
       saveStyle: saveButtonStyle(dirty && !busy),
       saveLabel: busy ? 'Saving…' : 'Save tint prices',
       save: () => void this.saveTint(m),
       discard: () => {
-        this.tint = null
+        this.tint.drop('tint')
         this.tintError = ''
         this.changed()
       },
@@ -665,16 +687,19 @@ export class SettingsExtras {
   }
 
   private async saveTint(m: TintMatrixView): Promise<void> {
-    if (!this.allowed(SERVICES_DENY) || !this.tint) return
-    const b = tintBody(this.tint, m)
+    if (!this.allowed(SERVICES_DENY)) return
+    const e = this.tint.get('tint', tintDraft(m), m.version)
+    if (!e) return
+    const b = tintBody(e.value, m)
     if (!b.ok) {
       this.tintError = b.message
       return this.changed()
     }
+    const body = { ...b.value, version: e.version }
     const r = await this.run(
       'tint',
       CATALOG_KEY,
-      (idem) => this.api.saveTintMatrix(b.value, { idempotencyKey: idem }),
+      (idem) => this.api.saveTintMatrix(body, { idempotencyKey: idem }),
       SERVICES_DENY,
       [qk.settings('services')],
     )
@@ -682,7 +707,7 @@ export class SettingsExtras {
       if (r.message) this.tintError = r.message
       return this.changed()
     }
-    this.tint = null
+    this.tint.drop('tint')
     this.flash('Tint prices saved')
   }
 
@@ -742,15 +767,15 @@ export class SettingsExtras {
     if (!c) return { rows: [], add: addVals, note: '' }
     const all = [...(c.categories as CatalogCategoryItem[])].sort((a, b) => a.sort - b.sort)
     const rows = all.map((x, i) => {
-      const d = this.cats[x.key] ?? { label: x.label, colour: x.colour }
-      const dirty = !!this.cats[x.key]
+      const server: CategoryDraft = { label: x.label, colour: x.colour }
+      const entry = this.cats.get(x.key, server, x.version)
+      const d = entry?.value ?? server
+      const dirty = !!entry
       const busy = this.busy.has('cat:' + x.key)
-      const err = this.catErrors[x.key] ?? ''
-      const edit = (patch: Partial<{ label: string; colour: string }>) => {
+      const err = formError(this.catErrors[x.key] ?? '', entry)
+      const edit = (patch: Partial<CategoryDraft>) => {
         if (!this.allowed(SERVICES_DENY)) return
-        const next = { ...d, ...patch }
-        if (next.label === x.label && normalizeColour(next.colour) === x.colour.toUpperCase()) delete this.cats[x.key]
-        else this.cats[x.key] = next
+        this.cats.set(x.key, server, x.version, { ...this.cats.value(x.key, server, x.version), ...patch })
         delete this.catErrors[x.key]
         this.changed()
       }
@@ -781,9 +806,9 @@ export class SettingsExtras {
         dirty,
         saveStyle: saveButtonStyle(dirty && !busy),
         saveLabel: busy ? 'Saving…' : 'Save',
-        save: () => void this.saveCategory(x, d),
+        save: () => void this.saveCategory(x),
         discard: () => {
-          delete this.cats[x.key]
+          this.cats.drop(x.key)
           delete this.catErrors[x.key]
           this.changed()
         },
@@ -799,30 +824,38 @@ export class SettingsExtras {
     }
   }
 
-  private async saveCategory(x: CatalogCategoryItem, d: { label: string; colour: string }): Promise<void> {
+  private async saveCategory(x: CatalogCategoryItem): Promise<void> {
+    const e = this.cats.get(x.key, { label: x.label, colour: x.colour }, x.version)
+    if (!e) return
+    const d = e.value
     const problem = categoryProblem(d.label, d.colour, null, [])
     if (problem) {
       this.catErrors[x.key] = problem
       return this.changed()
     }
-    const ok = await this.patchCategory(x, { label: d.label.trim(), colour: normalizeColour(d.colour) })
+    const patch = { label: d.label.trim(), colour: normalizeColour(d.colour) }
+    const ok = await this.patchCategory(x, patch, e.version, STALE_DRAFT_MESSAGE)
     if (ok) {
-      delete this.cats[x.key]
-      this.flash('Saved ' + d.label.trim())
+      this.cats.drop(x.key)
+      this.flash('Saved ' + patch.label)
     }
   }
 
+  /** One category change; on/off and order are sent at once on the copy on screen, a rename with its draft's version. */
   private async patchCategory(
     x: CatalogCategoryItem,
     patch: { label?: string; colour?: string; active?: boolean; sort?: number },
+    version: number = x.version,
+    staleMessage: string = STALE_ACTION_MESSAGE,
   ): Promise<boolean> {
     if (!this.allowed(SERVICES_DENY)) return false
     const r = await this.run(
       'cat:' + x.key,
       CATALOG_KEY,
-      (idem) => this.api.updateCategory(x.key, { ...patch, version: x.version }, { idempotencyKey: idem }),
+      (idem) => this.api.updateCategory(x.key, { ...patch, version }, { idempotencyKey: idem }),
       SERVICES_DENY,
       [REMINDERS_KEY, ['ops'], ['payments']],
+      staleMessage,
     )
     if (!r.ok) {
       if (r.message) this.catErrors[x.key] = r.message
@@ -853,12 +886,13 @@ export class SettingsExtras {
       (idem) => this.api.deleteCategory(x.key, x.version, { idempotencyKey: idem }),
       SERVICES_DENY,
       [REMINDERS_KEY],
+      STALE_ACTION_MESSAGE,
     )
     if (!r.ok) {
       if (r.message) this.flash(r.message)
       return
     }
-    delete this.cats[x.key]
+    this.cats.drop(x.key)
     this.flash('Removed ' + x.label)
   }
 
@@ -893,14 +927,17 @@ export class SettingsExtras {
 
   // ---- Reminders & texts -----------------------------------------------------------------------------------------------
 
+  private remEntry(v: RemindersView): DraftEntry<RemindersDraft> | undefined {
+    return this.rem.get('rem', remindersDraft(v), v.version)
+  }
+
   private remDraftOf(v: RemindersView): RemindersDraft {
-    return this.rem ?? remindersDraft(v)
+    return this.remEntry(v)?.value ?? remindersDraft(v)
   }
 
   private editRem(v: RemindersView, fn: (d: RemindersDraft) => void): void {
     if (!this.allowed(REMINDERS_DENY)) return
-    const d = remindersDraft(v)
-    const cur = this.rem ?? d
+    const cur = this.remDraftOf(v)
     const next: RemindersDraft = {
       reminders: {
         ...cur.reminders,
@@ -911,21 +948,23 @@ export class SettingsExtras {
       leads: { ...cur.leads },
     }
     fn(next)
-    this.rem = remindersDirty(next, v) ? next : null
+    this.rem.set('rem', remindersDraft(v), v.version, next)
     this.remError = ''
     this.changed()
   }
 
   private async saveRem(v: RemindersView): Promise<void> {
-    if (!this.allowed(REMINDERS_DENY) || !this.rem) return
-    const bad = Object.entries(this.rem.reminders.categoryPrep)
+    if (!this.allowed(REMINDERS_DENY)) return
+    const e = this.remEntry(v)
+    if (!e) return
+    const bad = Object.entries(e.value.reminders.categoryPrep)
       .map(([k, t]) => [k, prepProblem(t)] as const)
       .find(([, p]) => p)
     if (bad) {
       this.remError = categoryLabel(bad[0], v.categories) + ': ' + bad[1]
       return this.changed()
     }
-    const body = remindersBody(this.rem, v.version)
+    const body = remindersBody(e.value, e.version)
     const r = await this.run(
       'rem',
       REMINDERS_KEY,
@@ -936,7 +975,7 @@ export class SettingsExtras {
       if (r.message) this.remError = r.message
       return this.changed()
     }
-    this.rem = null
+    this.rem.drop('rem')
     this.remError = ''
     this.flash('Reminders saved · the next texts use them')
   }
@@ -1007,7 +1046,9 @@ export class SettingsExtras {
     ]
     const preview = open ? this.previewOf(d) : this.preview
     const busy = this.busy.has('rem')
-    const dirty = !!this.rem
+    const entry = this.remEntry(v)
+    const dirty = !!entry
+    const remError = formError(this.remError, entry)
     return {
       quiet: quietHoursText(v.quietHours),
       offsets: offsets.map((m) => ({
@@ -1140,12 +1181,12 @@ export class SettingsExtras {
       previewFailed: !!preview.failed,
       previewError: preview.failed,
       dirty,
-      hasError: !!this.remError,
-      error: this.remError,
+      hasError: !!remError,
+      error: remError,
       saveLabel: busy ? 'Saving…' : 'Save changes',
       save: () => void this.saveRem(v),
       discard: () => {
-        this.rem = null
+        this.rem.drop('rem')
         this.remError = ''
         this.changed()
       },

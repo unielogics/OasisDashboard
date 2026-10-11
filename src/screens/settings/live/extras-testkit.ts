@@ -202,7 +202,10 @@ const previewOf = (draft: any) => ({
   ],
 })
 
-/** The catalog and reminders endpoints over in-memory state; every call is recorded in `calls` (shared with LiveData's). */
+/**
+ * The catalog and reminders endpoints over in-memory state; every call is recorded in `calls` (shared with LiveData's).
+ * Like the server, a write carrying another version than the stored one is refused with 412.
+ */
 export function extendApi(f: ReturnType<typeof setup>) {
   const cat = catalogFixture()
   const rem = remindersFixture()
@@ -216,9 +219,14 @@ export function extendApi(f: ReturnType<typeof setup>) {
       return fn(...a)
     }
   const api: any = f.api
+  // the server's If-Match rule: a body made on an older copy is refused with 412
+  const fresh = (have: number, sent: number): void => {
+    if (have !== sent) throw stale()
+  }
   api.catalog = step('catalog', () => clone(cat))
   api.saveCatalogService = step('saveCatalogService', (id: string, body: any) => {
     const s = [...cat.packages, ...cat.addons].find((x: any) => x.id === id)
+    fresh(s.version, body.version)
     const fields = omitVersion(body)
     Object.assign(s, fields, { version: s.version + 1 })
     return { ...clone(s), changed: true, appointmentsUpdated: 0 }
@@ -230,31 +238,37 @@ export function extendApi(f: ReturnType<typeof setup>) {
   })
   api.updateCategory = step('updateCategory', (key: string, body: any) => {
     const c = cat.categories.find((x: any) => x.key === key)
+    fresh(c.version, body.version)
     const fields = omitVersion(body)
     Object.assign(c, fields, { version: c.version + 1 })
     return { ...clone(c), changed: true }
   })
-  api.deleteCategory = step('deleteCategory', (key: string) => {
+  api.deleteCategory = step('deleteCategory', (key: string, version: number) => {
+    fresh(cat.categories.find((x: any) => x.key === key).version, version)
     cat.categories = cat.categories.filter((x: any) => x.key !== key)
     return { key, removed: true }
   })
   api.saveTintMatrix = step('saveTintMatrix', (body: any) => {
+    fresh(cat.tintMatrix.version, body.version)
     const m = omitVersion(body)
     cat.tintMatrix = { ...m, version: cat.tintMatrix.version + 1 }
     return clone(cat.tintMatrix)
   })
   api.saveGuestMarkup = step('saveGuestMarkup', (body: any) => {
+    fresh(cat.guestMarkup.version, body.version)
     cat.guestMarkup = { pct: body.pct, version: cat.guestMarkup.version + 1 }
     return clone(cat.guestMarkup)
   })
   api.savePlan = step('savePlan', (key: string, body: any) => {
     const p = cat.plans.find((x: any) => x.key === key)
+    fresh(p.version, body.version)
     const fields = omitVersion(body)
     Object.assign(p, fields, { version: p.version + 1 })
     return { ...clone(p), changed: true }
   })
   api.reminders = step('reminders', () => clone(rem))
   api.saveReminders = step('saveReminders', (body: any) => {
+    fresh(rem.version, body.version)
     const groups = omitVersion(body)
     for (const g of ['reminders', 'statusTexts', 'leads']) if (groups[g]) Object.assign(rem[g], groups[g])
     rem.version += 1

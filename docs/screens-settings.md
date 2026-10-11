@@ -201,18 +201,34 @@ Rules: edits are drafts until Save (an edit back to the saved value is clean aga
 permission gets `Your role can’t …` on the first edit and nothing is sent; what the server would refuse is said in the
 form before sending (a guest price below the member price, a checkout link off squarespace.com, a half-filled tint row, a
 category colour that is not `#RRGGBB`, a prep line over 160 characters); the server's own 422/409 answer shows in the
-form or the Save bar, a stale version (412) keeps the draft and says to save again; on success the toast names what was
-saved and the event stream refreshes everything else (DV-321: `services` and `catalog` events also refetch the catalog,
-`ops` and `payments`; `reviews`, `status_texts`, `leads` and `catalog` refetch the reminders).
+form or the Save bar; on success the toast names what was saved and the event stream refreshes everything else (DV-321:
+`services` and `catalog` events also refetch the catalog, `ops` and `payments`; `reviews`, `status_texts`, `leads` and
+`catalog` refetch the reminders).
+
+Someone else saving meanwhile (review W3h F1; `src/lib/settings/drafts.ts`): every draft (a service, a plan, the tint
+table, the guest markup, a category's name and colour, the reminders) remembers the server copy and version it started
+from. When the event stream brings a newer copy, the draft is rebased on it: the fields this person did not touch take
+the newer values at once, the ones they changed stay, and a Save sends the version of the copy the draft was merged with.
+A field both people changed keeps this person's value and the form says `Someone else changed this too meanwhile. …
+Save keeps yours, Discard shows theirs.` A Save made before the newer copy arrived is refused by the server (412):
+nothing is saved, the copy is read again and rebased the same way, and the form says `Someone else saved a change
+meanwhile, so nothing was saved. Their change is on screen now with your edits kept: check and save again.` On/off, order
+and remove of a category are sent at once on the copy on screen; a 412 there says `Someone else changed this meanwhile.
+The screen shows their change now: try again.` A draft is never sent with a version newer than the copy it was built on,
+so another person's change is never undone without the form saying so.
 
 Packages & checklists gets one line (DV-320): `Prices are set in Catalog: …` with `Open Catalog`. The plain service
 price (`price_cents`, what a booking charges) is never edited in the dashboard: the backend keeps it equal to the guest
 price set in Catalog (`bookingPriceOf`, ADR 0160 W2a).
 
-Known: clearing a service's member price after it had one leaves the booking charge (`priceCents`, shown as `Booking
-charges $X` under the name) at the last guest price; the backend only syncs it while the service is priced on the website
-(`bookingPriceOf`). The plain price can then only be changed through `PATCH /services/:id` (no dashboard control, by
-design: prices are set in Catalog); the e2e restores it that way.
+Clearing a service's member price after it had one leaves the booking charge (`priceCents`) at the last guest price;
+the backend only syncs it while the service is priced on the website (`bookingPriceOf` is null without a member price or
+a tint film). The screen says so (review W3h F3): the Packages note and the Catalog note end with `A service without a
+member price keeps charging its last price.`, and the selected service's line reads `Booking charges $X, its last price:
+a member price here changes it`. Setting a member price again is the way to change it in the dashboard (the plain price
+can otherwise only be changed through `PATCH /services/:id`, which has no dashboard control by design); the e2e restores
+it that way. Whether the backend should reset or flag `price_cents` when the website price is cleared is left to the
+rollout (backend, not this package).
 
 e2e: `pnpm e2e:catalog --name <stack>` (`scripts/e2e-catalog.ts`) on a `design,demo` stack edits each section in the page,
 reloads and compares with the API, recolours Wash and checks the board's chips, makes an add-on of an open visit a tint

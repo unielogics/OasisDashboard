@@ -71,6 +71,9 @@ const canonical = (d: RemindersDraft): string =>
 export const remindersDirty = (d: RemindersDraft, v: RemindersView): boolean =>
   canonical(d) !== canonical(remindersDraft(v))
 
+/** Two drafts that save the same (offsets in any order, prep lines trimmed, emptied ones gone). */
+export const sameReminders = (a: RemindersDraft, b: RemindersDraft): boolean => canonical(a) === canonical(b)
+
 /** The PUT body: every group, offsets longest first, prep lines trimmed (an emptied line removes it). */
 export function remindersBody(d: RemindersDraft, version: number): RemindersDraft & { version: number } {
   return {
