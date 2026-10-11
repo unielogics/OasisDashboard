@@ -171,6 +171,8 @@ export class LiveData implements SettingsData {
   private taskIds = new Map<string, (string | null)[]>()
   private lastServices: object | undefined
   private lastEmergency: object | undefined
+  /** The person's own authority the sections were read with (see ownAccessChanged). */
+  private lastAccess: string | undefined
 
   constructor(deps: LiveDataDeps) {
     this.api = deps.api
@@ -390,8 +392,26 @@ export class LiveData implements SettingsData {
     return !!b
   }
 
+  /**
+   * `rbac.changed` refetches the session and the role and employee lists only (data/realtime/invalidation.ts). When
+   * that session shows the person's own permissions changed, what the sections hold depends on it (VIP clients, the
+   * emergency history, the team), so every section is read again; a role change that is not theirs costs nothing more.
+   */
+  private ownAccessChanged(): void {
+    const s = this.sessionOf()
+    if (!s) return
+    const sig = Object.keys(s.permissions)
+      .filter((k) => s.permissions[k]?.on)
+      .sort()
+      .join(',')
+    if (this.lastAccess !== undefined && sig !== this.lastAccess)
+      void this.qc.invalidateQueries({ queryKey: ['settings'] })
+    this.lastAccess = sig
+  }
+
   sync(): ServerSync | null {
     if (!this.booted()) return {}
+    this.ownAccessChanged()
     const hours = this.hoursPart()
     if (hours) this.hoursVersion = Math.max(this.hoursVersion ?? 0, hours.version)
     const closures = this.closuresPart()

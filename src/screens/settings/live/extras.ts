@@ -227,7 +227,11 @@ export class SettingsExtras {
 
   // reads --------------------------------------------------------------------------------------------------------------
 
-  /** An observer makes the query active, so an invalidation from the event stream refetches it at once. */
+  /**
+   * An observer makes the query active, so an invalidation from the event stream refetches it at once. Only while its
+   * section is the one on screen (vals drops it otherwise): elsewhere an event just marks the copy stale, and opening
+   * the section again reads it then, once.
+   */
   private watch<T>(name: string, key: QueryKey, fetcher: () => Promise<T>): void {
     if (!this.listeners.size || this.observers.has(name)) return
     const o = new QueryObserver<T>(this.qc, { queryKey: key, queryFn: fetcher, staleTime: Infinity })
@@ -235,6 +239,11 @@ export class SettingsExtras {
       name,
       o.subscribe(() => {}),
     )
+  }
+
+  private unwatch(name: string): void {
+    this.observers.get(name)?.()
+    this.observers.delete(name)
   }
 
   catalog(): CatalogRes | undefined {
@@ -317,6 +326,8 @@ export class SettingsExtras {
       svcPriceNote:
         'Prices are set in Catalog: the website, online booking and the text assistant read them from there, and a booking charges the guest price set there. A service without a member price keeps charging its last price.',
     }
+    if (sec !== 'catalog' && sec !== 'categories') this.unwatch('catalog')
+    if (sec !== 'reminders') this.unwatch('reminders')
     const c = sec === 'catalog' || sec === 'categories' ? this.catalog() : undefined
     out.cat = this.catalogVals(sec === 'catalog' ? c : undefined, dark)
     out.cats = this.categoriesVals(sec === 'categories' ? c : undefined)

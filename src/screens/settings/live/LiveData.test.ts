@@ -12,7 +12,7 @@ import bundle from './__fixtures__/bundle.json'
 import roles from './__fixtures__/roles.json'
 import type { LiveData } from './LiveData'
 import { LiveData as LiveDataClass } from './LiveData'
-import { setup } from './testkit'
+import { fakeApi, setup } from './testkit'
 import type { Call } from './testkit'
 
 const names = (calls: Call[]): string[] => calls.map((c) => c[0])
@@ -126,6 +126,40 @@ describe('invalidations from the stream', () => {
       const m = data.sync()!
       expect(m.closures!.data.closures.some((c: any) => c.name === 'Thanksgiving')).toBe(false)
     })
+  })
+})
+
+describe('rbac.changed (the stream refetches the session, the roles and the team only)', () => {
+  it('reads every section again when the person’s own permissions changed, and nothing more when they did not', async () => {
+    const f = fakeApi()
+    const qc = makeQueryClient()
+    qc.setDefaultOptions({ queries: { ...qc.getDefaultOptions().queries, retry: false } })
+    let session = makeSession({ role: 'mgmt' })
+    const data = new LiveDataClass({
+      api: f.api,
+      qc,
+      session: () => session,
+      toast: () => {},
+      schedule: (fn) => fn(),
+    })
+    data.subscribe(() => {})
+    await loaded(data, 'closures')
+    await loaded(data, 'employees')
+    f.calls.length = 0
+    // someone else's role changed: a new session object with the same grants
+    session = { ...session }
+    data.sync()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(names(f.calls)).toEqual([])
+    // the person lost a permission: what every section holds may differ now
+    const key = Object.keys(session.permissions).find((k) => session.permissions[k]?.on && k !== 'team.view')!
+    session = { ...session, permissions: { ...session.permissions, [key]: { ...session.permissions[key]!, on: false } } }
+    data.sync()
+    await vi.waitFor(() =>
+      expect(names(f.calls)).toEqual(
+        expect.arrayContaining(['hours', 'closures', 'emergency', 'vip', 'arrival', 'services', 'roles', 'employees']),
+      ),
+    )
   })
 })
 

@@ -54,6 +54,26 @@ describe('Settings extras: navigation and loading', () => {
     expect(writes(t.calls, 'reminders')).toHaveLength(1)
   })
 
+  it('a section left behind is not read again on every change: the stream refetches only the section on screen', async () => {
+    const t = makeExtrasLogic()
+    await open(t.logic, 'catalog')
+    expect(writes(t.calls, 'catalog')).toHaveLength(1)
+    // on screen: a change (settings.changed {section: catalog}) is read at once
+    await t.qc.invalidateQueries({ queryKey: ['settings', 'catalog'] })
+    await vi.waitFor(() => expect(writes(t.calls, 'catalog')).toHaveLength(2))
+    // elsewhere in Settings: the change only marks the copy stale
+    t.logic.setState({ section: 'hours' })
+    vals(t.logic)
+    await t.qc.invalidateQueries({ queryKey: ['settings', 'catalog'] })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(writes(t.calls, 'catalog')).toHaveLength(2)
+    // and coming back reads it once
+    await open(t.logic, 'catalog')
+    await vi.waitFor(() => expect(writes(t.calls, 'catalog')).toHaveLength(3))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(writes(t.calls, 'catalog')).toHaveLength(3)
+  })
+
   it('a failed read shows the failed card; Try again reads again', async () => {
     const t = makeExtrasLogic()
     t.fail.set('catalog', new Error('down') as any)

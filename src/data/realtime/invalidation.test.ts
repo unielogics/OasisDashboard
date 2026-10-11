@@ -17,7 +17,11 @@ describe('keysForEvent', () => {
     expect(keysForEvent(ev('payments', 'invoice.updated'))).toEqual([['payments']])
     expect(keysForEvent(ev('messages', 'message.in'))).toEqual([['messages']])
     expect(keysForEvent(ev('notifications', 'notification.new'))).toEqual([['notifications']])
-    expect(keysForEvent(ev('settings', 'rbac.changed'))).toEqual([['me'], ['settings']])
+    expect(keysForEvent(ev('settings', 'rbac.changed'))).toEqual([
+      ['me'],
+      ['settings', 'roles'],
+      ['settings', 'employees'],
+    ])
     expect(keysForEvent(ev('settings', 'settings.changed', { section: 'hours' }))).toEqual([
       ['settings', 'hours'],
     ])
@@ -28,8 +32,27 @@ describe('keysForEvent', () => {
 
   it('catalog, service and reminder sections also refresh where they show (ADR 0160 plan A, I, K)', () => {
     const s = (section: string) => keysForEvent(ev('settings', 'settings.changed', { section }))
-    expect(s('services')).toEqual([['settings', 'services'], ['settings', 'catalog'], ['ops'], ['payments']])
-    expect(s('catalog')).toEqual([['settings', 'catalog'], ['settings', 'reminders'], ['ops'], ['payments']])
+    const views = [
+      ['ops', 'snapshot'],
+      ['ops', 'file'],
+      ['ops', 'calendar'],
+      ['ops', 'catalog'],
+      ['payments', 'summary'],
+      ['payments', 'invoices'],
+      ['payments', 'invoice'],
+    ]
+    expect(s('services')).toEqual([
+      ['settings', 'services'],
+      ['settings', 'catalog'],
+      ...views,
+      ['ops', 'availability'],
+    ])
+    expect(s('catalog')).toEqual([['settings', 'catalog'], ['settings', 'reminders'], ...views])
+    // never a whole family: a client's identity, membership or thread does not change with the catalog
+    for (const x of ['services', 'catalog']) {
+      expect(s(x)).not.toContainEqual(['ops'])
+      expect(s(x)).not.toContainEqual(['payments'])
+    }
     for (const x of ['reviews', 'status_texts', 'leads'])
       expect(s(x)).toEqual([['settings', x], ['settings', 'reminders']])
     expect(s('reminders')).toEqual([['settings', 'reminders']])
@@ -58,8 +81,8 @@ describe('InvalidationCoalescer', () => {
     expect(spy).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
     expect(spy).toHaveBeenCalledTimes(2)
-    expect(spy).toHaveBeenCalledWith({ queryKey: ['ops'] })
-    expect(spy).toHaveBeenCalledWith({ queryKey: ['payments'] })
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['ops'] }))
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['payments'] }))
     vi.advanceTimersByTime(1000)
     expect(spy).toHaveBeenCalledTimes(2)
   })
@@ -91,5 +114,47 @@ describe('InvalidationCoalescer', () => {
     await invalidateEverything(qc)
     expect(qc.getQueryState(['payments'])!.isInvalidated).toBe(true)
     await refreshActive(qc)
+  })
+
+  it('skips a query whose fetch started after the event arrived (it already holds the change), not one started before', async () => {
+    const c = new InvalidationCoalescer(qc, 250)
+    let resolveOwn: (v: number) => void = () => {}
+    qc.setQueryData(['settings', 'hours'], 1)
+    qc.setQueryData(['settings', 'vip'], 1)
+    // a fetch on its way before the event: it may have read the old row
+    void qc.fetchQuery({ queryKey: ['settings', 'vip'], queryFn: () => new Promise<number>(() => {}) })
+    vi.advanceTimersByTime(5)
+    c.push([['settings', 'hours'], ['settings', 'vip']])
+    vi.advanceTimersByTime(5)
+    // the page's own save answered: command() refetches hours after the event arrived
+    void qc.fetchQuery({
+      queryKey: ['settings', 'hours'],
+      queryFn: () => new Promise<number>((r) => (resolveOwn = r)),
+      staleTime: 0,
+    })
+    vi.advanceTimersByTime(250)
+    expect(qc.getQueryState(['settings', 'hours'])!.isInvalidated).toBe(false)
+    expect(qc.getQueryState(['settings', 'vip'])!.isInvalidated).toBe(true)
+    resolveOwn(2)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(qc.getQueryData(['settings', 'hours'])).toBe(2)
+    // a later event is newer than that fetch: invalidated again
+    c.push([['settings', 'hours']])
+    vi.advanceTimersByTime(250)
+    expect(qc.getQueryState(['settings', 'hours'])!.isInvalidated).toBe(true)
+    c.dispose()
+  })
+
+  it('a fetch that started after the event but failed does not count', async () => {
+    const c = new InvalidationCoalescer(qc, 250)
+    qc.setQueryData(['settings', 'arrival'], 1)
+    c.push([['settings', 'arrival']])
+    vi.advanceTimersByTime(5)
+    await qc
+      .fetchQuery({ queryKey: ['settings', 'arrival'], queryFn: () => Promise.reject(new Error('down')), retry: false })
+      .catch(() => {})
+    vi.advanceTimersByTime(250)
+    expect(qc.getQueryState(['settings', 'arrival'])!.isInvalidated).toBe(true)
+    c.dispose()
   })
 })
