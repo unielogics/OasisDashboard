@@ -105,6 +105,20 @@ the original action). The table and the detail header read "Payment pending" / "
 waits (the list rows carry `awaiting`, a field added to the backend list in `ws/d8-be`). A card label is the brand the
 server knows (`Card`, `Visa`), never an invented last4; the seeded design history keeps its `Visa ••4421` labels.
 
+## Categories (ADR 0160 plan K; DV-224, DV-225)
+
+`GET /payments/invoices` rows carry `categories` and `category` (the appointment's; an invoice without one takes the
+categories of the services its items name); `GET /payments/summary` carries `byCategory[{key, label, colour, count,
+grossCents, netCents, outstandingCents}]`: each invoice of the range once, every active category (zeros included), then
+`mixed`, entries that add up to the KPIs. `src/lib/payments/categories.ts`:
+
+| where | value | rule |
+| --- | --- | --- |
+| a row's Items cell, before the items text | `r.cat {show, label, style}` | the row's `category` as one chip in its colour (`Mixed` for two categories); a single key without the word stands for itself; none for an invoice without a category |
+| under the KPI tiles | `live.hasCatSplit`, `live.catSplitLabel` (`By category · Last 7 days`), `live.catSplit[]` | per category the gross (whole dollars), the invoice count and `· $X open` when a balance remains; empty categories dimmed; hidden without `pay.reports` |
+
+The CSV export is unchanged (its columns are a tested contract). Tests: `src/screens/payments/live-categories.test.ts`.
+
 ## Running it
 
 ```bash

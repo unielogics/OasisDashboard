@@ -91,6 +91,7 @@ import type {
   VipKey,
 } from '@/lib/settings'
 import { settle } from './data'
+import type { SettingsExtras } from './live/extras'
 import type {
   EmergencyPreview,
   MaybeAsync,
@@ -118,10 +119,20 @@ const SECTION_PARTS: Record<SectionKey, SyncPartName[]> = {
   services: ['services'],
   // its own read: see gate()
   assistant: [],
+  // live only: Catalog, Categories, Reminders & texts keep their own data (live/extras.ts)
+  catalog: [],
+  categories: [],
+  reminders: [],
 }
+
+/** The sections the design does not have (live variant only, DV-317..DV-321). */
+const EXTRA_SECTIONS: ReadonlySet<SectionKey> = new Set<SectionKey>(['catalog', 'categories', 'reminders'])
 
 export class SettingsLogic extends DCLogic<SettingsState> {
   readonly data: SettingsData
+  /** Catalog, Categories and Reminders & texts (live only; null in the fixture build). */
+  private readonly extras: SettingsExtras | null
+  private extrasOff: (() => void) | null = null
   private toastTimer: ReturnType<typeof setTimeout> | undefined
   private liveOff: (() => void) | null = null
   private dataOff: (() => void) | null = null
@@ -134,9 +145,10 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   /** One Idempotency-Key per attempt to close the shop; renewed once it succeeded. */
   private readonly closeAction = new Action()
 
-  constructor(props: Record<string, unknown> | undefined, data: SettingsData) {
+  constructor(props: Record<string, unknown> | undefined, data: SettingsData, extras?: SettingsExtras | null) {
     super(props)
     this.data = data
+    this.extras = extras ?? null
     const seed = data.seed()
     this.state = {
       theme: seed.theme,
@@ -319,6 +331,8 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   /** What stands in for a section whose data is not here: loading, failed or not readable by this person. */
   private gate(section: SectionKey): 'locked' | 'loading' | 'failed' | null {
     if (!this.data.live) return null
+    if (EXTRA_SECTIONS.has(section))
+      return this.extras ? this.extras.gate(section as 'catalog' | 'categories' | 'reminders') : 'loading'
     if (this.data.locked(section)) return 'locked'
     if (section === 'assistant') {
       const st = this.data.assistant?.state() ?? 'failed'
@@ -336,6 +350,15 @@ export class SettingsLogic extends DCLogic<SettingsState> {
     if (location.hash === '#emergency') this.setState({ section: 'emergency' })
     else if (this.data.live && location.hash === '#assistant') this.setState({ section: 'assistant' })
     this.dataOff = this.data.subscribe(() => this.forceUpdate())
+    if (this.extras) {
+      this.extras.bind({
+        section: () => this.state.section,
+        go: (k) => this.setState({ section: k }),
+        flash: (t) => this.flash(t),
+        rerender: () => this.forceUpdate(),
+      })
+      this.extrasOff = this.extras.subscribe(() => this.forceUpdate())
+    }
     const c = this.chrome()
     if (c) {
       const offs = [
@@ -349,6 +372,8 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   componentWillUnmount(): void {
     this.dataOff?.()
     this.dataOff = null
+    this.extrasOff?.()
+    this.extrasOff = null
     if (this.liveOff) {
       this.liveOff()
       this.liveOff = null
@@ -1237,7 +1262,10 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       secLoading: gate === 'loading',
       secFailed: gate === 'failed',
       secLocked: gate === 'locked',
-      retryLoad: () => this.data.reload(),
+      retryLoad: () => {
+        this.data.reload()
+        this.extras?.reload()
+      },
       lockedTitle: 'You don’t have access to ' + meta[0],
       lockedBody: this.lockedBody(sec),
       emStrip: this.data.emergencyStrip(),
@@ -1257,6 +1285,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         name: c.detail ? c.name + ' \u00b7 ' + c.detail : c.name,
         onClick: () => this.pickCandidate(c),
       })),
+      ...(this.extras ? this.extras.vals(sec, gate, this.state.theme === 'dark') : {}),
     }
   }
 
@@ -1271,10 +1300,10 @@ export class SettingsLogic extends DCLogic<SettingsState> {
 }
 
 /** The constructor DCHost instantiates: the view model bound to its data source. */
-export function createSettingsLogic(data: SettingsData): DCLogicCtor {
+export function createSettingsLogic(data: SettingsData, extras?: SettingsExtras | null): DCLogicCtor {
   return class extends SettingsLogic {
     constructor(props?: Record<string, unknown>) {
-      super(props, data)
+      super(props, data, extras)
     }
   }
 }

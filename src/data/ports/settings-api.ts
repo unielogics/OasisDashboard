@@ -47,6 +47,26 @@ export type ArrivalReq = Req<operations['putArrivalSettings']>
 export type ServicesRes = Ok<operations['listServices']>
 export type ChecklistRes = Ok<operations['putServiceChecklist']>
 export type FederalRes = Ok<operations['putAutoFederalHolidays']>
+// Settings → Catalog, Categories and Reminders (ADR 0160, plan A, I, K; api-spec 15.6a and 15.8)
+export type CatalogRes = Ok<operations['getCatalogSettings']>
+export type CatalogService = CatalogRes['packages'][number]
+export type CatalogServiceReq = Req<operations['putCatalogService']>
+export type CatalogServiceRes = Ok<operations['putCatalogService']>
+export type CatalogCategory = CatalogRes['categories'][number]
+export type CategoryCreateReq = Req<operations['createCatalogCategory']>
+export type CategoryPatchReq = Req<operations['updateCatalogCategory']>
+export type CategoryRes = Ok<operations['updateCatalogCategory']>
+export type TintMatrix = CatalogRes['tintMatrix']
+export type TintMatrixReq = Req<operations['putCatalogTintMatrix']>
+export type GuestMarkupRes = Ok<operations['putCatalogGuestMarkup']>
+export type CatalogPlan = CatalogRes['plans'][number]
+export type PlanReq = Req<operations['putCatalogPlan']>
+export type PlanRes = Ok<operations['putCatalogPlan']>
+export type RemindersRes = Ok<operations['getSettingsReminders']>
+export type RemindersReq = Req<operations['putSettingsReminders']>
+export type RemindersSaveRes = Ok<operations['putSettingsReminders']>
+export type RemindersPreviewReq = Req<operations['previewSettingsReminders']>
+export type RemindersPreviewRes = Ok<operations['previewSettingsReminders']>
 
 type Opts = Pick<RequestOptions, 'idempotencyKey' | 'ifMatch' | 'signal'>
 
@@ -106,6 +126,18 @@ export interface SettingsApi {
     tasks: (string | { id?: string; label: string })[],
     o?: Opts,
   ): Promise<ChecklistRes>
+  // Settings → Catalog / Categories (set.services to write) and Reminders (set.hours to write)
+  catalog(): Promise<CatalogRes>
+  saveCatalogService(id: string, body: CatalogServiceReq, o?: Opts): Promise<CatalogServiceRes>
+  createCategory(body: CategoryCreateReq, o?: Opts): Promise<CatalogCategory>
+  updateCategory(key: string, body: CategoryPatchReq, o?: Opts): Promise<CategoryRes>
+  deleteCategory(key: string, version: number | undefined, o?: Opts): Promise<unknown>
+  saveTintMatrix(body: TintMatrixReq, o?: Opts): Promise<TintMatrix>
+  saveGuestMarkup(body: { pct: number; version?: number }, o?: Opts): Promise<GuestMarkupRes>
+  savePlan(key: string, body: PlanReq, o?: Opts): Promise<PlanRes>
+  reminders(): Promise<RemindersRes>
+  saveReminders(body: RemindersReq, o?: Opts): Promise<RemindersSaveRes>
+  previewReminders(body: RemindersPreviewReq, o?: Pick<Opts, 'signal'>): Promise<RemindersPreviewRes>
 }
 
 export function createSettingsApi(c: ApiClient): SettingsApi {
@@ -148,5 +180,17 @@ export function createSettingsApi(c: ApiClient): SettingsApi {
     saveArrival: (body, o) => c.put('/arrival-settings', body, o),
     services: () => c.get('/services'),
     saveChecklist: (id, tasks, o) => c.put(`/services/${enc(id)}/checklist`, { tasks }, o),
+    catalog: () => c.get('/catalog'),
+    saveCatalogService: (id, body, o) => c.put(`/catalog/services/${enc(id)}`, body, o),
+    createCategory: (body, o) => c.post('/catalog/categories', body, o),
+    updateCategory: (key, body, o) => c.patch(`/catalog/categories/${enc(key)}`, body, o),
+    deleteCategory: (key, version, o) =>
+      c.delete(`/catalog/categories/${enc(key)}`, version === undefined ? o : { ...o, ifMatch: version }),
+    saveTintMatrix: (body, o) => c.put('/catalog/tint-matrix', body, o),
+    saveGuestMarkup: (body, o) => c.put('/catalog/guest-markup', body, o),
+    savePlan: (key, body, o) => c.put(`/catalog/plans/${enc(key)}`, body, o),
+    reminders: () => c.get('/settings/reminders'),
+    saveReminders: (body, o) => c.put('/settings/reminders', body, o),
+    previewReminders: (body, o) => c.post('/settings/reminders/preview', body, { ...o, retries: 0 }),
   }
 }

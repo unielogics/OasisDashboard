@@ -69,6 +69,18 @@
       "tpl": 221,
       "expectTag": "div",
       "htmlFile": "pay-collect-link.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 53,
+      "expectTag": "div",
+      "htmlFile": "pay-cat-split.html"
+    },
+    {
+      "op": "wrap",
+      "tpl": 115,
+      "expectTag": "div",
+      "htmlFile": "pay-row-cat.html"
     }
   ]
 }

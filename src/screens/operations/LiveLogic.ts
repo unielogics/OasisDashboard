@@ -75,6 +75,8 @@ import { calVM, navigate, summaryRange } from '@/lib/operations/live/calendar'
 import type { CalHandlers } from '@/lib/operations/live/calendar'
 import { fileVM } from '@/lib/operations/live/file'
 import { aiThreadLine, alertTab, identityVM } from '@/lib/operations/live/assistant'
+import { categoryCountVMs, categoryInfoOf } from '@/lib/operations/live/categories'
+import { categoryChips } from '@/lib/categories'
 import type { FileHandlers, FileUi } from '@/lib/operations/live/file'
 import {
   bookingRequest,
@@ -134,6 +136,8 @@ export interface LiveState {
   busy: string[]
   /** The Overview's "Clear PIN?" confirmation is open (ADR 0160). */
   pinConfirm: boolean
+  /** The board's category filter: `all`, a category key or `mixed` (DV-423). */
+  catFilter: string
 }
 
 export interface LiveOpsDeps {
@@ -295,6 +299,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       payLinkError: '',
       busy: [],
       pinConfirm: false,
+      catFilter: 'all',
     }
   }
 
@@ -939,9 +944,22 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const nowMs = this.deps.now()
     const tz = this.tz()
     const today = businessToday(nowMs, tz)
-    const ui: BoardUi = { dark, dragId: s.dragId, dropTarget: s.dropTarget, nowMs, tz }
-
     const snap = this.snapshot()
+    // a filter on a category the board no longer lists (turned off meanwhile) shows everything
+    const catFilter =
+      s.catFilter !== 'all' && snap?.categoryCounts?.items.some((i) => i.key === s.catFilter)
+        ? s.catFilter
+        : 'all'
+    const ui: BoardUi = {
+      dark,
+      dragId: s.dragId,
+      dropTarget: s.dropTarget,
+      nowMs,
+      tz,
+      cats: categoryInfoOf(snap),
+      catFilter,
+    }
+
     const bh = this.boardHandlers()
 
     // calendar reads follow the view
@@ -1057,7 +1075,11 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       createAppt: () => void this.book(),
       kpis: snap ? kpiVMs(snap.kpis) : placeholderKpis(),
       groups,
-      apptCount: snap?.timeline.count ?? 0,
+      apptCount: snap
+        ? catFilter === 'all'
+          ? snap.timeline.count
+          : groups.reduce((n, g) => n + (g.items as unknown[]).length, 0)
+        : 0,
       bays,
       arrivals,
       inFacilityLabel: snap?.inFacilityLabel ?? '0 in facility',
@@ -1083,10 +1105,20 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     }
     // calendar roots the template reads even outside the Calendar view
     for (const k of CAL_DEFAULTS) if (!(k in vals)) vals[k] = CAL_EMPTY[k]
-    vals.live = chrome ? chrome.vals() : {}
+    vals.live = { ...(chrome ? chrome.vals() : {}), ...this.categoryVals(snap, catFilter) }
     if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
       document.documentElement.setAttribute('data-theme', s.theme)
     return vals
+  }
+
+  /** Today's per-category counts under the KPI tiles, which are also the board's category filter (live.*; DV-423, DV-424). */
+  private categoryVals(snap: OpsSnapshot | undefined, current: string): VM {
+    const counts = categoryCountVMs(snap?.categoryCounts, current, (k) => this.setState({ catFilter: k }))
+    return {
+      hasCatCounts: counts.items.length > 0,
+      catCountsLabel: counts.label,
+      catCounts: counts.items,
+    }
   }
 
   private onSearch(v: string): void {
@@ -1224,6 +1256,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const line = aiThreadLine(thread, this.deps.now(), ui.tz, today)
     return {
       ...fileVM(f, thread, mem, fui, h, renderIcon),
+      // the visit's category chips in the header (DV-422), coloured like the board's
+      cats: categoryChips(f.categories, ui.cats ?? [], ui.dark, 'file'),
       ...identityVM(
         identity,
         {

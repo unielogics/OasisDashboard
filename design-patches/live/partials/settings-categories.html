@@ -1,0 +1,43 @@
+<sc-if value="{{ live.secCategories }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:14px 16px;background:var(--accentSoft);border:1px solid var(--accentBrd);border-radius:14px;margin-bottom:18px;color:var(--accentInk);font-size:13.5px;font-weight:700;line-height:1.45;">{{ live.cats.note }}</div>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <sc-for list="{{ live.cats.rows }}" as="c" hint-placeholder-count="5">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="{{ c.swatch }}"></span>
+          <input value="{{ c.label }}" sc-camel-on-input="{{ c.setLabel }}" placeholder="Name" style="flex:1;min-width:160px;height:44px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;">
+          <input value="{{ c.colour }}" sc-camel-on-input="{{ c.setColour }}" placeholder="#RRGGBB" style="width:110px;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;">
+          <button sc-camel-on-click="{{ c.up }}" title="Move up" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--ink2);">↑</button>
+          <button sc-camel-on-click="{{ c.down }}" title="Move down" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--ink2);">↓</button>
+          <button sc-camel-on-click="{{ c.toggle }}" title="On or off" style="{{ c.track }}"><span style="{{ c.knob }}"></span></button>
+          <sc-if value="{{ c.canRemove }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ c.remove }}" title="Remove" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:#C2410C;">✕</button></sc-if>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding-left:34px;">
+          <sc-for list="{{ c.swatches }}" as="w" hint-placeholder-count="8"><button sc-camel-on-click="{{ w.onClick }}" style="{{ w.style }}"></button></sc-for>
+          <span style="flex:1;min-width:180px;font-size:12px;font-weight:600;color:var(--ink3);padding-left:8px;">{{ c.keyLine }}</span>
+          <sc-if value="{{ c.dirty }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ c.discard }}" style="height:40px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;">Discard</button><button sc-camel-on-click="{{ c.save }}" style="{{ c.saveStyle }}">{{ c.saveLabel }}</button></sc-if>
+        </div>
+        <sc-if value="{{ c.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;padding-left:34px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ c.error }}</div></sc-if>
+      </div>
+    </sc-for>
+    <sc-if value="{{ live.cats.add.open }}" hint-placeholder-val="{{ false }}">
+      <div style="background:var(--panel2);border:1.5px dashed var(--line);border-radius:16px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="{{ live.cats.add.swatch }}"></span>
+          <input value="{{ live.cats.add.label }}" sc-camel-on-input="{{ live.cats.add.setLabel }}" sc-camel-on-key-down="{{ live.cats.add.onKey }}" placeholder="New category name" style="flex:1;min-width:160px;height:44px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;">
+          <input value="{{ live.cats.add.colour }}" sc-camel-on-input="{{ live.cats.add.setColour }}" placeholder="#RRGGBB" style="width:110px;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;">
+          <button sc-camel-on-click="{{ live.cats.add.cancel }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Cancel</button>
+          <button sc-camel-on-click="{{ live.cats.add.save }}" style="height:44px;padding:0 18px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">{{ live.cats.add.saveLabel }}</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding-left:34px;">
+          <sc-for list="{{ live.cats.add.swatches }}" as="w" hint-placeholder-count="8"><button sc-camel-on-click="{{ w.onClick }}" style="{{ w.style }}"></button></sc-for>
+          <span style="font-size:12px;font-weight:600;color:var(--ink3);padding-left:8px;">{{ live.cats.add.keyLine }}</span>
+        </div>
+        <sc-if value="{{ live.cats.add.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;padding-left:34px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.cats.add.error }}</div></sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ live.cats.add.canAdd }}" hint-placeholder-val="{{ true }}">
+      <div><button sc-camel-on-click="{{ live.cats.add.start }}" style="height:46px;padding:0 18px;border-radius:12px;background:var(--panel);border:1.5px dashed var(--line);font-weight:800;font-size:13.5px;color:var(--ink2);">+ Add category</button></div>
+    </sc-if>
+  </div>
+</sc-if>

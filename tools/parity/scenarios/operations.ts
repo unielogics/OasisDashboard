@@ -1,4 +1,4 @@
-import { clickBtn, exact, initialScenario, themeScenario } from './common'
+import { clickBtn, escapeRe, exact, initialScenario, themeScenario } from './common'
 import type { Actions } from '../drivers'
 import type { Scenario } from './types'
 
@@ -12,6 +12,12 @@ const TABS: Array<[id: string, label: string]> = [
   ['history', 'History'],
   ['overview', 'Overview'],
 ]
+
+// A tab of the appointment file. The live board's per-category counts (DV-423/DV-424) are buttons named like
+// categories ("Add-ons 0") that stay behind the file, so a tab is a button with that leading text and no title (each
+// count button has one).
+const fileTab = (a: Actions, label: string) =>
+  a.css('button:not([title])').filter({ hasText: new RegExp(`^\\s*${escapeRe(label)}`) })
 
 const FIRST_CARD = 'Marcus Webb'
 const OPEN_BAY = '[data-drop="bay:2"]'
@@ -52,7 +58,11 @@ export const operationsScenarios: Scenario[] = [
     tags: ['smoke'],
     steps: [
       clickBtn('open-file', 'Marcus Webb', 'open the first appointment card'),
-      ...TABS.map(([id, label]) => clickBtn(`tab-${id}`, label, `open the ${label} tab`)),
+      ...TABS.map(([id, label]) => ({
+        id: `tab-${id}`,
+        title: `open the ${label} tab`,
+        run: async (a: Actions) => a.click(fileTab(a, label)),
+      })),
     ],
   },
   {

@@ -46,7 +46,8 @@
     "live:smoke": "tsx scripts/live-smoke.ts",
     "e2e:payments": "tsx scripts/e2e-payments.ts",
     "e2e:operations": "tsx scripts/e2e-operations.ts",
-    "e2e:assistant": "tsx scripts/e2e-assistant.ts"
+    "e2e:assistant": "tsx scripts/e2e-assistant.ts",
+    "e2e:catalog": "tsx scripts/e2e-catalog.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -1,0 +1,7 @@
+<sc-if value="{{ live.rem.dirty }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:none;display:flex;align-items:center;gap:12px;padding:14px 26px;border-top:1px solid var(--line);background:var(--panel2);">
+    <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">Unsaved changes to reminders and texts</div><sc-if value="{{ live.rem.hasError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:700;color:#C2410C;margin-top:3px;">{{ live.rem.error }}</div></sc-if></div>
+    <button sc-camel-on-click="{{ live.rem.discard }}" style="height:46px;padding:0 18px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:14px;">Discard</button>
+    <button sc-camel-on-click="{{ live.rem.save }}" style="height:46px;padding:0 22px;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;font-size:14px;">{{ live.rem.saveLabel }}</button>
+  </div>
+</sc-if>

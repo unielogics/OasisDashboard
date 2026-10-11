@@ -4,6 +4,7 @@
 // invalidates the `payments` family, the screen re-reads), money actions through command() with the Idempotency-Key of
 // the sheet that opened (never optimistic: the submit keeps its disabled style while the request is in flight).
 // docs/screens-payments-live.md has the provenance table (which roots come from which endpoint) and the DV-2xx list.
+import { categoryInfoOfSummary, categorySplitVMs, rowCategory } from '@/lib/payments/categories'
 import type { QueryClient } from '@tanstack/react-query'
 import { DCLogic } from '@/dc/DCLogic'
 import type { DCLogicCtor } from '@/dc/types'
@@ -503,8 +504,11 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
         countStyle: filterCountStyle(on),
       }
     })
+    const cats = categoryInfoOfSummary(summary)
     const rows = (rowsData ?? []).map((r) => ({
       ...rowView(r),
+      // DV-224: the visit's category chip in the Items cell
+      cat: rowCategory(r, cats, s.theme === 'dark'),
       onClick: () => this.setState({ selId: r.id }),
       style: rowStyle(r.id === selId),
     }))
@@ -565,7 +569,14 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       stop: (e: { stopPropagation(): void }) => e.stopPropagation(),
       toast: s.toast,
     }
-    vals.live = chrome ? chrome.vals() : {}
+    // DV-225: the summary split by category, under the KPI tiles
+    const split = categorySplitVMs(summary)
+    vals.live = {
+      ...(chrome ? chrome.vals() : {}),
+      hasCatSplit: unlocked && split.items.length > 0,
+      catSplitLabel: split.label,
+      catSplit: split.items,
+    }
     if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
       document.documentElement.setAttribute('data-theme', s.theme)
     return vals

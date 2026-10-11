@@ -17,6 +17,10 @@ export type SectionKey =
   | 'services'
   /** Live variant only: Settings → Oasis AI assistant (ADR 0160, DV-705). */
   | 'assistant'
+  // live variant only (ADR 0160 plan A, I, K): the design has no such sections; the fixture build never opens them
+  | 'catalog'
+  | 'categories'
+  | 'reminders'
 
 /** One weekday of the opening hours (the state array is indexed by weekday, 0 = Sunday). */
 export interface HoursDay {
