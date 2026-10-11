@@ -192,14 +192,19 @@ function requestReport(): void {
     const avg = v.reduce((a, b) => a + b, 0) / v.length
     console.log(`REQ   ${k.padEnd(52)} ${v.length}: ${Math.min(...v)}/${avg.toFixed(1)}/${Math.max(...v)}`)
   }
-  // a page load: the GETs of the same page within 300 ms of its /settings/bundle (session, stream, bundle, own reads)
+  // a page load: the distinct GETs of the same page within 150 ms of its /settings/bundle (session, stream, bundle and
+  // the reads the screen starts at once)
   const loads = reqLog.filter((r) => r.by === 'page' && r.path === '/settings/bundle')
-  const near = (b: ReqLine) =>
-    reqLog.filter((x) => x.by === 'page' && x.user === b.user && x.method === 'GET' && Math.abs(x.t - b.t) <= 300)
-  const first = loads.length ? near(loads[loads.length - 1]!) : []
-  console.log(
-    `REQ page loads ${loads.length}, ${(loads.reduce((n, b) => n + near(b).length, 0) / Math.max(1, loads.length)).toFixed(1)} GETs each (the last: ${summarize(first)})`,
-  )
+  const near = (b: ReqLine) => [
+    ...new Map(
+      reqLog
+        .filter((x) => x.by === 'page' && x.user === b.user && x.method === 'GET' && Math.abs(x.t - b.t) <= 150)
+        .map((x) => [x.path, x]),
+    ).values(),
+  ]
+  const avg = loads.reduce((n, b) => n + near(b).length, 0) / Math.max(1, loads.length)
+  const last = loads.length ? near(loads[loads.length - 1]!) : []
+  console.log(`REQ page loads ${loads.length}, ${avg.toFixed(1)} GETs each (the last: ${summarize(last)})`)
   const pageTop = new Map<string, number>()
   for (const r of reqLog.filter((x) => x.by === 'page' && x.method === 'GET')) {
     const k = r.path.replace(/\/[0-9a-f-]{20,}/g, '/:id')
