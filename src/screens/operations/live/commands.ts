@@ -316,6 +316,25 @@ export class OpsCommands {
     return r.ok
   }
 
+  // ---- identity (ADR 0160) -----------------------------------------------------------------------------------------
+
+  /** Clear PIN on the client file: the PIN, the client's links and link sessions and the number's trust end. */
+  async clearPin(customerId: string, first: string): Promise<boolean> {
+    if (!this.allow('cli.edit')) return false
+    const a = this.action('pin:' + customerId)
+    const r = await this.run({
+      action: a,
+      key: qk.ops('identity', customerId),
+      request: (idem) => this.d.port.clearPin(customerId, { idempotencyKey: idem }),
+      onOk: () => ({
+        title: 'Website PIN cleared',
+        desc: (first || 'The client') + ' confirms with a texted code next time',
+      }),
+      deny: 'edit clients',
+    })
+    return this.done(a, r)
+  }
+
   // ---- photos ------------------------------------------------------------------------------------------------------
 
   async uploadPhoto(fileId: string, category: PhotoCategory, file: File): Promise<boolean> {

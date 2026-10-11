@@ -19,6 +19,7 @@ import type {
   Availability,
   CalendarDay,
   CalendarSummary,
+  ClientIdentity,
   CustomerHit,
   CustomerHits,
   FilePhoto,
@@ -73,6 +74,7 @@ import type { BoardUi, GestureEvent } from '@/lib/operations/live/board'
 import { calVM, navigate, summaryRange } from '@/lib/operations/live/calendar'
 import type { CalHandlers } from '@/lib/operations/live/calendar'
 import { fileVM } from '@/lib/operations/live/file'
+import { aiThreadLine, alertTab, identityVM } from '@/lib/operations/live/assistant'
 import type { FileHandlers, FileUi } from '@/lib/operations/live/file'
 import {
   bookingRequest,
@@ -128,8 +130,10 @@ export interface LiveState {
   payLinkOpen: boolean
   payLinkUrl: string
   payLinkError: string
-  /** Names of requests in flight that the UI reflects (photo categories, 'send'). */
+  /** Names of requests in flight that the UI reflects (photo categories, 'send', 'pin'). */
   busy: string[]
+  /** The Overview's "Clear PIN?" confirmation is open (ADR 0160). */
+  pinConfirm: boolean
 }
 
 export interface LiveOpsDeps {
@@ -288,6 +292,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       payLinkUrl: '',
       payLinkError: '',
       busy: [],
+      pinConfirm: false,
     }
   }
 
@@ -466,6 +471,16 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     return this.read(qk.messages('thread', id), () => this.deps.port.thread(id))
   }
 
+  /**
+   * The client's website PIN and 30-day trust for the Overview cell. Read quietly: the cell is an addition, so a failed
+   * read shows nothing rather than a toast (the file looks as it always did).
+   */
+  private identityOf(customerId: string): ClientIdentity | undefined {
+    return this.deps.store.read(qk.ops('identity', customerId), () => this.deps.port.identity(customerId), {
+      staleTimeMs: FRESH_MS,
+    })
+  }
+
   private membershipOf(customerId: string): MembershipView | undefined {
     return this.read(qk.ops('membership', customerId), () => this.deps.port.membership(customerId))
   }
@@ -491,7 +506,14 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       this.cmd.allow('cli.view')
       return
     }
-    this.setState({ selectedId: id, modalTab: tab, composer: '', payLinkOpen: false, payLinkError: '' })
+    this.setState({
+      selectedId: id,
+      modalTab: tab,
+      composer: '',
+      payLinkOpen: false,
+      payLinkError: '',
+      pinConfirm: false,
+    })
     this.afterTab(tab, id)
   }
 
@@ -768,10 +790,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       this.flash(a.title, a.desc)
       return
     }
-    this.select(
-      id,
-      a.kind === 'new_reply' ? 'messages' : a.kind === 'awaiting_processor' ? 'payments' : 'overview',
-    )
+    this.select(id, alertTab(a.kind))
   }
 
   private async sendKey(id: string, templateKey: string, label: string): Promise<void> {
@@ -1191,7 +1210,44 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       },
       isThumbBroken: (url) => this.brokenThumbs.has(url),
     }
-    return fileVM(f, thread, mem, fui, h, renderIcon)
+    const identity = s.modalTab === 'overview' ? this.identityOf(f.customer.id) : undefined
+    const line = aiThreadLine(thread, this.deps.now(), ui.tz, today)
+    return {
+      ...fileVM(f, thread, mem, fui, h, renderIcon),
+      ...identityVM(
+        identity,
+        {
+          dark: ui.dark,
+          tz: ui.tz,
+          today,
+          first: FIRST_NAME(f.customer.name),
+          confirming: s.pinConfirm,
+          busy: s.busy.includes('pin'),
+        },
+        {
+          clear: () => {
+            if (this.cmd.allow('cli.edit')) this.setState({ pinConfirm: true })
+          },
+          confirm: () => void this.clearPin(f),
+          cancel: () => this.setState({ pinConfirm: false }),
+        },
+      ),
+      aiLineShow: line.show,
+      aiLineText: line.text,
+      aiLineSub: line.sub,
+    }
+  }
+
+  /** Clear PIN, after the cell's confirmation: the server ends the PIN, the links, the sessions and the trust. */
+  private async clearPin(f: AppointmentFile): Promise<void> {
+    if (this.state.busy.includes('pin')) return
+    this.setState({ busy: [...this.state.busy, 'pin'] })
+    try {
+      const ok = await this.cmd.clearPin(f.customer.id, FIRST_NAME(f.customer.name))
+      if (ok) this.setState({ pinConfirm: false })
+    } finally {
+      this.setState({ busy: this.state.busy.filter((b) => b !== 'pin') })
+    }
   }
 
   private newVals(today: string): { services: VM[]; slots: VM[]; form: VM } {

@@ -5,6 +5,7 @@
 // (time, bayLabel, atLabel, toast) is sent by the server.
 import type { ApiClient, RequestOptions } from '../http/client'
 import type { paths } from './operations-schema'
+import type { paths as apiPaths } from '../http/schema'
 
 const enc = encodeURIComponent
 
@@ -60,6 +61,8 @@ export type CustomerHits = Ok<Op<'/api/v1/customers', 'get'>>
 export type CustomerHit = CustomerHits['items'][number]
 export type MembershipView = Ok<Op<'/api/v1/customers/{id}/membership', 'get'>>
 export type ServiceCatalog = Ok<Op<'/api/v1/services', 'get'>>
+/** The client file's "Website PIN" cell (ADR 0160): typed from the full API schema, outside the Operations subset. */
+export type ClientIdentity = Ok<apiPaths['/api/v1/customers/{id}/identity']['get']>
 
 // ---- commands -------------------------------------------------------------------------------------------------------
 
@@ -90,6 +93,8 @@ export interface OperationsPort {
   membership(customerId: string): Promise<MembershipView>
   catalog(): Promise<ServiceCatalog>
   templates(): Promise<Templates>
+  /** GET /customers/:id/identity (cli.view): the PIN status and the number's 30-day trust, masked. */
+  identity(customerId: string): Promise<ClientIdentity>
   // lifecycle
   advance(id: string, expectedStatus: ApptStatus, o?: Opts): Promise<CommandRes>
   arrive(id: string, o?: Opts): Promise<CommandRes>
@@ -117,6 +122,9 @@ export interface OperationsPort {
   // messages
   sendMessage(id: string, input: SendMessageReq, o?: Opts): Promise<SendMessageRes>
   markRead(customerId: string, o?: Opts): Promise<{ marked: number }>
+  // identity
+  /** POST /customers/:id/identity/pin/clear (cli.edit): removes the website PIN, ends links, sessions and the trust. */
+  clearPin(customerId: string, o?: Opts): Promise<ClientIdentity>
   // photos
   presignPhoto(
     id: string,
@@ -168,6 +176,7 @@ export function createLiveOperationsPort(
     membership: (id) => c.get(`/customers/${enc(id)}/membership`),
     catalog: () => c.get('/services'),
     templates: () => c.get('/messages/templates'),
+    identity: (id) => c.get(`/customers/${enc(id)}/identity`),
     advance: (id, expectedStatus, o) => post(`${a(id)}/advance`, { expectedStatus }, o),
     arrive: (id, o) => post(`${a(id)}/arrive`, { source: 'manual' }, o),
     assignBay: (id, bayId, o) => post(`${a(id)}/assign-bay`, { bayId }, o),
@@ -187,6 +196,7 @@ export function createLiveOperationsPort(
     applyPerk: (id, o) => post(`${a(id)}/membership-perks/apply`, {}, o),
     sendMessage: (id, input, o) => post(`${a(id)}/messages`, input, o),
     markRead: (customerId, o) => post(`/customers/${enc(customerId)}/messages/read`, {}, o),
+    clearPin: (customerId, o) => post(`/customers/${enc(customerId)}/identity/pin/clear`, undefined, o),
     presignPhoto: (id, input, o) => post(`${a(id)}/photos/presign`, input, o),
     completePhoto: (id, photoId, o) => post(`${a(id)}/photos/${enc(photoId)}/complete`, undefined, o),
     deletePhoto: (id, photoId, o) => c.delete(`${a(id)}/photos/${enc(photoId)}`, o),

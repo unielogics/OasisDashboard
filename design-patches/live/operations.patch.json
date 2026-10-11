@@ -291,6 +291,19 @@
       "expectTag": "div",
       "expect": "{{ sel.name }} is a strong upgrade candidate — 4 visits in 60 days. Offer Essential at check-out.",
       "with": "{{= sel.upgradeText }}"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 447,
+      "expectTag": "div",
+      "expectTextStarts": "Membership",
+      "htmlFile": "ops-identity.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 524,
+      "expectTag": "div",
+      "htmlFile": "ops-ai-line.html"
     }
   ]
 }

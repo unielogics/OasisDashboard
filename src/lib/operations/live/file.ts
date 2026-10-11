@@ -19,6 +19,7 @@ import { memberMeta } from '../status'
 import type { Style } from '../types'
 import { AMBER, LATE_COLOR, badgeStyle, memberBadge, payColor } from './board'
 import { firstWord, initialsOf, opsMoney } from './fmt'
+import { channelTagOf } from './assistant'
 
 type VM = Record<string, unknown>
 
@@ -337,7 +338,7 @@ export function messageVMs(items: readonly ThreadMessage[], today: string, tz: s
     return {
       text: m.text,
       time: messageTime(m, today, tz) + deliveryText(m),
-      channelTag: m.from === 'system' ? 'Automated · ' + channelName(m.channel) : null,
+      channelTag: channelTagOf(m),
       rowStyle: { display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start' },
       bubbleStyle: {
         maxWidth: '78%',
