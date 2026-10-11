@@ -67,10 +67,15 @@ export function toE164(typed: string): string | null {
   return '+1' + ten
 }
 
-/** "+12015550142" -> "(201) 555-0142"; anything else as it is. */
+/**
+ * "+12015550142" -> "(201) 555-0142"; the masked form the server sends a reader without set.hours ("+1******0142") ->
+ * "(•••) •••-0142"; anything else as it is.
+ */
 export function formatPhone(e164: string): string {
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164)
-  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : e164
+  if (m) return `(${m[1]}) ${m[2]}-${m[3]}`
+  const masked = /^\+1\*{6}(\d{4})$/.exec(e164)
+  return masked ? `(•••) •••-${masked[1]}` : e164
 }
 
 /** Why a typed number cannot join the list, or null when it can (as E.164). */

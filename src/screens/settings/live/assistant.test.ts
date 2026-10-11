@@ -403,8 +403,12 @@ describe('the version, like Working hours', () => {
 
 describe('roles', () => {
   it('a role without set.hours reads the section but every change is the design toast and no request', async () => {
-    const m = make('support')
+    const a = fakeAssistant()
+    // the server masks the numbers for a reader without set.hours
+    a.state.view.allowlist = ['+1******0142']
+    const m = make('support', a)
     const s = await open(m)
+    expect(s.numbers.map((n: any) => n.label)).toEqual(['(•••) •••-0142'])
     s.toggles[0].toggle()
     expect(m.toasts.at(-1)).toEqual({ title: 'Your role can’t change the assistant settings' })
     asst(m.logic).stages[2].onClick()
@@ -414,7 +418,7 @@ describe('roles', () => {
     asst(m.logic).faqAdd()
     asst(m.logic).save()
     expect(asst(m.logic).dirty).toBe(false)
-    expect(asst(m.logic).numbers).toEqual([])
+    expect(asst(m.logic).numbers).toHaveLength(1)
     expect(saves(m)).toHaveLength(0)
   })
 })

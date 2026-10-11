@@ -30,6 +30,8 @@ describe('numbers', () => {
   it('shows E.164 the way people write it', () => {
     expect(formatPhone('+12015550142')).toBe('(201) 555-0142')
     expect(formatPhone('+442079460958')).toBe('+442079460958')
+    // a reader without set.hours gets the numbers masked by the server
+    expect(formatPhone('+1******0142')).toBe('(•••) •••-0142')
   })
 
   it('says why a number cannot join the list', () => {
