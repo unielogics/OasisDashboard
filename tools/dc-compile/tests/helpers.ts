@@ -30,7 +30,10 @@ export function bodyOf(tsx: string): string {
     .trim()
 }
 
-const tmpDir = path.join(root, 'tools/dc-compile/tests/.tmp-snippets')
+// Its own subdirectory: test files run in parallel and each removes only what it wrote (a shared root raced, a
+// file's afterAll removing another file's snippet before it was imported).
+export const snippetDir = path.join(root, 'tools/dc-compile/tests/.tmp-snippets/golden')
+const tmpDir = snippetDir
 
 /** Compiles a snippet, runs the emitted module and renders it with the given vals. */
 export async function renderSnippet(

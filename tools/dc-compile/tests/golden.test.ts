@@ -8,7 +8,7 @@ import type { PatchConfig } from '../patches'
 import { parseTemplate } from '../parse'
 import { Emitter } from '../emit'
 import { cssToObj } from '../../../src/dc/css'
-import { bodyOf, compileSnippet, referenceMarkup, renderSnippet } from './helpers'
+import { bodyOf, compileSnippet, referenceMarkup, renderSnippet, snippetDir } from './helpers'
 import { root } from './original-runtime'
 
 beforeAll(() => {
@@ -16,9 +16,7 @@ beforeAll(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
-afterAll(() =>
-  fs.rmSync(path.join(root, 'tools/dc-compile/tests/.tmp-snippets'), { recursive: true, force: true }),
-)
+afterAll(() => fs.rmSync(snippetDir, { recursive: true, force: true }))
 
 /** Both sides must produce the same markup: compiled snippet vs the original runtime's rules. */
 async function same(html: string, vals: Record<string, unknown>, tplIds = false) {

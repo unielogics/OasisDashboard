@@ -16,7 +16,7 @@ import { buildVals } from './vals'
 import type { Mode } from './vals'
 
 const opts = { root, variant: 'prod' as const, tplIds: false, allowComplexExpr: false }
-const tmpDir = path.join(root, 'tools/dc-compile/tests/.tmp-snippets')
+const tmpDir = path.join(root, 'tools/dc-compile/tests/.tmp-snippets/screens')
 afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }))
 
 const prod: CompileAll = compileScreens(SCREENS, opts)
