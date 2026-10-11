@@ -430,14 +430,14 @@
       "id": "L-settings-71",
       "screen": "settings",
       "kind": "element-added",
-      "reason": "DV-705: the Settings nav gains a Texting group with the Oasis AI assistant entry after the last design group (Packages & checklists), so no design element moves.",
+      "reason": "DV-705: the Settings nav gains a Texting group with the Oasis AI assistant entry after the last design group (Packages & checklists) and the live-only Catalog and Categories buttons the oracle is also given (L-settings-13), so no design element moves.",
       "scope": { "checks": ["dom"] },
       "matcher": {
         "loc": [
-          "div[0]/div[0]/div[0]/main[3]/aside[1]/div[24]",
-          "div[0]/div[0]/div[0]/main[3]/aside[1]/div[24]/**",
-          "div[0]/div[0]/div[0]/main[3]/aside[1]/button[25]",
-          "div[0]/div[0]/div[0]/main[3]/aside[1]/button[25]/**"
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/div[27]",
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/div[27]/**",
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/button[28]",
+          "div[0]/div[0]/div[0]/main[3]/aside[1]/button[28]/**"
         ]
       }
     },
@@ -450,8 +450,8 @@
       "matcher": {
         "loc": [
           "root>div[0]>div[0]>div[0]>main[0]>aside[0]>div[4]",
-          "root>div[0]>div[0]>div[0]>main[0]>aside[0]>button[8]",
-          "root>div[0]>div[0]>div[0]>main[0]>aside[0]>button[8]>**"
+          "root>div[0]>div[0]>div[0]>main[0]>aside[0]>button[11]",
+          "root>div[0]>div[0]>div[0]>main[0]>aside[0]>button[11]>**"
         ]
       }
     },
@@ -459,8 +459,8 @@
       "id": "L-settings-73",
       "screen": "settings",
       "kind": "region-mask",
-      "reason": "DV-705: pixels of the nav's empty space under Packages & checklists, where the Texting group and the Oasis AI assistant entry are drawn.",
-      "matcher": { "rect": { "x": 28, "y": 632, "w": 246, "h": 112 } }
+      "reason": "DV-705: pixels of the nav's empty space under Packages & checklists, Catalog and Categories, where the Texting group and the Oasis AI assistant entry are drawn.",
+      "matcher": { "rect": { "x": 28, "y": 800, "w": 246, "h": 112 } }
     },
     {
       "id": "L-settings-12",

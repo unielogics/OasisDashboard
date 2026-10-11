@@ -181,7 +181,11 @@ async function phaseSettings(browser: Browser): Promise<void> {
   const A = m.page
   await openSettings(A)
   const aside = (await A.locator('aside').innerText()).replace(/\s+/g, ' ')
-  ok(/Packages & checklists Texting Oasis AI assistant$/i.test(aside.trim()), 'the nav entry is the Texting group, last', aside)
+  ok(
+    /Packages & checklists Catalog Categories Texting Oasis AI assistant$/i.test(aside.trim()),
+    'the nav entry is the Texting group, last (after the live-only Catalog and Categories)',
+    aside,
+  )
   ok(!aside.includes(' ON'), 'no ON badge while the assistant is off')
   await navButton(A).click()
   ok(await waitText(A, 'Who it answers'), 'the section opens')
