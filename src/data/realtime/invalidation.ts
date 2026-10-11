@@ -1,6 +1,7 @@
 // Realtime event -> query invalidation, coalesced. Events are "refetch this" hints (payloads are ids plus a version),
 // so a burst of events (a status change publishes several) turns into ONE invalidation per query family per window.
 import type { Query, QueryClient, QueryKey } from '@tanstack/react-query'
+import { serverClock } from '@/lib/clock'
 import type { RealtimeEvent, Timers } from './sse'
 import { realTimers } from './sse'
 
@@ -75,7 +76,8 @@ export class InvalidationCoalescer {
     private qc: QueryClient,
     private windowMs = 250,
     private timers: Timers = realTimers,
-    private now: () => number = () => Date.now(),
+    // the client clock, as TanStack stamps dataUpdatedAt with it
+    private now: () => number = () => serverClock.rawNow(),
   ) {
     this.offCache = qc.getQueryCache().subscribe((e) => {
       if (e.type === 'updated' && e.action.type === 'fetch') this.started.set(e.query.queryHash, this.now())
