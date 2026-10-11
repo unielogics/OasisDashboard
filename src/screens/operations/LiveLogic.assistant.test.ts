@@ -167,15 +167,18 @@ describe('alerts from texts open the thread', () => {
     expect([l.logic.state.selectedId, l.logic.state.modalTab]).toEqual([id('cleaning'), 'messages'])
   })
 
-  it("a handoff with no appointment (a client with none booked) says what it says: there is no file to open", async () => {
+  // The backend sends appointmentId: null on every handoff alert today (messaging adapters/alerts.ts), even for a client with
+  // appointments, and the handoff stands in for that client's new_reply alerts: DV-703 and the Known limits of
+  // docs/screens-operations-live.md. The button then shows the alert's own words and opens nothing.
+  it('a handoff the server names no appointment for (today: every handoff) shows the alert and opens no file', async () => {
     const port = stubPort()
-    port.snap.alerts = [alert('ai_handoff', null, 'Asked for a person · New texter ••0142')]
+    port.snap.alerts = [alert('ai_handoff', null, 'Asked for a person · Priya Nair')]
     const l = await boot({ role: 'mgmt' }, port)
     l.vals().alerts[0].action()
     await flushed(l)
     expect(l.logic.state.selectedId).toBeNull()
     expect(l.logic.state.toast).toEqual({
-      title: 'Asked for a person · New texter ••0142',
+      title: 'Asked for a person · Priya Nair',
       desc: '10:20 AM · texted AGENT · reply in Messages',
     })
   })

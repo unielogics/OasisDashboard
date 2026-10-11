@@ -364,7 +364,7 @@ async function phaseMessages(browser: Browser): Promise<void> {
   } else {
     ok(
       !(await modal(A).isVisible().catch(() => false)) && (await waitText(A, 'texted AGENT')),
-      'the server names no appointment for the handoff: the alert says what it says (no file to open)',
+      'the server names no appointment for the handoff (today every handoff, DV-703): the alert shows its own words and opens no file',
     )
   }
   await closeFile(A)

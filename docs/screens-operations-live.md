@@ -224,7 +224,7 @@ scripts/e2e-assistant.ts                    the browser run (with Settings → A
 | Control                      | Request                                       | Permission | Toast (success)                                                     |
 | ---------------------------- | --------------------------------------------- | ---------- | ------------------------------------------------------------------- |
 | `Clear PIN`, then `Clear PIN` | `POST /customers/:id/identity/pin/clear` (refetches `qk.ops('identity', id)`) | `cli.edit` | `Website PIN cleared · {first} confirms with a texted code next time` |
-| `Open messages` (AI handoff), picture message alert | opens the file on Messages (`alertTab`), or toasts the alert when it names no appointment | `cli.view` | |
+| `Open messages` (AI handoff), picture message alert | opens the file on Messages (`alertTab`), or toasts the alert when it names no appointment (today every handoff: see Known limits) | `cli.view` | |
 
 Wording (owner-facing, plain): `AI paused — waiting for a staff reply` + `The client asked for a person at 10:20 AM.` / `Oasis AI
 handed this chat to the team at …`; `AI paused — staff replying` + `Oasis AI answers again at 10:36 PM.` (`tomorrow at …`, `on Jun
@@ -233,8 +233,11 @@ handed this chat to the team at …`; `AI paused — staff replying` + `Oasis AI
 time.` `Clear PIN` / `Keep it`.
 
 Known limits (backend, for the next wave): the board's external alerts (the handoff among them) are appended after the
-sorted ones, so a priority-1 handoff sits at the bottom of Needs attention (below the fold on a laptop); the `ai_handoff` alert carries no appointment (`appointmentId: null` in
-`messaging/adapters/alerts.ts`), so its button toasts the alert instead of opening the thread; and no alert of kind
+sorted ones, so a priority-1 handoff sits at the bottom of Needs attention (below the fold on a laptop); the `ai_handoff` alert never carries an appointment (`appointmentId: null` for every handoff in
+`messaging/adapters/alerts.ts`, which also drops that client's `new_reply` alerts), so with the assistant on its button always
+toasts the alert and Needs attention has no one-click path into a handed-off thread (staff open the client's file from the
+Timeline); the fix is the backend's: name the client's current or latest appointment (as `new_reply` does with
+`m.appointment_id`), or add the customer to the alert; and no alert of kind
 `sms.picture_message` is generated on the board yet (a client's picture message is a `new_reply`, which already opens Messages;
 a stranger's is in the quarantine). The dashboard opens Messages for both kinds as soon as the server names the appointment.
 
