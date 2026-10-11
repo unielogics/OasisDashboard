@@ -8,5 +8,8 @@
     "hasPhone": true,
     "canMessage": true
   },
-  "unread": 0
+  "unread": 0,
+  "assistantActive": false,
+  "aiPausedUntil": null,
+  "handoff": { "open": false, "since": null, "reason": null }
 }

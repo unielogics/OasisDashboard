@@ -1,0 +1,17 @@
+{
+  "customerId": "01a10000-0000-7000-8000-000000000104",
+  "phone": "+1******0104",
+  "pin": { "status": "none", "setAt": null, "lockedUntil": null, "resetHoldUntil": null },
+  "trust": {
+    "trusted": false,
+    "until": null,
+    "verifiedAt": null,
+    "verifiedBy": null,
+    "reason": "none",
+    "revokeReason": null
+  },
+  "links": { "live": 0, "byKind": {}, "lastIssuedAt": null },
+  "sessions": { "live": 0 },
+  "pendingAction": null,
+  "stale": { "stale": false, "reason": null, "lastActivityAt": "2026-06-13T14:00:00.000Z" }
+}

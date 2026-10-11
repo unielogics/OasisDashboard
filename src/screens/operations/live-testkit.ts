@@ -17,6 +17,7 @@ import type {
   CalendarDay,
   CalendarSummary,
   ChecklistBulkRes,
+  ClientIdentity,
   ChecklistItemRes,
   CommandRes,
   CustomerHits,
@@ -49,6 +50,7 @@ import membershipMember from './live/__fixtures__/membership-member.json'
 import membershipNone from './live/__fixtures__/membership-none.json'
 import snapshot from './live/__fixtures__/snapshot.json'
 import threadEmpty from './live/__fixtures__/thread-empty.json'
+import identityNone from './live/__fixtures__/identity-none.json'
 import templates from './live/__fixtures__/templates.json'
 
 export const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
@@ -73,6 +75,7 @@ export const fixtures = {
   thread: threadEmpty as unknown as Thread,
   membershipMember: membershipMember as unknown as MembershipView,
   membershipNone: membershipNone as unknown as MembershipView,
+  identityNone: identityNone as unknown as ClientIdentity,
 }
 
 export type Call = [name: string, ...args: unknown[]]
@@ -87,6 +90,8 @@ export interface StubPort extends OperationsPort {
   defaultThread: Thread
   threads: Map<string, Thread>
   memberships: Map<string, MembershipView>
+  /** The identity each customer answers (default: no PIN, not trusted). */
+  identities: Map<string, ClientIdentity>
   slots: Availability
   /** The answer of book(). */
   booked: BookingRes
@@ -145,6 +150,7 @@ export function stubPort(): StubPort {
     defaultThread: clone(fixtures.thread),
     threads: new Map(),
     memberships,
+    identities: new Map(),
     slots: clone(fixtures.availability),
     booked: {
       appointment: core('booked'),
@@ -175,6 +181,24 @@ export function stubPort(): StubPort {
     membership: step('membership', (id: string) => clone(memberships.get(id) ?? fixtures.membershipNone)),
     catalog: step('catalog', () => clone(fixtures.catalog)),
     templates: step('templates', () => clone(fixtures.templates)),
+    identity: step('identity', (id: string) => ({
+      ...clone(port.identities.get(id) ?? fixtures.identityNone),
+      customerId: id,
+    })),
+    clearPin: step('clearPin', (id: string) => {
+      const cur = clone(port.identities.get(id) ?? fixtures.identityNone)
+      const next: ClientIdentity = {
+        ...cur,
+        customerId: id,
+        pin: { status: 'cleared', setAt: null, lockedUntil: null, resetHoldUntil: null },
+        trust: { ...cur.trust, trusted: false, until: null, reason: 'revoked', revokeReason: 'pin_cleared' },
+        links: { live: 0, byKind: {}, lastIssuedAt: cur.links.lastIssuedAt },
+        sessions: { live: 0 },
+        pendingAction: null,
+      }
+      port.identities.set(id, next)
+      return clone(next)
+    }),
     advance: cmd('advance', 'Marked arrived', 'Internal team notified'),
     arrive: cmd('arrive', 'Marked arrived', 'Internal team notified'),
     assignBay: cmd('assignBay', 'Moved to Bay 2', 'Maria · cleaning started'),

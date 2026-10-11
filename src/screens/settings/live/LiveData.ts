@@ -91,6 +91,8 @@ import {
   warningsNote,
 } from './mapping'
 import type { ArrivalPart, ClosuresPart, EmergencyPart, HoursPart, ServicesPart, VipPart } from './mapping'
+import { ASSISTANT_KEY, AssistantSection } from './assistant'
+import type { AssistantApi } from '@/data/ports/assistant-api'
 import type { EmployeesRes, RolesRes } from '@/data/ports/settings-api'
 
 /** The bundle query lives outside the realtime families: SSE never refetches it; the sections it seeds are the live ones. */
@@ -108,6 +110,8 @@ export interface LiveDataDeps {
   /** Frame scheduler of the QueryStore (tests pass a synchronous one). */
   schedule?: (fn: () => void) => void
   debounceMs?: { preview?: number; checklist?: number; closure?: number }
+  /** Settings → Oasis AI assistant (ADR 0160); without it the section never loads. */
+  assistantApi?: AssistantApi
 }
 
 interface Preview {
@@ -119,6 +123,7 @@ const noop = (): void => {}
 
 export class LiveData implements SettingsData {
   readonly live = true
+  readonly assistant?: AssistantSection
   private readonly store: QueryStore
   private readonly api: SettingsApi
   private readonly qc: QueryClient
@@ -178,6 +183,18 @@ export class LiveData implements SettingsData {
       checklist: deps.debounceMs?.checklist ?? 600,
       closure: deps.debounceMs?.closure ?? 250,
     }
+    const assistantApi = deps.assistantApi
+    if (assistantApi)
+      this.assistant = new AssistantSection({
+        api: assistantApi,
+        qc: this.qc,
+        // its own read (not in the bundle), kept fresh by `settings.changed {section: assistant}`
+        read: () => this.section('assistant', () => assistantApi.get(), false),
+        status: () => this.store.status(ASSISTANT_KEY),
+        can: (key) => this.access().can(key as PermissionKey),
+        emit: (t) => this.emit(t),
+        changed: () => this.notify(),
+      })
   }
 
   attach(getState: () => SettingsState): void {

@@ -7,7 +7,16 @@ export type { StyleObject }
 export type Theme = 'light' | 'dark'
 
 export type SectionKey =
-  'hours' | 'closures' | 'emergency' | 'employees' | 'roles' | 'vip' | 'arrival' | 'services'
+  | 'hours'
+  | 'closures'
+  | 'emergency'
+  | 'employees'
+  | 'roles'
+  | 'vip'
+  | 'arrival'
+  | 'services'
+  /** Live variant only: Settings → Oasis AI assistant (ADR 0160, DV-705). */
+  | 'assistant'
 
 /** One weekday of the opening hours (the state array is indexed by weekday, 0 = Sunday). */
 export interface HoursDay {

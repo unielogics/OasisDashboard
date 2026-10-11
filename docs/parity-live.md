@@ -165,6 +165,9 @@ identical to the pixel or covered by an entry below.
 | L-settings-09   | settings   | text           | DV-305                                         | swap, 1 replacement(s) in settings   |
 | L-settings-10   | settings   | text           | DV-304                                         | 60 differences over 26 steps         |
 | L-settings-11   | settings   | text           | DV-304                                         | 20 differences over 26 steps         |
+| L-settings-71   | settings   | element-added  | DV-705                                         | 52 differences over 26 steps         |
+| L-settings-72   | settings   | element-added  | DV-705                                         | 156 differences over 26 steps        |
+| L-settings-73   | settings   | region-mask    | DV-705                                         | 26 differences over 26 steps         |
 | L-all-01        | *          | computed-style | DV-503                                         | 76 differences over 152 steps        |
 | L-all-02        | *          | computed-style | DV-503                                         | 656 differences over 152 steps       |
 | L-operations-01 | operations | text           | DV-101                                         | swap, 1 replacement(s) in operations |

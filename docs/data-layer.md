@@ -99,6 +99,11 @@ fixture). Regions the verbatim classes still own throw `PortUnavailableError` ra
 `getDataPort()` returns the fixture port outside the live variant and the live port inside it. DTOs in `ports/types.ts`
 are provisional: replace each with the generated type when the vertical's paths land.
 
+The AI assistant and phone identity endpoints (ADR 0160) are typed from the full generated `src/data/http/schema.d.ts`, not
+from the per-screen subsets: `ports/assistant-api.ts` (`GET/PUT /settings/assistant`, built by the Settings screen and handed
+to `LiveData` as `assistantApi`) and `OperationsPort.identity` / `clearPin` (`GET /customers/:id/identity`, `POST
+/customers/:id/identity/pin/clear`).
+
 ## QueryStore: reading from a class (`query-store.ts`)
 
 `renderVals()` is synchronous, so a class cannot await a query. `new QueryStore(getQueryClient())` gives it:

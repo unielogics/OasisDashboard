@@ -100,6 +100,11 @@ export const SECTION_META: Record<SectionKey, readonly [title: string, descripti
     'Packages & checklists',
     'Checklist tasks for each package and add-on. Jobs combine both automatically.',
   ],
+  // live variant only (DV-705): the design has no such section
+  assistant: [
+    'Oasis AI assistant',
+    'Who the texting assistant answers, when it steps back for your team, and the answers it knows.',
+  ],
 }
 
 export const MON = [
