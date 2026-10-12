@@ -159,6 +159,16 @@ export function stubPort(): StubPort {
       messageQueued: true,
       overrides: [],
       toast: toastOf('Appointment booked', 'Premium Hand Wash + Interior · 2:30 PM'),
+      pricing: {
+        vehicleClass: null,
+        vehicleClassLabel: null,
+        basis: 'unknown_class',
+        needsSizeConfirm: true,
+        needsPriceConfirm: false,
+        member: false,
+        confirmAtShop: true,
+        totals: { listCents: 6500, discountCents: 0, coveredCents: 0, dueCents: 6500 },
+      },
     },
     snapshot: step('snapshot', (q: { window: string; q?: string }) => {
       const s = clone(port.snap)
