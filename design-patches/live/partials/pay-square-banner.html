@@ -1,0 +1,7 @@
+<sc-if value="{{ live.sqHasBanner }}" hint-placeholder-val="{{ false }}">
+  <div style="{{ live.sqBannerStyle }}">
+    <span style="width:30px;height:30px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;">$</span>
+    <div style="flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--accentInk);">{{ live.sqBanner }}</div>
+    <button sc-camel-on-click="{{ live.sqReview }}" style="height:38px;padding:0 15px;border-radius:10px;background:var(--accent);color:#fff;font-weight:800;font-size:12.5px;">Match</button>
+  </div>
+</sc-if>

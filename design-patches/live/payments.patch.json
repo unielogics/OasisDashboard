@@ -81,6 +81,18 @@
       "tpl": 115,
       "expectTag": "div",
       "htmlFile": "pay-row-cat.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 61,
+      "expectTag": "sc-if",
+      "htmlFile": "pay-square-banner.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 159,
+      "expectTag": "sc-if",
+      "htmlFile": "pay-square-sheet.html"
     }
   ]
 }

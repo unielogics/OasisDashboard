@@ -5,3 +5,12 @@
     <sc-if value="{{ sh.hasUrlError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;font-weight:700;color:var(--red);margin-top:6px;">{{ sh.urlError }}</div></sc-if>
   </div>
 </sc-if>
+<sc-if value="{{ sh.hasSentLink }}" hint-placeholder-val="{{ false }}">
+  <div>
+    <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:6px;">Square payment link</div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;min-width:0;height:46px;display:flex;align-items:center;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:all;">{{ sh.sentLink }}</div>
+      <button sc-camel-on-click="{{ sh.copyLink }}" style="flex:none;height:46px;padding:0 16px;border-radius:12px;background:var(--accentSoft);border:1px solid var(--accentBrd);font-weight:800;font-size:13px;color:var(--accentInk);">Copy link</button>
+    </div>
+  </div>
+</sc-if>

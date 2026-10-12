@@ -343,6 +343,8 @@ export interface Live {
   qc: QueryClient
   downloads: Array<{ filename: string }>
   themes: string[]
+  /** Texts put on the clipboard (Copy link). */
+  copied: string[]
   /** Settle queued microtasks and the store's frame scheduling. */
   settle(): Promise<void>
   vals(): Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -354,6 +356,7 @@ export function makeLive(session: Session, port: StubPort = stubPort()): Live {
   const chrome = makeChrome(session)
   const downloads: Live['downloads'] = []
   const themes: string[] = []
+  const copied: string[] = []
   const deps: LiveDeps = {
     port,
     queryClient: qc,
@@ -362,6 +365,7 @@ export function makeLive(session: Session, port: StubPort = stubPort()): Live {
     loadTheme: () => 'light',
     saveTheme: (t) => void themes.push(t),
     download: (f) => void downloads.push({ filename: f.filename }),
+    copy: async (t) => void copied.push(t),
   }
   const logic = new LivePaymentsLogic({}, deps)
   attach(logic)
@@ -369,5 +373,5 @@ export function makeLive(session: Session, port: StubPort = stubPort()): Live {
   const settle = async (): Promise<void> => {
     for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
   }
-  return { logic, port, chrome, qc, downloads, themes, settle, vals: () => logic.renderVals() }
+  return { logic, port, chrome, qc, downloads, themes, copied, settle, vals: () => logic.renderVals() }
 }

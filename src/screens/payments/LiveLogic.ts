@@ -19,12 +19,31 @@ import { getDataPort } from '@/data/default-port'
 import { getQueryClient, qk } from '@/data/query'
 import { QueryStore } from '@/data/query-store'
 import type {
+  CollectResult,
   CsvDownload,
   InvoiceDetail,
   InvoiceListRow,
   PaymentsPort,
   PaymentsSummary,
+  Reconciliation,
+  SquareIgnoreReason,
+  SquarePaymentToMatch,
 } from '@/data/ports/payments'
+import {
+  IGNORE_REASONS,
+  applyButtonStyle,
+  applyTargets,
+  bannerStyle,
+  chipStyle,
+  collectTenders,
+  failedRefundLine,
+  inFlightText,
+  parseInvoiceNo,
+  paymentLine,
+  paymentMeta,
+  processorOf,
+  toMatchBanner,
+} from '@/lib/payments/square'
 import { toastForError, toastText } from '@/data/toast'
 import { invoicePill } from '@/lib/color'
 import {
@@ -34,6 +53,7 @@ import {
   actionSpecs,
   adjustToast,
   applyToast,
+  approveButtonStyle,
   approveToast,
   barViews,
   bigNumberViews,
@@ -44,6 +64,7 @@ import {
   creditLineText,
   creditToast,
   csvToast,
+  defaultTender,
   filterChipStyle,
   filterCountStyle,
   filterCountText,
@@ -95,6 +116,20 @@ export interface LiveState {
   busy: boolean
   /** Server text shown under the payment-link input (host allow-list, link required). */
   urlError: string | null
+  /** DV-802: a Square payment link the server made (pay links off: the plain square.link URL), shown with Copy. */
+  sentLink: string | null
+  /** DV-805: the "Square payments to match" sheet is open. */
+  sqOpen: boolean
+  /** DV-804: the staff Square reader entry the sheet was opened for (its amount is matched first). */
+  sqFocus: string | null
+  /** DV-805: the reason chosen per payment before "Set aside". */
+  sqReasons: Record<string, SquareIgnoreReason>
+  /** A queue command in flight (the payment id). */
+  sqBusy: string | null
+  /** DV-804: the Square payment whose "Move to another invoice" box is open (its ledger event id), the text and the error. */
+  moveFor: string | null
+  moveTo: string
+  moveError: string
 }
 
 export interface LiveDeps {
@@ -105,6 +140,8 @@ export interface LiveDeps {
   loadTheme(): Theme
   saveTheme(t: Theme): void
   download(file: CsvDownload): void
+  /** Copies a text to the clipboard (the Square link of DV-802). */
+  copy(text: string): Promise<void>
 }
 
 type Vals = Record<string, unknown>
@@ -136,6 +173,9 @@ export function defaultLiveDeps(): LiveDeps {
       }
     },
     download: (f) => saveBlob(f.body, f.filename),
+    copy: async (text) => {
+      await navigator.clipboard.writeText(text)
+    },
   }
 }
 
@@ -183,6 +223,14 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       toast: null,
       busy: false,
       urlError: null,
+      sentLink: null,
+      sqOpen: false,
+      sqFocus: null,
+      sqReasons: {},
+      sqBusy: null,
+      moveFor: null,
+      moveTo: '',
+      moveError: '',
     }
   }
 
@@ -285,6 +333,20 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     return v
   }
 
+  /** DV-805: the Square payments a person has to match (the banner and the sheet). An older server: none. */
+  private readToMatch(): SquarePaymentToMatch[] | undefined {
+    const key = qk.payments('square', 'unmatched')
+    const v = this.deps.store.read(key, () => this.deps.port.squareToMatch(), { staleTimeMs: 30_000 })
+    return v?.items
+  }
+
+  /** DV-806: the reconciliation's Square section, read only while the sheet is open. */
+  private readRecon(): Reconciliation | undefined {
+    return this.deps.store.read(qk.payments('square', 'recon'), () => this.deps.port.reconciliation(), {
+      staleTimeMs: 30_000,
+    })
+  }
+
   // ---- commands ------------------------------------------------------------------------------------------------
 
   private store(inv: { id: string } & Partial<InvoiceDetail>): void {
@@ -292,7 +354,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     this.deps.queryClient.setQueryData(qk.payments('invoice', inv.id), inv)
   }
 
-  private run<T extends { invoice?: InvoiceDetail }>(
+  private run<T extends { invoice?: InvoiceDetail | null }>(
     action: Action,
     request: (idem: string) => Promise<T>,
     onOk: (r: T) => string,
@@ -370,7 +432,13 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     if (this.unmounted) return
     if (res.ok) {
       act.renew()
-      this.setState({ busy: false, sheet: null, urlError: null })
+      // DV-802: a Square link the server made (pay links off) stays on screen with Copy; a texted personal link never shows
+      const link =
+        req.kind === 'collect' && processorOf(d) === 'square'
+          ? ((res.data as CollectResult).paymentLink?.url ?? null)
+          : null
+      if (link) this.setState({ busy: false, urlError: null, sentLink: link })
+      else this.setState({ busy: false, sheet: null, urlError: null })
       return
     }
     const e = res.error
@@ -450,6 +518,108 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     })
   }
 
+  // ---- Square (DV-804, DV-805) -----------------------------------------------------------------------------------
+
+  private async sqApply(
+    p: SquarePaymentToMatch,
+    target: { invoiceId: string; confirmEventId: string | null; label: string },
+    perms: LivePerms,
+  ): Promise<void> {
+    if (!perms.canCollect) {
+      this.flash(deniedTitle('pay.collect'))
+      return
+    }
+    if (this.state.sqBusy) return
+    const act = this.actionFor('sq-apply:' + p.paymentId)
+    this.setState({ sqBusy: p.paymentId })
+    const r = await this.run(
+      act,
+      (i) =>
+        this.deps.port.squareApply(
+          p.paymentId,
+          { invoiceId: target.invoiceId, confirmEventId: target.confirmEventId },
+          { idempotencyKey: i },
+        ),
+      () =>
+        (target.confirmEventId ? 'Square reader payment confirmed · ' : 'Recorded on ' + target.label.split(' · ')[0] + ' · ') +
+        money(p.totalCents),
+      'collect payments',
+    )
+    if (this.unmounted) return
+    if (r.ok) act.renew()
+    this.setState({ sqBusy: null })
+  }
+
+  private async sqIgnore(p: SquarePaymentToMatch, perms: LivePerms): Promise<void> {
+    if (!perms.canCollect) {
+      this.flash(deniedTitle('pay.collect'))
+      return
+    }
+    const reason = this.state.sqReasons[p.paymentId]
+    if (!reason) {
+      this.flash('Pick a reason first')
+      return
+    }
+    if (this.state.sqBusy) return
+    const act = this.actionFor('sq-ignore:' + p.paymentId)
+    this.setState({ sqBusy: p.paymentId })
+    const r = await this.run(
+      act,
+      (i) => this.deps.port.squareIgnore(p.paymentId, { reason }, { idempotencyKey: i }),
+      () => 'Set aside · ' + money(p.totalCents),
+      'collect payments',
+    )
+    if (this.unmounted) return
+    if (r.ok) act.renew()
+    this.setState({ sqBusy: null })
+  }
+
+  /** "Move to another invoice": finds the invoice by its number, then the server voids it here and records it there. */
+  private async sqMove(d: InvoiceDetail, eventId: string): Promise<void> {
+    if (!can(this.session(), 'pay.void')) {
+      this.flash(deniedTitle('pay.void'))
+      return
+    }
+    const e = d.ledger.find((x) => x.id === eventId)
+    const no = parseInvoiceNo(this.state.moveTo)
+    if (!e?.processorRef) return
+    if (no === null) {
+      this.setState({ moveError: 'Type the invoice number, like INV-20640.' })
+      return
+    }
+    if (no === d.invoiceNo) {
+      this.setState({ moveError: 'It is already on this invoice.' })
+      return
+    }
+    if (this.state.sqBusy) return
+    const label = 'INV-' + String(no).padStart(5, '0')
+    this.setState({ sqBusy: e.processorRef, moveError: '' })
+    let target: InvoiceListRow | undefined
+    try {
+      const page = await this.deps.port.invoicePage({ range: '30d', q: label })
+      target = page.items.find((x) => x.invoiceNo === no)
+    } catch (err) {
+      this.flash(toastText(toastForError(err)))
+    }
+    if (this.unmounted) return
+    if (!target) {
+      this.setState({ sqBusy: null, moveError: 'No invoice ' + label + ' in the last 30 days.' })
+      return
+    }
+    const act = this.actionFor('sq-move:' + e.processorRef + ':' + target.id)
+    const r = await this.run(
+      act,
+      (i) => this.deps.port.squareReassign(e.processorRef!, target!.id, { idempotencyKey: i }),
+      () => 'Moved to ' + label + ' · ' + money(e.amountCents),
+      'void payments',
+    )
+    if (this.unmounted) return
+    if (r.ok) {
+      act.renew()
+      this.setState({ sqBusy: null, moveFor: null, moveTo: '', moveError: '', selId: target.id })
+    } else this.setState({ sqBusy: null })
+  }
+
   private async exportCsv(rowCount: number): Promise<void> {
     if (this.exporting) return
     this.exporting = true
@@ -467,7 +637,13 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
 
   openSheet(kind: SheetKind, d: InvoiceDetail | undefined, preset?: Partial<LiveSheetForm>): void {
     this.sheetAction = new Action()
-    this.setState({ sheet: kind, f: liveSheetForm(preset, d?.paymentLinkUrl), busy: false, urlError: null })
+    this.setState({
+      sheet: kind,
+      f: liveSheetForm({ method: defaultTender(d), ...(preset ?? {}) }, d?.paymentLinkUrl),
+      busy: false,
+      urlError: null,
+      sentLink: null,
+    })
   }
 
   setF(p: Partial<LiveSheetForm>): void {
@@ -519,6 +695,9 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     let sh: Vals = {}
     const sk = s.sheet
     if (sk && detail) sh = this.sheetVals(sk, detail, perms)
+    // DV-805: the Square payments to match (the banner reads the queue; the sheet also reads the reconciliation)
+    const toMatch = unlocked ? this.readToMatch() : undefined
+    const sq = this.squareVals(toMatch, s.sqOpen ? this.readRecon() : undefined, detail, perms)
 
     const vals: Vals = {
       theme: s.theme,
@@ -565,7 +744,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       d,
       sheetOpen: !!sk && !!detail,
       sh,
-      closeSheet: () => this.setState({ sheet: null, busy: false, urlError: null }),
+      closeSheet: () => this.setState({ sheet: null, busy: false, urlError: null, sentLink: null }),
       stop: (e: { stopPropagation(): void }) => e.stopPropagation(),
       toast: s.toast,
     }
@@ -576,19 +755,119 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       hasCatSplit: unlocked && split.items.length > 0,
       catSplitLabel: split.label,
       catSplit: split.items,
+      ...sq,
     }
     if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
       document.documentElement.setAttribute('data-theme', s.theme)
     return vals
   }
 
+  /**
+   * DV-805/DV-806: the banner over the table and the "Square payments to match" sheet (under `live.*`: the design has
+   * neither). Each payment lists where it may go (the server's candidates, then the invoice open on screen), the reasons
+   * to set it aside, and the sheet ends with the card refunds Square refused and the refunds on their way.
+   */
+  private squareVals(
+    items: SquarePaymentToMatch[] | undefined,
+    recon: Reconciliation | undefined,
+    open: InvoiceDetail | undefined,
+    perms: LivePerms,
+  ): Vals {
+    const s = this.state
+    const list = items ?? []
+    const focus = s.sqFocus ? open?.ledger.find((e) => e.id === s.sqFocus) : undefined
+    // the entry the sheet was opened for: payments of its amount first
+    const ordered = focus
+      ? [...list].sort(
+          (a, b) => Number(b.amountCents === focus.amountCents) - Number(a.amountCents === focus.amountCents),
+        )
+      : list
+    const close = () => this.setState({ sqOpen: false, sqFocus: null })
+    const failed = recon?.square?.failedRefunds ?? []
+    return {
+      sqHasBanner: list.length > 0,
+      sqBanner: toMatchBanner(list),
+      sqBannerStyle: bannerStyle,
+      sqReview: () => this.setState({ sqOpen: true, sqFocus: null }),
+      sqOpen: s.sqOpen,
+      sqClose: close,
+      sqStop: (e: { stopPropagation(): void }) => e.stopPropagation(),
+      sqSub: focus
+        ? 'Pick the Square payment for the ' + money(focus.amountCents) + ' reader entry on ' + (open?.label ?? '')
+        : 'Counter payments Oasis could not match on its own. Nothing here is counted until you apply it.',
+      sqEmpty: list.length === 0,
+      sqEmptyText: 'Every Square payment is matched.',
+      sqItems: ordered.map((p) => {
+        const busy = s.sqBusy === p.paymentId
+        const targets = applyTargets(p, open)
+        const reason = s.sqReasons[p.paymentId] ?? null
+        return {
+          line: paymentLine(p),
+          meta: paymentMeta(p),
+          hasTargets: targets.length > 0,
+          noTargets: targets.length === 0,
+          targets: targets.map((t) => ({
+            label: t.label,
+            sub: t.sub,
+            apply: () => void this.sqApply(p, t, perms),
+            style: applyButtonStyle(perms.canCollect && !busy),
+            text: busy ? 'Saving…' : 'Apply',
+          })),
+          reasons: IGNORE_REASONS.map(([k, label]) => ({
+            label,
+            onClick: () => this.setState((st) => ({ sqReasons: { ...st.sqReasons, [p.paymentId]: k } })),
+            style: chipStyle(reason === k),
+          })),
+          ignore: () => void this.sqIgnore(p, perms),
+          ignoreStyle: applyButtonStyle(perms.canCollect && !!reason && !busy),
+        }
+      }),
+      sqHasFailed: failed.length > 0,
+      sqFailed: failed.map((r) => ({
+        ...failedRefundLine(r),
+        open: () => this.setState({ selId: r.invoiceId, sqOpen: false, sqFocus: null }),
+      })),
+      sqInFlight: inFlightText(recon),
+      sqHasInFlight: !!inFlightText(recon),
+    }
+  }
+
   private detailVals(det: InvoiceDetail, perms: LivePerms): Vals {
-    const ledger = liveLedgerEntries(det, perms).map((en) => ({
-      ...en.view,
-      approve: () => this.approve(det, en.event.id),
-      deny: () => this.deny(det, en.event.id, perms),
-      confirm: () => this.confirm(en.event.id, en.event.type, perms),
-    }))
+    const s = this.state
+    const ledger = liveLedgerEntries(det, perms).map((en) => {
+      const id = en.event.id
+      const moving = s.moveFor === id
+      return {
+        ...en.view,
+        approve: () => this.approve(det, id),
+        deny: () => this.deny(det, id, perms),
+        confirm: () => this.confirm(id, en.event.type, perms),
+        // DV-804: a waiting Square reader entry opens the queue on its amount
+        sqMatchOpen: () => {
+          if (!perms.canCollect) {
+            this.flash(deniedTitle('pay.collect'))
+            return
+          }
+          this.setState({ sqOpen: true, sqFocus: id })
+        },
+        // DV-804: a Square payment recorded on the wrong invoice moves to the right one (pay.void)
+        sqMoveOpen: moving,
+        sqMoveToggle: () => {
+          if (!moving && !can(this.session(), 'pay.void')) {
+            this.flash(deniedTitle('pay.void'))
+            return
+          }
+          this.setState({ moveFor: moving ? null : id, moveTo: '', moveError: '' })
+        },
+        sqMoveLabel: moving ? 'Keep it here' : 'Wrong invoice? Move it',
+        sqMoveValue: moving ? s.moveTo : '',
+        sqMoveInput: (e: InputEvent) => this.setState({ moveTo: e.target.value, moveError: '' }),
+        sqMoveSubmit: () => void this.sqMove(det, id),
+        sqMoveError: moving ? s.moveError : '',
+        sqHasMoveError: moving && !!s.moveError,
+        sqMoveStyle: approveButtonStyle(!s.sqBusy),
+      }
+    })
     return {
       ...headerView(det),
       big: bigNumberViews(det),
@@ -706,7 +985,8 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
         isCollect: true,
         title: 'Collect payment',
         sub: det.label + ' · ' + det.client,
-        payMethods: ['Card on file', 'Cash', 'Payment link'].map((k) => ({
+        // DV-802: Square reader / Cash / Payment link once Square takes card money
+        payMethods: collectTenders(processorOf(det)).map((k) => ({
           label: k,
           onClick: () => this.setF({ method: k }),
           style: seg(f.method === k),
@@ -715,8 +995,43 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     }
     if (sk === 'apply') sh = { title: 'Apply store credit', sub: det.client }
     const req = calc.request
+    // DV-802: the Square link the server made stays on screen with Copy; the button then closes the sheet
+    const sent = sk === 'collect' ? this.state.sentLink : null
+    if (sent)
+      return {
+        ...sh,
+        needsUrl: false,
+        urlRaw: '',
+        setUrl: () => undefined,
+        urlError: '',
+        hasUrlError: false,
+        hasSentLink: true,
+        sentLink: sent,
+        copyLink: () => {
+          this.deps.copy(sent).then(
+            () => this.flash('Link copied'),
+            () => this.flash('Copy did not work · select the link and copy it'),
+          )
+        },
+        summary: calc.summary,
+        blocked: false,
+        submit: () => this.setState({ sheet: null, sentLink: null }),
+        submitLabel: 'Done',
+        hasReasons: false,
+        amountRaw: '',
+        note: '',
+        setAmount: () => undefined,
+        setNote: () => undefined,
+        reasons: [],
+        permText: 'Link texted. It is for exactly ' + money(det.calc.balance) + '.',
+        permStyle: permBoxStyle(true),
+        submitStyle: submitStyle(false, sk),
+      }
     return {
       ...sh,
+      hasSentLink: false,
+      sentLink: '',
+      copyLink: () => undefined,
       needsUrl: calc.needsUrl,
       urlRaw: f.url,
       setUrl: (e: InputEvent) => this.setF({ url: e.target.value }),
