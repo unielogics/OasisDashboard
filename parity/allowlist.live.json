@@ -123,7 +123,7 @@
       "id": "L-payments-10",
       "screen": "payments",
       "kind": "wiring",
-      "reason": "DV-201/DV-214: ledger entries that are not pending refunds carry no approval answer from the server (approveNote empty, Approve style disabled), and every entry has the Squarespace confirm fields; none of these is rendered for such an entry.",
+      "reason": "DV-201/DV-214/DV-804: ledger entries that are not pending refunds carry no approval answer from the server (approveNote empty, Approve style disabled), and every entry has the Squarespace confirm fields and the Square ones (sq*: Match a Square payment, Move to another invoice); none of these is rendered for such an entry.",
       "scope": {
         "checks": ["vals"]
       },
@@ -135,7 +135,8 @@
           "d.ledger[*].approveNote",
           "d.ledger[*].approveStyle.*",
           "d.ledger[*].awaiting",
-          "d.ledger[*].confirm*"
+          "d.ledger[*].confirm*",
+          "d.ledger[*].sq*"
         ]
       }
     },
@@ -203,7 +204,7 @@
       "id": "L-payments-16",
       "screen": "payments",
       "kind": "wiring",
-      "reason": "DV-215: the sheet's view model carries the payment-link URL field and its error (needsUrl, urlRaw, setUrl, urlError, hasUrlError); only the Collect sheet's Payment link mode renders it.",
+      "reason": "DV-215/DV-802: the sheet's view model carries the payment-link URL field and its error (needsUrl, urlRaw, setUrl, urlError, hasUrlError) and the Square link with Copy (hasSentLink, sentLink, copyLink); only the Collect sheet's Payment link mode renders them.",
       "scope": {
         "checks": ["vals"]
       },
@@ -211,7 +212,16 @@
         "min": 0
       },
       "matcher": {
-        "loc": ["sh.needsUrl", "sh.urlRaw", "sh.setUrl", "sh.urlError", "sh.hasUrlError"]
+        "loc": [
+          "sh.needsUrl",
+          "sh.urlRaw",
+          "sh.setUrl",
+          "sh.urlError",
+          "sh.hasUrlError",
+          "sh.hasSentLink",
+          "sh.sentLink",
+          "sh.copyLink"
+        ]
       }
     },
     {
@@ -1561,6 +1571,65 @@
       "matcher": {
         "loc": "xlive",
         "port": "^$"
+      }
+    },
+    {
+      "id": "L-operations-72",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-807: the New Appointment sheet has the size chips under the vehicle boxes (the five default sizes and Not sure) and the price box under the packages (the server's quote for the default package at no size: the starting price and the Confirm size note), so the package list and everything under it move down and the sheet body grows.",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new", "open-walkin"],
+        "checks": ["dom", "style"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[5]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[5]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/#text[4]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/#text[6]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[5]/div[5]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[5]/div[5]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[5]/#text[4]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[5]/#text[6]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[2]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[2]>**",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[2]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[2]>div[0]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[2]>div[1]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[2]>div[1]>**",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[2]>div[2]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[2]>div[2]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-73",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-807: pixels of the New Appointment sheet from the size chips down (the chips, the packages they move down, the price box, the slot area), see L-operations-72.",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-new"]
+      },
+      "matcher": {
+        "rect": { "x": 960, "y": 320, "w": 520, "h": 600 }
+      }
+    },
+    {
+      "id": "L-operations-74",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-807: pixels of the Walk-in sheet body: the size chips and the price box make it taller than the panel, so the body scrolls and its boxes are drawn a fraction of a pixel off; see L-operations-72.",
+      "scope": {
+        "scenarios": ["new-appointment"],
+        "steps": ["open-walkin"]
+      },
+      "matcher": {
+        "rect": { "x": 960, "y": 90, "w": 520, "h": 910 }
       }
     }
   ]

@@ -336,6 +336,20 @@ steps, 0 allow-list problems`; `38 runs, 152 steps: 0 zero, 152 allow-listed (22
 Every new entry applied (the wirings over all 78, 48 and 26 steps of their screen). The count row and the split are the
 server's figures for the design seeds: a different seed needs different constants, like the other seed-encoding swaps.
 
+## Sizes on visits, coverage and Square (Q2c, ADR 0170 wave Q2a, ADR 0171 wave Q2b)
+
+The design seeds are visits booked before sizes, invoices without coverage, and Squarespace as the processor
+(`PAYMENT_PROCESSOR` unset), so the live screens show none of DV-801..DV-813 on them, with three exceptions:
+
+| id             | kind          | DV             | what it covers                                                                                                                                       |
+| -------------- | ------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L-operations-72 | element-added | DV-807         | the New Appointment / Walk-in sheet's size chips (the shop's five sizes and `Not sure`) and price box (the server's quote), and what they move down: the two partials and the sheet sections after them, `open-new` and `open-walkin` only |
+| L-operations-73, 74 | region-mask | DV-807     | the sheet's pixels from the chips down (`open-new`) and the Walk-in sheet body, which now scrolls (`open-walkin`); the DV-402 date row precedent (L-operations-52, 53) |
+| L-payments-10, 16 (extended) | wiring | DV-802, DV-804 | the ledger entries' Square keys (`d.ledger[*].sq*`) and the Collect sheet's link keys (`sh.hasSentLink`, `sh.sentLink`, `sh.copyLink`), never rendered on the design data |
+
+The chips and the price box are server data (the sizes, the starting price of the default package), so they are masked
+for those two steps rather than fed to the oracle; the rest of the sheet and every other step compare exactly.
+
 ## Triage of the Operations run: where every difference went
 
 Every difference of the first Operations runs went into exactly one bucket.
