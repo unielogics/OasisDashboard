@@ -20,6 +20,9 @@ import type { Style } from '../types'
 import { AMBER, LATE_COLOR, badgeStyle, memberBadge, payColor } from './board'
 import { firstWord, initialsOf, opsMoney } from './fmt'
 import { channelTagOf } from './assistant'
+import { coverageText } from '@/lib/sizes'
+import { depositState, itemLabelOf, processorWord, tenderLabel } from './sizes'
+import type { ProcessorName } from './sizes'
 
 type VM = Record<string, unknown>
 
@@ -418,6 +421,8 @@ export interface FileUi {
   busy: ReadonlySet<string>
   /** Business "now" used to say whether a message hold or a send is in flight. */
   sending: boolean
+  /** Who takes card money (ADR 0171): the Payments tab says "Square reader" and "Awaiting Square" with Square. */
+  processor?: ProcessorName
 }
 
 export interface FileHandlers extends PhotoHandlers {
@@ -545,14 +550,21 @@ export function fileVM(
     kind,
   })
   const taxLabel = 'Tax (' + (inv?.taxBp ? trimRate(inv.taxBp) : '7') + '%)'
+  const processor: ProcessorName = ui.processor ?? 'squarespace'
+  const deposit = depositState(inv)
   const rows = inv
     ? [
+        // DV-810: a line names its size and member % off (a line priced before sizes reads as designed)
         ...inv.items.map((it) =>
           lineRow(
-            it.kind === 'addon' ? '+ ' + it.name : it.name,
+            (it.kind === 'addon' ? '+ ' : '') + itemLabelOf(it),
             opsMoney(it.priceCents),
             it.kind === 'addon' ? 'addon' : 'item',
           ),
+        ),
+        // DV-810: what the membership covered, line by line ("Covered $40 · $20 size difference due")
+        ...(inv.coverage ?? []).map((c) =>
+          lineRow('Membership · ' + coverageText(c, opsMoney), '– ' + opsMoney(c.coveredCents), 'paid'),
         ),
         ...(inv.tipCents ? [lineRow('Tip', opsMoney(inv.tipCents), 'item')] : []),
         lineRow(taxLabel, opsMoney(inv.taxCents), 'item'),
@@ -560,6 +572,8 @@ export function fileVM(
         ...(inv.depositCents > 0 && inv.balanceCents > 0
           ? [lineRow('Deposit paid', '– ' + opsMoney(inv.depositCents), 'paid')]
           : []),
+        // DV-811: the deposit of a canceled visit, kept or refunded by the cancel and no-show rules
+        ...(deposit ? [lineRow(deposit.label, deposit.value, 'paid')] : []),
       ]
     : [lineRow(o.service.name, opsMoney(o.service.priceCents), 'item')]
   const payRows = rows.map((r) => ({
@@ -620,7 +634,8 @@ export function fileVM(
     noMember: !m,
     memberLabel: m ? firstWord(m.plan) : '',
     memberPlain: m ? m.plan : 'Non-member',
-    memberStyle: memberBadge(m?.plan ?? null, dark, 'file'),
+    // DV-812: the tier's own colours from the server (the design's colours by plan name when it sends none)
+    memberStyle: memberBadge(m?.plan ?? null, dark, 'file', m),
     vip: f.customer.vip,
     notes:
       o.notes || o.specialInstructions
@@ -727,7 +742,7 @@ export function fileVM(
     payBig,
     payMethod: settled
       ? pending
-        ? (methodLabel ?? 'Card') + ' · awaiting Squarespace'
+        ? (methodLabel ?? 'Card') + ' · awaiting ' + processorWord(processor)
         : (methodLabel ?? 'Paid')
       : 'No payment on file',
     payCardStyle: {
@@ -760,11 +775,13 @@ export function fileVM(
     },
     pendingTitleStyle: { fontWeight: 800, fontSize: '14px' },
     pendingLine:
-      awaiting > 0 ? opsMoney(awaiting) + ' recorded by staff · waiting for Squarespace to confirm' : '',
+      awaiting > 0
+        ? opsMoney(awaiting) + ' recorded by staff · waiting for ' + processorWord(processor) + ' to confirm'
+        : '',
     collect: () => h.markPaid(),
     sendLink: () => h.toggleLink(),
     payTenders: (['card', 'cash'] as const).map((t) => ({
-      label: t === 'card' ? 'Card' : 'Cash',
+      label: tenderLabel(t, processor),
       onClick: () => h.setTender(t),
       style: tenderStyle(ui.payTender === t, !canCollect),
     })),
@@ -773,6 +790,13 @@ export function fileVM(
     linkStyle: linkButtonStyle(!canCollect),
     collectTitle: canCollect ? '' : 'Role can’t collect payments',
     payLinkOpen: ui.payLinkOpen,
+    // DV-809: with Square there is no URL to paste; the server makes the link for the exact balance
+    payLinkNeedsUrl: processor !== 'square',
+    payLinkSquare: processor === 'square',
+    payLinkText:
+      processor === 'square'
+        ? 'We text ' + f.customer.name.split(' ')[0] + ' a secure link to pay ' + opsMoney(pay.balanceCents) + '. It is recorded as soon as they pay.'
+        : '',
     payLinkUrl: ui.payLinkUrl,
     setLinkUrl: (e: { target: { value: string } }) => h.setLinkUrl(e.target.value),
     submitLink: () => h.sendLink(),

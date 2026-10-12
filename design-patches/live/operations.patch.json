@@ -336,6 +336,43 @@
       "tpl": 383,
       "expectTag": "span",
       "htmlFile": "ops-file-cats.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 665,
+      "expectTag": "div",
+      "htmlFile": "ops-new-size.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 670,
+      "expectTag": "div",
+      "htmlFile": "ops-new-quote.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 433,
+      "expectTag": "div",
+      "htmlFile": "ops-file-size.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 447,
+      "expectTag": "div",
+      "expectTextStarts": "Membership",
+      "htmlFile": "ops-file-coverage.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 383,
+      "expectTag": "span",
+      "htmlFile": "ops-file-size-badge.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 569,
+      "expectTag": "div",
+      "htmlFile": "ops-member-household.html"
     }
   ]
 }

@@ -1,7 +1,7 @@
 // The New Appointment / Walk-in sheet on the real booking API: the form model, the "Year / Make / Model" parse, the
 // request body, the client-side checks (the server validates everything again) and the slot buttons built from the
 // availability engine's answer. The design's eight fixed slots become the day's real slots, bay-aware.
-import type { AvailabilitySlot, BookingReq, CustomerHit, ServiceCatalog } from '@/data/ports/operations'
+import type { AvailabilitySlot, BookingReq, CustomerHit, QuoteReq, ServiceCatalog } from '@/data/ports/operations'
 import { hexA } from '@/lib/color'
 import type { Style } from '../types'
 import { opsMoney } from './fmt'
@@ -25,6 +25,10 @@ export interface NewForm {
   overrideReason: string
   /** An existing customer picked from the search. */
   customerId: string | null
+  /** The picked customer's car on file, while the vehicle and plate boxes still show it (ADR 0170: booked by id). */
+  vehicleId: string | null
+  /** The size the visit is priced at; null = not known yet ("Not sure": the starting price, "Confirm size"). */
+  vehicleClass: string | null
 }
 
 export const emptyForm = (): NewForm => ({
@@ -39,6 +43,8 @@ export const emptyForm = (): NewForm => ({
   override: false,
   overrideReason: '',
   customerId: null,
+  vehicleId: null,
+  vehicleClass: null,
 })
 
 /** "2022 Tesla Model 3" -> year 2022, make Tesla, model "Model 3"; no year keeps everything after the make as the model. */
@@ -92,17 +98,30 @@ export function bookingRequest(f: NewForm, walkIn: boolean): BookingReq {
     serviceId: f.serviceId!,
     source: walkIn ? 'walk_in' : 'dashboard',
   }
-  if (hasVehicle)
+  // the picked customer's own car goes by id (a car without a plate is never duplicated); a typed car is upserted
+  if (f.customerId && f.vehicleId) body.vehicleId = f.vehicleId
+  else if (hasVehicle)
     body.vehicle = {
       year: v.year,
       make: v.make,
       model: v.model,
       plate: f.plate.trim() ? f.plate.trim().toUpperCase() : null,
     }
+  if (f.vehicleClass) body.vehicleClass = f.vehicleClass
   if (walkIn) body.walkIn = true
   else body.start = f.slot!
   if (f.override) body.override = { reason: f.overrideReason.trim() }
   return body
+}
+
+/** The price preview's request (POST /appointments/quote): the same size, car and client the booking will send. */
+export function quoteRequest(f: Pick<NewForm, 'serviceId' | 'customerId' | 'vehicleId' | 'vehicleClass'>): QuoteReq | null {
+  if (!f.serviceId) return null
+  const q: QuoteReq = { serviceId: f.serviceId }
+  if (f.customerId) q.customerId = f.customerId
+  if (f.customerId && f.vehicleId) q.vehicleId = f.vehicleId
+  if (f.vehicleClass) q.vehicleClass = f.vehicleClass
+  return q
 }
 
 /** The first five packages are bookable from the sheet, as designed (review B30 asks for the rest: see DV-402). */

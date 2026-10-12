@@ -1,0 +1,6 @@
+<sc-if value="{{ sel.covShow }}" hint-placeholder-val="{{ false }}">
+  <div style="grid-column:1/3;">
+    <div style="font-size:11.5px;color:var(--ink3);font-weight:700;">Membership coverage</div>
+    <sc-for list="{{ sel.covLines }}" as="cl" hint-placeholder-count="1"><div style="font-size:14px;font-weight:700;margin-top:2px;">{{ cl.text }}</div></sc-for>
+  </div>
+</sc-if>

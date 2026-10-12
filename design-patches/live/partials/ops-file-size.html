@@ -1,0 +1,24 @@
+<sc-if value="{{ sel.sizeShow }}" hint-placeholder-val="{{ false }}">
+  <div style="grid-column:1/3;">
+    <div style="font-size:11.5px;color:var(--ink3);font-weight:700;">Size</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px;">
+      <div style="font-size:14px;font-weight:700;">{{ sel.sizeText }}</div>
+      <sc-if value="{{ sel.sizeBadgeShow }}" hint-placeholder-val="{{ false }}"><span style="{{ sel.sizeBadgeStyle }}">{{ sel.sizeBadge }}</span></sc-if>
+      <sc-if value="{{ sel.sizeCanChange }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ sel.sizeToggle }}" style="margin-left:auto;height:32px;padding:0 12px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">{{ sel.sizeToggleLabel }}</button></sc-if>
+    </div>
+    <sc-if value="{{ sel.sizeOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;"><sc-for list="{{ sel.sizeChips }}" as="sc" hint-placeholder-count="5"><button sc-camel-on-click="{{ sc.pick }}" style="{{ sc.style }}">{{ sc.label }}</button></sc-for></div>
+      <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:6px;">{{ sel.sizeNote }}</div>
+    </sc-if>
+    <sc-if value="{{ sel.carShow }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <div style="font-size:12px;font-weight:600;color:var(--ink2);">{{ sel.carText }}</div>
+        <button sc-camel-on-click="{{ sel.carToggle }}" style="padding:0;background:none;border:none;font-size:12px;font-weight:700;color:var(--ink2);text-decoration:underline;">{{ sel.carToggleLabel }}</button>
+      </div>
+      <sc-if value="{{ sel.carOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;"><sc-for list="{{ sel.carChips }}" as="cc" hint-placeholder-count="6"><button sc-camel-on-click="{{ cc.pick }}" style="{{ cc.style }}">{{ cc.label }}</button></sc-for></div>
+        <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:6px;">{{ sel.carNote }}</div>
+      </sc-if>
+    </sc-if>
+  </div>
+</sc-if>

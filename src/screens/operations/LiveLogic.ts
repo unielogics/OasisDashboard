@@ -30,9 +30,13 @@ import type {
   OpsCard,
   OpsSnapshot,
   OpsWindow,
+  QuoteReq,
+  QuoteRes,
   ServiceCatalog,
   Thread,
+  VehicleClasses,
 } from '@/data/ports/operations'
+import type { InvoiceDetail } from '@/data/ports/payments'
 import type { PaymentsPort } from '@/data/ports/payments'
 import { toastForError } from '@/data/toast'
 import { serverNow } from '@/lib/clock'
@@ -92,6 +96,22 @@ import {
   smsToggleStyle,
 } from '@/lib/operations/live/newAppt'
 import type { NewForm } from '@/lib/operations/live/newAppt'
+import { quoteRequest } from '@/lib/operations/live/newAppt'
+import {
+  activeSizes,
+  carSizeText,
+  confirmBadgeStyle,
+  confirmBadgeText,
+  coverageLines,
+  fileHasSizes,
+  householdOf,
+  planSizeText,
+  quoteVM,
+  sizeChipVMs,
+  sizeLabel,
+  visitSizeText,
+} from '@/lib/operations/live/sizes'
+import type { ProcessorName, SizeOption } from '@/lib/operations/live/sizes'
 import { OpsCommands } from './live/commands'
 
 const THEME_KEY = 'oasis-theme'
@@ -138,6 +158,12 @@ export interface LiveState {
   pinConfirm: boolean
   /** The board's category filter: `all`, a category key or `mixed` (DV-423). */
   catFilter: string
+  /** The file's "Change size" chips are open (DV-808). */
+  sizeOpen: boolean
+  /** The file's car-size chips are open (DV-808). */
+  carSizeOpen: boolean
+  /** The Membership tab's "Add to household" search text (DV-813). */
+  hhQuery: string
 }
 
 export interface LiveOpsDeps {
@@ -300,6 +326,9 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       busy: [],
       pinConfirm: false,
       catFilter: 'all',
+      sizeOpen: false,
+      carSizeOpen: false,
+      hhQuery: '',
     }
   }
 
@@ -499,6 +528,35 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     return this.read(qk.ops('membership', customerId), () => this.deps.port.membership(customerId))
   }
 
+  /** The shop's vehicle sizes that are on (read quietly: an older server has none and the sheet looks as designed). */
+  private sizes(): SizeOption[] {
+    const v = this.deps.store.read<VehicleClasses>(qk.ops('sizes'), () => this.deps.port.vehicleClasses(), {
+      staleTimeMs: 10 * 60_000,
+    })
+    return activeSizes(v)
+  }
+
+  /** The booking sheet's price preview (quietly: a role without sched.edit or an older server shows none). */
+  private quote(req: QuoteReq | null): QuoteRes | undefined {
+    if (!req || !this.can('sched.edit')) return undefined
+    const key = qk.ops('quote', req.serviceId, req.customerId ?? '', req.vehicleId ?? '', req.vehicleClass ?? '')
+    return this.deps.store.read(key, () => this.deps.port.quote(req), { staleTimeMs: 30_000 })
+  }
+
+  /**
+   * Who takes card money on this invoice (ADR 0171), from the invoice detail of the Payments port while the Payments tab
+   * is open (pay.reports); Squarespace otherwise, the design's words (backend gap: the file's invoice does not say).
+   */
+  private processorOf(invoiceId: string | undefined): ProcessorName {
+    if (!invoiceId || this.state.modalTab !== 'payments' || !this.can('pay.reports')) return 'squarespace'
+    const d = this.deps.store.read<InvoiceDetail>(
+      qk.payments('invoice', invoiceId),
+      () => this.deps.payments.invoice(invoiceId),
+      { staleTimeMs: FRESH_MS },
+    )
+    return d?.processing?.processor ?? 'squarespace'
+  }
+
   private catalog(): ServiceCatalog | undefined {
     return this.read(qk.ops('catalog'), () => this.deps.port.catalog(), 10 * 60_000)
   }
@@ -528,6 +586,9 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       payLinkOpen: false,
       payLinkError: '',
       pinConfirm: false,
+      sizeOpen: false,
+      carSizeOpen: false,
+      hhQuery: '',
     })
     this.afterTab(tab, id)
   }
@@ -849,13 +910,18 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       return
     }
     const tender = this.state.payTender
-    const ok = await this.cmd.collect(f.invoice.invoiceId, tender, { first: FIRST_NAME(f.customer.name) })
+    const ok = await this.cmd.collect(f.invoice.invoiceId, tender, {
+      first: FIRST_NAME(f.customer.name),
+      processor: this.processorOf(f.invoice.invoiceId),
+    })
     if (ok) this.deps.saveTender(tender)
   }
 
   private async submitLink(f: AppointmentFile): Promise<void> {
     if (!f.invoice) return
-    const r = await this.cmd.sendLink(f.invoice.invoiceId, this.state.payLinkUrl)
+    // DV-809: with Square there is no URL to paste: the server makes the link (or texts the client's own pay page)
+    const url = this.processorOf(f.invoice.invoiceId) === 'square' ? '' : this.state.payLinkUrl
+    const r = await this.cmd.sendLink(f.invoice.invoiceId, url)
     if (r.ok) this.setState({ payLinkOpen: false, payLinkUrl: '', payLinkError: '' })
     else if (r.error) this.setState({ payLinkError: r.error.detail || r.error.title })
   }
@@ -914,12 +980,17 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
 
   private pickHit(h: CustomerHit): void {
     const v = h.vehicles[0]
+    // the car's size on file is the sheet's default (a size since turned off is not offered: "Not sure")
+    const onFile = v?.vehicleClass ?? null
+    const active = this.sizes().some((x) => x.key === onFile)
     this.setForm({
       customerId: h.id,
       name: h.fullName,
       phone: h.phone ?? '',
       vehicle: v ? [v.year, v.make, v.model].filter(Boolean).join(' ') : '',
       plate: v?.plate ?? '',
+      vehicleId: v?.id ?? null,
+      vehicleClass: active ? onFile : null,
     })
     this.custQ = ''
     this.lastHits = []
@@ -1216,6 +1287,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       },
       busy: new Set(s.busy),
       sending: s.busy.includes('send'),
+      processor: this.processorOf(f.invoice?.invoiceId),
     }
     const h: FileHandlers = {
       setTab: (t) => this.setTab(t),
@@ -1279,6 +1351,142 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       aiLineShow: line.show,
       aiLineText: line.text,
       aiLineSub: line.sub,
+      ...this.sizeFileVals(f, mem, ui.dark),
+    }
+  }
+
+  /**
+   * The file's sizes, coverage and household (ADR 0170; DV-808, DV-810, DV-813): the size row of the Overview ("Change
+   * size" prices the visit again, the car's size on file can be set alone), the "Confirm size" badge, the coverage lines,
+   * and on the Membership tab the plan size and the household. A visit booked before sizes shows none of it.
+   */
+  private sizeFileVals(f: AppointmentFile, mem: MembershipView | undefined, dark: boolean): VM {
+    const s = this.state
+    const sizes = this.sizes()
+    const busySize = s.busy.includes('size')
+    const busyCar = s.busy.includes('car-size')
+    const show = fileHasSizes(f) && sizes.length > 0
+    const badge = confirmBadgeText(f)
+    const closed = f.status === 'canceled' || f.status === 'no_show'
+    const cov = coverageLines(f)
+    const hh = householdOf(mem)
+    const canMember = this.can('cli.member')
+    // add to household: the customer search of the booking sheet, by name or phone
+    const q = s.hhQuery.trim()
+    let hits: CustomerHit[] = []
+    if (hh.show && !hh.sharedFrom && q.length >= 2 && this.can('cli.view')) {
+      const r = this.deps.store.read<CustomerHits>(qk.ops('customers', q), () => this.deps.port.customers(q), {
+        staleTimeMs: 30_000,
+      })
+      const taken = new Set([f.customer.id, ...hh.members.map((m) => m.customerId)])
+      hits = (r?.items ?? []).filter((h) => !taken.has(h.id)).slice(0, 5)
+    }
+    return {
+      sizeShow: show,
+      sizeText: visitSizeText(f, sizes),
+      sizeBadgeShow: show && !!badge,
+      sizeBadge: badge,
+      sizeBadgeStyle: confirmBadgeStyle(dark),
+      sizeCanChange: show && !closed,
+      sizeToggle: () => {
+        if (!this.cmd.allow('sched.edit')) return
+        this.setState({ sizeOpen: !this.state.sizeOpen, carSizeOpen: false })
+      },
+      sizeToggleLabel: s.sizeOpen ? 'Cancel' : f.vehicleClass ? (badge ? 'Confirm size' : 'Change size') : 'Set size',
+      sizeOpen: show && s.sizeOpen,
+      sizeChips: sizeChipVMs(sizes, f.vehicleClass, (k) => k && void this.changeSize(f, k), {
+        allowUnknown: false,
+        disabled: busySize,
+      }),
+      sizeNote: 'The visit is priced again at the size you pick, and this car keeps that size on file.',
+      carShow: show && !!f.vehicle,
+      carText: carSizeText(f, sizes),
+      carToggle: () => {
+        if (!this.cmd.allow('cli.edit')) return
+        this.setState({ carSizeOpen: !this.state.carSizeOpen, sizeOpen: false })
+      },
+      carToggleLabel: s.carSizeOpen ? 'Cancel' : 'Edit',
+      carOpen: show && s.carSizeOpen,
+      carChips: sizeChipVMs(
+        sizes,
+        f.vehicle?.vehicleClass ?? null,
+        (k) => void this.changeCarSize(f, k, sizes),
+        { allowUnknown: true, disabled: busyCar },
+      ),
+      carNote: 'Only the car on file changes. This visit keeps its price.',
+      covShow: cov.length > 0,
+      covLines: cov.map((text) => ({ text })),
+      // Membership tab: plan size and household
+      hhShow: hh.show,
+      hhPlanSize: planSizeText(hh.planSize),
+      hasPlanSize: !!hh.planSize,
+      hhShared: !!hh.sharedFrom,
+      hhSharedText: hh.sharedFrom ? 'Shares ' + hh.sharedFrom + '’s membership' : '',
+      hhMembers: hh.members.map((m) => ({
+        name: m.name,
+        remove: () => {
+          if (!hh.membershipId) return
+          void this.cmd.removeHousehold(hh.membershipId, m.customerId, m.name)
+        },
+      })),
+      hhHasMembers: hh.members.length > 0,
+      hhEmpty: hh.members.length === 0 && !hh.sharedFrom,
+      hhCanAdd: !hh.sharedFrom,
+      hhQuery: s.hhQuery,
+      setHhQuery: (e: { target: { value: string } }) => {
+        if (!canMember) {
+          this.cmd.allow('cli.member')
+          return
+        }
+        this.setState({ hhQuery: e.target.value })
+      },
+      hhHits: hits.map((h) => ({
+        name: h.fullName,
+        sub: h.phone ?? '',
+        add: () => {
+          if (!hh.membershipId) return
+          void this.cmd.addHousehold(hh.membershipId, h.id, h.fullName).then((ok) => {
+            if (ok) this.setState({ hhQuery: '' })
+          })
+        },
+      })),
+      hhHasHits: hits.length > 0,
+      hhInputStyle: { ...inputStyle, height: '42px', fontSize: '13px' },
+    }
+  }
+
+  /** "Change size" (DV-808): the server prices the visit again; the chips close when it answered. */
+  private async changeSize(f: AppointmentFile, key: string): Promise<void> {
+    if (this.state.busy.includes('size')) return
+    // the same size again only confirms a price the shop still had to confirm; otherwise there is nothing to change
+    if (key === f.vehicleClass && !f.needsSizeConfirm && !f.needsPriceConfirm) {
+      this.setState({ sizeOpen: false })
+      return
+    }
+    this.setState({ busy: [...this.state.busy, 'size'] })
+    try {
+      const ok = await this.cmd.setVisitSize(f.id, key, f.version)
+      if (ok) this.setState({ sizeOpen: false })
+    } finally {
+      this.setState({ busy: this.state.busy.filter((b) => b !== 'size') })
+    }
+  }
+
+  /** The car's size on file only (DV-808): for a closed visit, or a car whose size on file is wrong. */
+  private async changeCarSize(f: AppointmentFile, key: string | null, sizes: readonly SizeOption[]): Promise<void> {
+    const v = f.vehicle
+    if (!v || this.state.busy.includes('car-size')) return
+    this.setState({ busy: [...this.state.busy, 'car-size'] })
+    try {
+      const ok = await this.cmd.setVehicleSize(
+        f.customer.id,
+        v.id,
+        key,
+        key ? (sizeLabel(sizes, key) ?? key) : 'No size on file',
+      )
+      if (ok) this.setState({ carSizeOpen: false })
+    } finally {
+      this.setState({ busy: this.state.busy.filter((b) => b !== 'car-size') })
     }
   }
 
@@ -1327,6 +1535,16 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
         note = slotNote(date, data.slots, data.closed ? (data.reason ?? 'Closed') : null)
       }
     }
+    const sizes = s.newOpen ? this.sizes() : []
+    const sizeVals: VM = {
+      hasSizes: sizes.length > 0,
+      sizes: sizeChipVMs(sizes, f.vehicleClass, (k) => this.setForm({ vehicleClass: k }), { allowUnknown: true }),
+      sizeNote: f.vehicleClass
+        ? ''
+        : 'Not sure: priced at the starting price, then confirm the size at the shop.',
+      hasSizeNote: !f.vehicleClass,
+      ...quoteVM(s.newOpen ? this.quote(quoteRequest(f)) : undefined),
+    }
     // customer search: by the name being typed, or the phone digits
     const q = f.customerId
       ? ''
@@ -1348,9 +1566,11 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       setPhone: (e: { target: { value: string } }) =>
         this.setForm({ phone: e.target.value, customerId: null }),
       vehicle: f.vehicle,
-      setVehicle: (e: { target: { value: string } }) => this.setForm({ vehicle: e.target.value }),
+      setVehicle: (e: { target: { value: string } }) => this.setForm({ vehicle: e.target.value, vehicleId: null }),
       plate: f.plate,
-      setPlate: (e: { target: { value: string } }) => this.setForm({ plate: e.target.value }),
+      setPlate: (e: { target: { value: string } }) => this.setForm({ plate: e.target.value, vehicleId: null }),
+      // DV-807: the size chips (the car's size on file preselected) and the server's price for that size
+      ...sizeVals,
       inputStyle,
       phoneStyle: { ...inputStyle, flex: 1, width: 'auto', minWidth: 0 },
       sms: f.smsOptIn,

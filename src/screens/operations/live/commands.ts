@@ -265,6 +265,69 @@ export class OpsCommands {
     return this.done(a, r)
   }
 
+  // ---- vehicle sizes and households (ADR 0170) ---------------------------------------------------------------------
+
+  /**
+   * "Change size" on the file: the visit is priced again at that size (the server refuses a change that would leave the
+   * invoice overpaid, PRICE_CHANGE_OVERPAID, with its own words) and the car on file takes the size.
+   */
+  async setVisitSize(fileId: string, vehicleClass: string, version: number): Promise<boolean> {
+    if (!this.allow('sched.edit')) return false
+    const a = this.action('size:' + fileId + ':' + vehicleClass + ':' + version)
+    const r = await this.run({
+      action: a,
+      invalidate: [qk.payments()],
+      request: (idem) => this.d.port.setVisitSize(fileId, vehicleClass, version, { idempotencyKey: idem }),
+      onOk: toast,
+      deny: 'edit appointments',
+    })
+    return this.done(a, r)
+  }
+
+  /** The size on file of the client's car only (the visit's price does not move). */
+  async setVehicleSize(
+    customerId: string,
+    vehicleId: string,
+    vehicleClass: string | null,
+    label: string,
+  ): Promise<boolean> {
+    if (!this.allow('cli.edit')) return false
+    const a = this.action('car-size:' + vehicleId + ':' + vehicleClass)
+    const r = await this.run({
+      action: a,
+      request: (idem) =>
+        this.d.port.setVehicleSize(customerId, vehicleId, vehicleClass, { idempotencyKey: idem }),
+      onOk: () => ({ title: 'Car size saved', desc: label }),
+      deny: 'edit clients',
+    })
+    return this.done(a, r)
+  }
+
+  /** A client shares the membership (priced and covered as the member, the credits shared). */
+  async addHousehold(membershipId: string, customerId: string, name: string): Promise<boolean> {
+    if (!this.allow('cli.member')) return false
+    const a = this.action('hh-add:' + membershipId + ':' + customerId)
+    const r = await this.run({
+      action: a,
+      request: (idem) => this.d.port.addHousehold(membershipId, customerId, { idempotencyKey: idem }),
+      onOk: () => ({ title: 'Added to the membership', desc: name + ' now shares it' }),
+      deny: 'manage memberships',
+    })
+    return this.done(a, r)
+  }
+
+  async removeHousehold(membershipId: string, customerId: string, name: string): Promise<boolean> {
+    if (!this.allow('cli.member')) return false
+    const a = this.action('hh-remove:' + membershipId + ':' + customerId)
+    const r = await this.run({
+      action: a,
+      request: (idem) => this.d.port.removeHousehold(membershipId, customerId, { idempotencyKey: idem }),
+      onOk: () => ({ title: 'Removed from the membership', desc: name + ' no longer shares it' }),
+      deny: 'manage memberships',
+    })
+    return this.done(a, r)
+  }
+
   // ---- booking -----------------------------------------------------------------------------------------------------
 
   /** `action` is the sheet's: created when it opened and reused by every retry of the same booking. */
@@ -372,8 +435,15 @@ export class OpsCommands {
 
   // ---- payments ----------------------------------------------------------------------------------------------------
 
-  /** Mark Paid: cash or card for the whole balance. Card money counts at once and waits for Squarespace to confirm. */
-  async collect(invoiceId: string, method: 'card' | 'cash', who: { first: string }): Promise<boolean> {
+  /**
+   * Mark Paid: cash or card for the whole balance. Card money counts at once and waits for its processor to confirm
+   * (Squarespace; with Square the reader payment is matched to it).
+   */
+  async collect(
+    invoiceId: string,
+    method: 'card' | 'cash',
+    who: { first: string; processor?: 'squarespace' | 'square' },
+  ): Promise<boolean> {
     if (!this.allow('pay.collect')) return false
     const a = this.action('collect:' + invoiceId)
     const r = await this.run({
@@ -385,9 +455,11 @@ export class OpsCommands {
     if (!r.ok) return false
     a.renew()
     const receipt = await this.receipt(invoiceId)
+    const square = who.processor === 'square'
     this.d.flash(
-      method === 'card' ? 'Card payment recorded' : 'Payment collected',
-      (method === 'card' ? 'Waiting for Squarespace to confirm · ' : '') + receiptLine(receipt, who.first),
+      method === 'card' ? (square ? 'Square reader payment recorded' : 'Card payment recorded') : 'Payment collected',
+      (method === 'card' ? 'Waiting for ' + (square ? 'Square' : 'Squarespace') + ' to confirm · ' : '') +
+        receiptLine(receipt, who.first),
     )
     return true
   }
@@ -416,9 +488,11 @@ export class OpsCommands {
       onOk: (c: CollectResult) => ({
         title: 'Payment link sent',
         desc:
-          c.paymentLink?.sms === 'queued'
-            ? 'Secure link via SMS'
-            : 'Link saved · the client could not be texted',
+          // DV-809: with Square the server makes the link; a plain Square link (pay links off) is shown to copy
+          (c.paymentLink?.sms === 'queued' ? 'Secure link via SMS' : 'Link saved · the client could not be texted') +
+          (c.paymentLink?.url && c.paymentLink.provider && c.paymentLink.provider !== 'squarespace'
+            ? ' · ' + c.paymentLink.url
+            : ''),
       }),
       deny: 'collect payments',
     })

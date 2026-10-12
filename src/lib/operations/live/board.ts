@@ -101,9 +101,19 @@ export function payColor(kind: OpsCard['pay']['kind'], dark: boolean): string {
   return LATE_COLOR
 }
 
-export function memberBadge(plan: string | null, dark: boolean, size: 'card' | 'file'): Style {
-  const mm = memberMeta(plan)
-  if (!mm) return {}
+/**
+ * A member badge. DV-812: the tier's own colours when the server sends them (the membership's `color`/`bgColor`, edited in
+ * Settings → Memberships); the design's colours keyed by the plan's first word otherwise (and in the parity build).
+ */
+export function memberBadge(
+  plan: string | null,
+  dark: boolean,
+  size: 'card' | 'file',
+  colours?: { color?: string | null; bgColor?: string | null } | null,
+): Style {
+  const meta = memberMeta(plan)
+  if (!meta) return {}
+  const mm = colours?.color ? { c: colours.color, bg: colours.bgColor || hexA(colours.color, 0.14) } : meta
   return {
     fontSize: size === 'card' ? '10px' : '11px',
     fontWeight: 800,
@@ -141,7 +151,13 @@ export function cardVM(c: OpsCard, ui: BoardUi, h: BoardHandlers): VM {
     member: !!c.member,
     memberLabel: c.member ? c.member.label : '',
     memberPlain: c.member ? c.member.plan : 'Non-member',
-    memberStyle: memberBadge(c.member?.plan ?? null, dark, 'card'),
+    // DV-812: the server's tier colours once the card carries them (backend gap: the card's member has only plan and label)
+    memberStyle: memberBadge(
+      c.member?.plan ?? null,
+      dark,
+      'card',
+      c.member as { color?: string | null; bgColor?: string | null } | null,
+    ),
     bayLabel: c.bayLabel,
     durLabel: c.durLabel,
     payLabel: c.pay.label,

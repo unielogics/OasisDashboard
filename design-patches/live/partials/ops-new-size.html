@@ -1,0 +1,8 @@
+<sc-if value="{{ nf.hasSizes }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-top:10px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <sc-for list="{{ nf.sizes }}" as="sz" hint-placeholder-count="6"><button sc-camel-on-click="{{ sz.pick }}" style="{{ sz.style }}">{{ sz.label }}</button></sc-for>
+    </div>
+    <sc-if value="{{ nf.hasSizeNote }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:7px;">{{ nf.sizeNote }}</div></sc-if>
+  </div>
+</sc-if>
