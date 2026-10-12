@@ -34,7 +34,29 @@ const open = async (logic: any, section: 'sizes' | 'prices'): Promise<any> => {
 const writes = (calls: any[][], name: string) => calls.filter((c) => c[0] === name)
 
 describe('Settings → Vehicle sizes', () => {
-  it('the nav button, the title, one row per size in size order with what it prices and whether it is on', async () => {
+  it('one nav button opens Prices by size; tabs switch to Memberships and Vehicle sizes; the nav stays lit on all three', async () => {
+    const t = makeExtrasLogic()
+    expect(vals(t.logic).live.pricingTabs.show).toBe(false)
+    call(t.logic, 'live.goPrices')
+    await open(t.logic, 'prices')
+    const tabs = vals(t.logic).live.pricingTabs
+    expect(tabs.show).toBe(true)
+    expect(tabs.tabs.map((x: any) => [x.label, x.style.background])).toEqual([
+      ['Prices by size', 'var(--accent)'],
+      ['Memberships', 'transparent'],
+      ['Vehicle sizes', 'transparent'],
+    ])
+    const lit = vals(t.logic).live.xnav.pricing.background
+    call(t.logic, 'live.pricingTabs.tabs.1.onClick')
+    expect(vals(t.logic).secTitle).toBe('Memberships')
+    expect(vals(t.logic).live.xnav.pricing.background).toBe(lit)
+    call(t.logic, 'live.pricingTabs.tabs.2.onClick')
+    expect(vals(t.logic).secTitle).toBe('Vehicle sizes')
+    expect(vals(t.logic).live.xnav.pricing.background).toBe(lit)
+    expect(vals(t.logic).live.xnav.catalog.background).not.toBe(lit)
+  })
+
+  it('one row per size in size order with what it prices and whether it is on', async () => {
     const t = makeExtrasLogic()
     call(t.logic, 'live.goSizes')
     expect(vals(t.logic).secTitle).toBe('Vehicle sizes')

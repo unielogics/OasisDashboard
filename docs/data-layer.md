@@ -142,7 +142,7 @@ SSE invalidation work.
   `settings.changed` refetches `['settings', section]`, and a few sections reach further (`SETTINGS_ALSO`, ADR 0160):
   `services` and `catalog` also refetch Settings → Catalog (`['settings','catalog']`), `ops` and `payments` (category
   colours and names on the board and in Payments); `catalog`, `reviews`, `status_texts` and `leads` refetch Settings →
-  Reminders & texts (`['settings','reminders']`). Events are
+  Reminders & texts (`['settings','reminders']`); `booking` (the guest booking fee, ADR 0170) refetches the catalog. Events are
   hints (payloads are ids and a version); the stale-version rule of the design is moot because every event is a refetch.
 
 ## Server clock and business time (`src/lib`)

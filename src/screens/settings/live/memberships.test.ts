@@ -53,7 +53,11 @@ describe('Settings → Memberships: tiers', () => {
       dirty: false,
     })
     expect(mem.t.discountHint).toBe('No % off: members pay the regular price for what their plan does not include.')
-    expect(mem.t.toggles.map((x: any) => x.label)).toEqual(['On', 'On the website', 'VIP booking'])
+    expect(mem.t.toggles.map((x: any) => [x.label, x.track.background])).toEqual([
+      ['On', 'var(--accent)'],
+      ['On the website', 'var(--accent)'],
+      ['VIP booking', 'var(--line)'],
+    ])
     const inc = mem.t.inclusions[0]
     expect(inc.label).toBe('Hand washes')
     expect(inc.kinds.map((k: any) => [k.label, k.style.background])).toEqual([

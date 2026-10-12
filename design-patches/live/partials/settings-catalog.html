@@ -32,7 +32,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ live.cat.svc.catOpts }}" as="o" hint-placeholder-count="5"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
           </div>
           <div style="grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;">
-            <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">Prices by vehicle size</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ live.cat.svc.meta }}</div></div>
+            <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">Prices by vehicle size</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ live.cat.svc.priceLine }}</div></div>
             <button sc-camel-on-click="{{ live.cat.svc.editPrices }}" style="height:40px;padding:0 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);flex:none;">Edit prices</button>
           </div>
           <div style="grid-column:1/-1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 14px;">

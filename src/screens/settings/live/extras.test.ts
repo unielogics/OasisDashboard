@@ -104,7 +104,8 @@ describe('Settings extras: Catalog', () => {
     ])
     expect(live.cat.svc).toMatchObject({
       title: 'Signature Hand Wash',
-      meta: 'from $40 · 2 sizes not set · 45 min',
+      meta: '45 min',
+      priceLine: 'from $40 · 2 sizes not set',
       dirty: false,
     })
     // the pre-size price boxes are gone (ADR 0170): no member, guest or VIP fields
@@ -112,7 +113,7 @@ describe('Settings extras: Catalog', () => {
     for (const k of ['markup', 'plans', 'tint']) expect(live.cat).not.toHaveProperty(k)
     expect(live.cat.svc.catOpts.map((o: any) => o.label)).toEqual(['Wash', 'Add-ons', 'Tint', 'Detail', 'Quote'])
     call(t.logic, 'live.cat.kindAddon')
-    expect(vals(t.logic).live.cat.svc).toMatchObject({ title: 'Hand wax', meta: 'from $30 · 3 sizes not set · 30 min' })
+    expect(vals(t.logic).live.cat.svc).toMatchObject({ title: 'Hand wax', meta: '30 min', priceLine: 'from $30 · 3 sizes not set' })
   })
 
   it('Edit prices opens Prices by size with that service’s row outlined', async () => {

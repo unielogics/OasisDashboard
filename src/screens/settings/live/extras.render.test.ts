@@ -86,16 +86,14 @@ describe('Settings live template: Catalog, Categories, Reminders & texts', () =>
     expect(html).toContain('>Catalog</span>')
     expect(html).toContain('>Categories</span>')
     expect(html).toContain('>Reminders &amp; texts</span>')
-    expect(html).toContain('>Vehicle sizes</span>')
-    expect(html).toContain('>Prices by size</span>')
-    expect(html).toContain('>Memberships</span>')
+    expect(html).toContain('>Prices &amp; memberships</span>')
     expect(html).toContain('Prices are set by vehicle size in Prices by size')
     expect(html).toContain('Open Prices by size')
-    // the nav order: Packages, then Catalog, Categories, Vehicle sizes, Prices by size, Memberships; Arrival, then Reminders
+    // the three pricing sections share one nav button; their tabs show only over them
+    expect(html).not.toContain('>Vehicle sizes<')
+    // the nav order: Packages, then Catalog, Categories, Prices & memberships; Arrival, then Reminders
     expect(html.indexOf('Packages &amp; checklists')).toBeLessThan(html.indexOf('>Catalog</span>'))
-    expect(html.indexOf('>Categories</span>')).toBeLessThan(html.indexOf('>Vehicle sizes</span>'))
-    expect(html.indexOf('>Vehicle sizes</span>')).toBeLessThan(html.indexOf('>Prices by size</span>'))
-    expect(html.indexOf('>Prices by size</span>')).toBeLessThan(html.indexOf('>Memberships</span>'))
+    expect(html.indexOf('>Categories</span>')).toBeLessThan(html.indexOf('>Prices &amp; memberships</span>'))
     expect(html.indexOf('Arrival &amp; check-in')).toBeLessThan(html.indexOf('>Reminders &amp; texts</span>'))
     for (const r of bindings.roots) expect(t.logic.renderVals(), r).toHaveProperty(r)
   })
@@ -109,7 +107,7 @@ describe('Settings live template: Catalog, Categories, Reminders & texts', () =>
       'Signature Hand Wash',
       'Wash · from $40 · 2 sizes not set',
       'Prices by vehicle size',
-      'from $40 · 2 sizes not set · 45 min',
+      '>45 min<',
       'Edit prices',
       'Name on the website',
       'Shown on the website',
@@ -127,6 +125,9 @@ describe('Settings live template: Catalog, Categories, Reminders & texts', () =>
     const v = t.logic.renderVals()
     const html = renderToStaticMarkup(render(v, { name: 'settings' }))
     for (const s of [
+      '>Prices by size</span></button>',
+      '>Memberships</span></button>',
+      '>Vehicle sizes</span></button>',
       'Smallest first',
       'value="Compact car"',
       'value="Truck"',
@@ -136,6 +137,7 @@ describe('Settings live template: Catalog, Categories, Reminders & texts', () =>
     ])
       expect(html, s).toContain(s)
     liveHandlersExist(v, 'live.sizes')
+    liveHandlersExist(v, 'live.pricingTabs')
   })
 
   it('Prices by size renders the grid by category and size, the banner, tint from–to, the fee; once edited, the Save bar', async () => {
@@ -193,6 +195,10 @@ describe('Settings live template: Catalog, Categories, Reminders & texts', () =>
       'Save tier',
     ])
       expect(html, s).toContain(s)
+    // Gold is on and on the website, without VIP booking: the switches show it
+    const after = (label: string) => html.slice(html.indexOf('>' + label + '<')).match(/<button[^>]*style="([^"]*)"/)![1]
+    expect(after('On the website')).toContain('background:var(--accent)')
+    expect(after('VIP booking')).toContain('background:var(--line)')
     liveHandlersExist(v, 'live.mem')
   })
 

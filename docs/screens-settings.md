@@ -133,6 +133,7 @@ held (Crew). Inside the screen:
 | Arrival & check-in      | any signed-in person | `cli.member`                                                                                       |
 | Packages & checklists   | any signed-in person | `set.services`: `Your role can’t edit packages and checklists`                                     |
 | Catalog, Categories     | any signed-in person | `set.services` (live only, DV-317, DV-318)                                                          |
+| Vehicle sizes, Prices by size, Memberships | any signed-in person | `set.services` (live only, DV-322..DV-326)                                     |
 | Reminders & texts       | any signed-in person | `set.hours`: `Your role can’t change hours and closures` (live only, DV-319)                        |
 
 Sections that cannot be read show the locked card; a write that cannot be done shows the toast and sends no request. The
@@ -240,9 +241,32 @@ extras object, never in `SettingsLogic.state`.
 
 | Section | Reads | Writes (permission) | What is on screen |
 | --- | --- | --- | --- |
-| Catalog | `GET /catalog` (`['settings','catalog']`) | `PUT /catalog/services/:id` (whole website fields + version), `PUT /catalog/guest-markup`, `PUT /catalog/plans/:key`, `PUT /catalog/tint-matrix` (`set.services`) | the note that prices are changed only here; Packages / Add-ons list with category swatch, member price, `hidden`, `unsaved`; the selected service's website name, description, category chips, member and guest price (empty guest = member + markup, said under the box), VIP inclusion and note, shown on the website, quote only, order; guest prices card (markup ±5 %, the guest booking fee); a card per plan (website name, $ / month, perks one per line, Squarespace checkout link, never public); the window tint table (member and guest from–to per vehicle type × film) |
+| Catalog | `GET /catalog` (`['settings','catalog']`) | `PUT /catalog/services/:id` (the six website fields + version; no price since ADR 0170) (`set.services`) | the note that prices are set per vehicle size in Prices by size and what members get in Memberships; Packages / Add-ons list with category swatch, the starting price by size (`from $40 · 2 sizes not set`, `No prices yet · books at $38`, `quote only`), `hidden`, `unsaved`; the selected service's website name, description, category chips, a `Prices by vehicle size` box with that line and `Edit prices` (opens Prices by size with the row outlined), shown on the website, quote only, order |
 | Categories | the same read | `POST`, `PATCH /:key` (label, colour, sort, active; version), `DELETE /:key` (version) (`set.services`) | one row per category: swatch, name, `#RRGGBB` box, eight swatches, order ↑ ↓, on/off, remove for custom ones, key, built in and how many active services use it; `+ Add category` (the key is made from the name; `mixed` and taken names refused) |
 | Reminders & texts | `GET /settings/reminders` (`['settings','reminders']`); `POST /settings/reminders/preview` with the draft, 300 ms after the last edit | `PUT /settings/reminders` (all three groups + version) (`set.hours`) | quiet hours; reminder offsets (≤ 5) and add chips, Ask to confirm, Review request; a preparation line per active category (≤ 160 characters); the status texts with their waits; the lead follow-up; the preview of every text with its timing, `OFF` when off, segments and encoding; the Save bar of the hours section (`Unsaved changes to reminders and texts`) |
+
+| Vehicle sizes | the same read | `POST /catalog/vehicle-classes`, `PATCH /:key` (label, sort, active; version), `DELETE /:key` (version) (`set.services`) | the note; one row per size in size order: name box (a draft, Save / Discard, Enter saves), ↑ ↓, on/off, ✕, `Key compact_car · 3 services priced` (`· off: not offered, its prices are kept`); `+ Add size` (key from the name, up to 12); a size in use cannot be removed: `Compact car is in use (9 prices, 1 membership price), so it can’t be removed. Turn it off instead.` (409 `CLASS_IN_USE` counts) |
+| Prices by size | the same read | `PUT /catalog/prices` (changed rows with their service's version, changed cells only), `PUT /catalog/guest-fee` (cents, collect, version) (`set.services`) | the note; `N prices not set` (follows the typing; quote-only rows not counted); the grid: rows = packages then add-ons grouped by category, columns = the sizes that are on, whole dollars (rounded half up when the stored price has cents; an untouched cell is never sent, so its cents stay), `—` when not set, tint rows and rows holding a range from–to; the save bar `N services changed` · Discard · Save prices; `Booking fee for guests` (whole dollars $0..$1,000, At the counter / By payment link, Save fee) |
+| Memberships | the same read | `POST /catalog/tiers`, `PUT /catalog/tiers/:key` (the whole tier + version; order re-sends the tier whole), `DELETE /catalog/tiers/:key` (never sold only), `PUT /catalog/tier-prices` (changed tiers with their priceVersion) (`set.services`) | the note (plan size, size difference paid at the shop, % off, no price = not sold online); the tier list and `+ Add tier`; the editor (name, badge colour, On / On the website / VIP booking, Member % off with its example, Cars on one membership, perks, inclusions: name, on/off, Per month N / Unlimited / Every wash, the services it covers, Apply by itself; the Squarespace link kept until Square billing; ↑ ↓; ✕ when never sold; Save tier); `Monthly price by plan size`: tiers × sizes that are on, `Price version N`, each price's Square state read only (`Not synced yet` until wave Q3b syncs it) |
+
+The three pricing sections share one nav button, `Prices & memberships` (after Categories), which opens Prices by size;
+a tab strip over them (`Prices by size`, `Memberships`, `Vehicle sizes`; `live.pricingTabs`) switches between them and the
+nav button stays lit (three nav buttons would push the nav past a 1000 px screen next to the Texting group, DV-322).
+
+Prices by size and Memberships (ADR 0170, `src/screens/settings/live/{pricing,memberships,ui}.ts`, the pure halves in
+`src/lib/settings/{sizes,tiers}.ts`). The grid keeps one draft per row (a map size → `{from, to}`), rebased like every
+other draft; Save sends the changed rows only, each with the version of the copy its draft was rebased on, and the server
+saves all or nothing. A 412 names the row from the server's `meta` (`Someone else changed the prices of Signature Hand Wash
+meanwhile, so nothing was saved. Their change is on screen now with your edits kept: check and save again.`); the catalog
+is read again, that row rebases (their cells show, the edited ones stay, `changed meanwhile` on the row) and the next Save
+carries the new version. What is refused before sending names the service and size (`Exterior Hand Wash · Compact car:
+enter whole dollars, like 40.`, `… set the price before the “up to” price.`, `… the “up to” price can’t be below the
+price.`). A tier is saved whole (its inclusions keep their ids, new ones go without; one removed is deleted or turned off by
+the server when credits name it); the monthly grid saves apart with each tier's `priceVersion` (append-only on the server:
+each changed price is a new price version, members keep the price they joined at; a 412 names the tier). The member price
+is never typed: the example under `Member % off` computes it like the server (whole dollars, half up, no % off on the size
+difference). Square: the sync state of each tier price is shown read only (`squareState`, only to `set.services`
+holders); nothing here talks to Square (wave Q3b/Q3e).
 
 Rules: edits are drafts until Save (an edit back to the saved value is clean again); a person without the write
 permission gets `Your role can’t …` on the first edit and nothing is sent; what the server would refuse is said in the
@@ -264,20 +288,19 @@ and remove of a category are sent at once on the copy on screen; a 412 there say
 The screen shows their change now: try again.` A draft is never sent with a version newer than the copy it was built on,
 so another person's change is never undone without the form saying so.
 
-Packages & checklists gets one line (DV-320): `Prices are set in Catalog: …` with `Open Catalog`. The plain service
-price (`price_cents`, what a booking charges) is never edited in the dashboard: the backend keeps it equal to the guest
-price set in Catalog (`bookingPriceOf`, ADR 0160 W2a).
+Packages & checklists gets one line (DV-320): `Prices are set by vehicle size in Prices by size: …` with `Open Prices by
+size`. The plain service price (`price_cents`, what a booking charges until wave Q2 prices visits by size) is never edited
+in the dashboard: the backend keeps it equal to the service's starting price by size (ADR 0170, `syncBookingPrices`); a
+service without any price by size keeps its last one, and the Catalog line says so (`No prices yet · books at $38`).
 
-Clearing a service's member price after it had one leaves the booking charge (`priceCents`) at the last guest price;
-the backend only syncs it while the service is priced on the website (`bookingPriceOf` is null without a member price or
-a tint film). The screen says so (review W3h F3): the Packages note and the Catalog note end with `A service without a
-member price keeps charging its last price.`, and the selected service's line reads `Booking charges $X, its last price:
-a member price here changes it`. Setting a member price again is the way to change it in the dashboard (the plain price
-can otherwise only be changed through `PATCH /services/:id`, which has no dashboard control by design); the e2e restores
-it that way. Whether the backend should reset or flag `price_cents` when the website price is cleared is left to the
-rollout (backend, not this package).
+e2e: `pnpm e2e:pricing --name <stack>` (`scripts/e2e-pricing.ts`) on a `design,website-catalog,pricing-defaults` stack of the
+pricing backend renames a size and restores it, checks that Compact car (the $40 wash) cannot be removed, opens a row from
+Catalog's `Edit prices`, fills a price and checks `GET /catalog` and `GET /public/catalog`'s starting price, sees a price saved
+elsewhere arrive under an unsaved edit, saves the booking fee, edits Gold's Compact car monthly price (priceVersion moves, Square
+state `pending` / `Not synced yet`, the public plan price follows) and Gold's % off (the public member starting price follows),
+and screenshots the three sections in dark.
 
-e2e: `pnpm e2e:catalog --name <stack>` (`scripts/e2e-catalog.ts`) on a `design,demo` stack edits each section in the page,
+`pnpm e2e:catalog --name <stack>` (`scripts/e2e-catalog.ts`) on a `design,demo` stack edits each section in the page,
 reloads and compares with the API, recolours Wash and checks the board's chips, makes an add-on of an open visit a tint
 and checks the Mixed chips, counts and file header, filters the board and checks the Payments split.
 

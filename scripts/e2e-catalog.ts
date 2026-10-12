@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // e2e-catalog: Settings → Catalog, Categories and Reminders & texts, and the categories on the board and in Payments
-// (ADR 0160 plan A, I, K; DEVIATIONS DV-317..DV-321, DV-422..DV-424, DV-224, DV-225) against a live stack.
+// (ADR 0160 plan A, I, K; DEVIATIONS DV-317..DV-321, DV-422..DV-424, DV-224, DV-225) against a live stack. Prices by
+// vehicle size, sizes and memberships (ADR 0170) are e2e-pricing's.
 //   pnpm live:up --name w3cat --api-port 4031 --web-port 3231 --profile design,demo --backend <backend checkout>
 //   pnpm e2e:catalog --name w3cat [--only <step text>]
 // As Management it edits each section in the page, reloads and compares with the API; recolours a category and sees the
@@ -100,15 +101,11 @@ async function write(ctx: BrowserContext, method: 'POST' | 'PUT' | 'PATCH' | 'DE
   return r.status() === 204 ? null : r.json().catch(() => null)
 }
 
-/** The website fields of a service as the PUT takes them. */
+/** The website fields of a service as the PUT takes them (no price since ADR 0170: prices are set per vehicle size). */
 const websiteFields = (s: any, version: number) => ({
   category: s.category,
   publicName: s.publicName,
   description: s.description,
-  memberPriceCents: s.memberPriceCents,
-  guestPriceCents: s.guestPriceCents,
-  vipInclusion: s.vipInclusion,
-  vipNote: s.vipNote,
   quoteOnly: s.quoteOnly,
   visibleOnline: s.visibleOnline,
   sort: s.sort,
@@ -160,45 +157,43 @@ try {
     const before = await api(req, '/catalog')
     const pkg = before.packages[0]
     await openSettings(page, 'Catalog')
-    await page.getByText('Change prices only here').waitFor()
+    await page.getByText('Prices are set per vehicle size in Prices by size', { exact: false }).waitFor()
     await page.getByText(pkg.name, { exact: true }).first().waitFor()
+    await page.getByRole('button', { name: 'Edit prices', exact: true }).waitFor()
     await shot(page, 'catalog')
     try {
-      await page.getByPlaceholder('No price').fill('61')
       await page.getByPlaceholder('What is included, in a sentence or two').fill('E2E description.')
-      await page.getByText('Empty: guests pay $73 (member price + 20%).').waitFor()
       await page.getByRole('button', { name: 'Save', exact: true }).first().click()
       await toast(page, /^Saved /)
       const after = (await api(req, '/catalog')).packages.find((p: any) => p.id === pkg.id)
-      eq([after.memberPriceCents, after.description], [6100, 'E2E description.'], 'saved website fields')
-      eq(after.priceCents, 7300, 'a booking now charges the guest price')
+      eq(after.description, 'E2E description.', 'saved website fields')
+      eq(after.priceCents, pkg.priceCents, 'a website save never changes a price')
       check(after.version > pkg.version, 'the version moved')
       await page.reload({ waitUntil: 'load' })
       await page.getByRole('button', { name: 'Catalog', exact: true }).click()
-      eq(await page.getByPlaceholder('No price').inputValue(), '61', 'the member price after a reload')
+      eq(
+        await page.getByPlaceholder('What is included, in a sentence or two').inputValue(),
+        'E2E description.',
+        'the description after a reload',
+      )
       await shot(page, 'catalog-saved')
     } finally {
       const now = (await api(req, '/catalog')).packages.find((p: any) => p.id === pkg.id)
-      if (now.version !== pkg.version) {
-        const back = await write(bg, 'PUT', `/catalog/services/${pkg.id}`, websiteFields(pkg, now.version))
-        // clearing the website prices leaves the booking charge where the guest price put it: put the plain price back
-        if (back.priceCents !== pkg.priceCents)
-          await write(bg, 'PATCH', `/services/${pkg.id}`, { priceCents: pkg.priceCents, version: back.version })
-      }
+      if (now.version !== pkg.version) await write(bg, 'PUT', `/catalog/services/${pkg.id}`, websiteFields(pkg, now.version))
     }
   })
 
-  await step('Catalog: a guest price below the member price is refused in the form, nothing is sent', async () => {
+  await step('Catalog: a website name over 80 characters is refused in the form, nothing is sent', async () => {
+    const pkg = (await api(req, '/catalog')).packages[0]
     await openSettings(page, 'Catalog')
-    await page.getByPlaceholder('No price').fill('50')
     let puts = 0
     const count = (r: any) => {
       if (r.request().method() === 'PUT' && r.url().includes('/catalog/services/')) puts++
     }
     page.on('response', count)
-    await page.getByPlaceholder('Automatic').fill('1')
+    await page.getByPlaceholder(pkg.name, { exact: true }).fill('x'.repeat(81))
     await page.getByRole('button', { name: 'Save', exact: true }).first().click()
-    await page.getByText('The guest price can’t be lower than the member price.').waitFor()
+    await page.getByText('The website name is at most 80 characters.').waitFor()
     await page.waitForTimeout(500)
     page.off('response', count)
     eq(puts, 0, 'PUTs sent')

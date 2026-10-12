@@ -78,6 +78,8 @@ export const EXTRA_SECTIONS: readonly ExtraSection[] = [
   'prices',
   'memberships',
 ]
+/** Vehicle sizes, Prices by size, Memberships: one nav button, tabs over the section. */
+const PRICING_SECTIONS: readonly SectionKey[] = ['sizes', 'prices', 'memberships']
 /** The sections that read GET /catalog. */
 const CATALOG_SECTIONS: readonly SectionKey[] = ['catalog', 'categories', 'sizes', 'prices', 'memberships']
 export const isExtraSection = (s: SectionKey): s is ExtraSection =>
@@ -317,9 +319,8 @@ export class SettingsExtras {
         catalog: navStyle(sec, 'catalog'),
         categories: navStyle(sec, 'categories'),
         reminders: navStyle(sec, 'reminders'),
-        sizes: navStyle(sec, 'sizes'),
-        prices: navStyle(sec, 'prices'),
-        memberships: navStyle(sec, 'memberships'),
+        // one nav button for the three pricing sections (the nav has no room for three at 1000 px: DV-322)
+        pricing: navStyle(PRICING_SECTIONS.includes(sec) ? 'prices' : sec, 'prices'),
       },
       goCatalog: go('catalog'),
       goCategories: go('categories'),
@@ -336,6 +337,24 @@ export class SettingsExtras {
       secSizes: sec === 'sizes' && open,
       secPrices: sec === 'prices' && open,
       secMemberships: sec === 'memberships' && open,
+      // Prices by size, Memberships, Vehicle sizes: tabs over the section (the design's segment control)
+      pricingTabs: {
+        show: PRICING_SECTIONS.includes(sec) && open,
+        tabs: (
+          [
+            ['prices', 'Prices by size'],
+            ['memberships', 'Memberships'],
+            ['sizes', 'Vehicle sizes'],
+          ] as const
+        ).map(([k, label]) => ({
+          label,
+          style: seg(sec === k),
+          onClick: () => {
+            if (k === 'prices') this.pricing.focus = null
+            this.host?.go(k)
+          },
+        })),
+      },
       svcPriceNote:
         'Prices are set by vehicle size in Prices by size: the website, online booking and the text assistant read them from there, and a booking charges the starting price until visits are priced by size.',
     }
@@ -485,7 +504,8 @@ export class SettingsExtras {
       kindLabel: s.kind === 'package' ? 'Package' : 'Add-on',
       chip: { label: cur?.label ?? categoryLabel(d.category, []), style: categoryChipStyle(cur?.colour ?? '', dark, 'file') },
       title: s.name,
-      meta: priceLine + ' · ' + s.durationMin + ' min',
+      meta: (s.quoteOnly ? 'Quote only · ' : '') + s.durationMin + ' min',
+      priceLine,
       editPrices: () => {
         this.pricing.focus = s.id
         this.host?.go('prices')
