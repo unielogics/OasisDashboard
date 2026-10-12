@@ -306,7 +306,11 @@ export class MembershipSections {
       return this.ctx.changed()
     }
     const r = await this.ctx.run('tier:' + t.key, (idem) => this.ctx.api.saveTier(t.key, b.value, { idempotencyKey: idem }), {
-      invalidate: [['ops']],
+      // the board's member badges take the tier's name and colour
+      invalidate: [
+        ['ops', 'snapshot'],
+        ['ops', 'file'],
+      ],
     })
     if (!r.ok) {
       if (r.message) this.errors[t.key] = r.message

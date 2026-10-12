@@ -485,9 +485,4 @@ export class PricingSections {
         (r.data.collect === 'link' ? ', by payment link' : ', at the counter'),
     )
   }
-
-  /** Whether anything in these two sections is unsaved (for the Catalog line "unsaved"). */
-  rowDirty(id: string): boolean {
-    return this.rows.has(id)
-  }
 }
