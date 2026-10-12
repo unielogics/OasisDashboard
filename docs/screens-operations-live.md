@@ -327,3 +327,27 @@ simulated POS payment of that amount confirm it (rule R3), applies a POS payment
 invoice open on screen, sees a POS payment with the invoice number in its note match itself (R1), and texts a Square
 payment link that shows with `Copy link`. The simulator's clock is moved to 20 minutes before the frozen instant so the
 counter payments are never later than the stack's clock. Screenshots: `parity-reports/e2e-visits/`.
+
+## Cards on file, the visit's fee and Square billing (Q3e; ADR 0171 waves Q3a, Q3b, Q3 dashapi; DV-903..DV-907)
+
+Pure builders: `src/lib/operations/live/billing.ts` (the cards and their consent, the visit's cancel and no-show words, the fee
+rows, the membership's billing block and its actions, the "Change tier or size" chooser, the styles), `src/lib/operations/live/
+sizes.ts` (`depositLine`: the deposit from the server's state). Every read is quiet (a role that may not read it, or an older
+server, shows nothing), and with today's defaults nothing shows but the `Visit` card's two buttons.
+
+| Where | Value | Source and rule |
+| --- | --- | --- |
+| Overview, after the notes | `sel.cdShow`, `cdRows[]` (`label`, `sub`, `consent`, `canRemove`, `remove`, `confirming`, `confirmText`, `confirm`, `keep`), `cdEmpty`, `cdEmptyText`, `cdCanLink`, `cdLink`, `cdLinkLabel` | `GET /customers/:id/cards` (`cli.view`, Overview tab only, key `qk.ops('cards', customerId)`): shown when there is a card or `charge` (saved cards on); the consent in force (else the newest) with its version, date, purposes and how it was given; `Remove` asks first, then `DELETE …/cards/:cardId` (`cli.edit`); `Text card link` → `POST /customers/:id/card-link` (`cli.edit`; the toast says whether the text went; 409 `CARD_LINK_UNAVAILABLE` / `CARD_PAYMENTS_OFF` are the server's words) |
+| Overview, the `Visit` card | `sel.vsShow`, `vsCanClose`, `vsCancel`, `vsNoShow`, `vsCancelling`, `vsNoShowing`, `vsCancelText`, `vsNoShowText`, `vsReason`, `vsSetReason`, `vsConfirmCancel`, `vsConfirmNoShow`, `vsKeep`, `vsClosed`, `vsClosedText` | a booked or confirmed visit: `Cancel visit` (a reason, `POST /appointments/:id/cancel {reason, notify: true}`) and `No-show` (`POST …/no-show`), each asked first (`sched.cancel`; the server refuses a no-show before the start and the grace period in its own words); the deposit follows the shop's rules (the server's settlement) |
+| Overview, the fees of a closed visit | `sel.feeRows[]` (`title`, `line`, `lineStyle`, `canDecide`, `chargeLabel`, `charge`, `confirming`, `confirmText`, `confirm`, `waive`, `waiving`, `reason`, `setReason`, `waiveConfirm`, `back`), `feeHas` | `GET /appointments/:id/fee-charges` (`pay.collect` or `sched.cancel`; canceled or no-show visits only): the states in words; `Charge $15` asks first, then `POST …/fee-charges/:id/charge` (`pay.collect`, a key per fee; 201 charged, 202 waiting for Square: both toasted, the fee row follows); `Waive` needs a reason (two characters at least), then `…/waive {reason}` |
+| Payments tab | `sel.payRows`, `payTenders`, `payLink*` | the processor from `invoice.processing` (every role, no `GET /invoices/:id`); the deposit line from `invoice.deposit` (DV-905); a server before wave Q3: DV-809, DV-811 as before |
+| Membership tab, under the member card | `sel.blShow`, `blTitle`, `blStatus`, `blStatusStyle`, `blLines[]`, `blNotes[]`, `blHasNotes`, `blButtons[]`, `blConfirming`, `blConfirmText`, `blConfirmLabel`, `blConfirm`, `blKeep`, `blChangeOpen`, `blTiers[]`, `blSizes[]`, `blChangeSummary`, `blChangeLoading`, `blChangeConfirm`, `blChangeCancel` | `GET /customers/:id/membership` `membership.billing` (null for a membership Square does not bill: nothing shows). The actions fit the state: a live membership has `Pause` (asked first) or `Resume` / `Undo pause`, `Cancel at period end` (asked first) or `Undo cancel`, `Change tier or size` (tiers that are on and priced, then their priced sizes from `GET /catalog/tiers`; the plan it already has is no change) or `Undo change` (a staff change; a price move after its notice is not undone here), `Text card link`; a paid month not refunded yet has `Refund last payment` (asked first, `pay.refund`, an Idempotency-Key). `POST /memberships/:id/billing/{pause,resume,cancel,cancel/undo,change,change/undo,card-link,refund-last}`; each answer refetches the membership, the file and the board; a refusal (409 `MEMBERSHIP_BILLING_STATE`, `SQUARE_WRITES_OFF`, `TIER_PRICE_NOT_SYNCED`, 503 `SQUARE_UNAVAILABLE`) is the server's toast |
+| board cards | `memberStyle` | `member.color` / `bgColor` (DV-906) |
+
+Commands (`OpsCommands`): `removeCard`, `cardLink` (`cli.edit`), `cancelVisit`, `noShow` (`sched.cancel`), `chargeFee`,
+`waiveFee` (`pay.collect`), `billing` (`cli.member`; `refund-last` `pay.refund`), each permission first, an Idempotency-Key per
+action until it succeeds, the server's toast or `Card removed`, `Card link texted`, `No-show fee charged`, `Fee waived`,
+`Membership will pause`, `Change scheduled`, `Refund sent to Square` …
+
+Tests: `src/lib/operations/live/billing.test.ts`, `src/screens/operations/live-billing.test.ts` (view model, commands, permissions,
+the live template). End to end: `pnpm e2e:billing` (docs/screens-payments-live.md, "Running the end to end").

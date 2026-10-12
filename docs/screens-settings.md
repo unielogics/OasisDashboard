@@ -351,3 +351,40 @@ deep link, and 36 seeded random walks (100 steps each, including replays of stal
 - The employee list refreshes elsewhere only because the backend now announces employee changes (branch `ws/d7-be`).
 - A custom role cannot be renamed (the design has no field); the server names it.
 - Invite resend, password reset links and the Integrations screen (`set.billing`) have no surface in the design and none here.
+
+## Billing & integrations, and Move members (live only; ADR 0171 wave Q3 dashapi; DEVIATIONS DV-908, DV-909)
+
+```
+src/data/ports/settings-api.ts       billing(), saveLinkTipping, saveRenewalPolicy, savePriceNotice, saveCardFees, testSquare,
+                                     syncSquareCatalog, moveMembers (types from the full API schema)
+src/lib/settings/billing.ts          pure: the Square row and checks in words, the switches, the forms' checks, Sync's answer,
+                                     Move members' notice text and date, a price's Square state
+src/screens/settings/live/billing.ts BillingSection: the panel's drafts (each block with its own version) and writes
+src/screens/settings/live/memberships.ts  the price cells' Square state and Move members (MoveHooks: set.billing, the notice)
+design-patches/live/partials/settings-billing.html (included by settings-extra-sections.html), settings-pricing-tabs.html (720 px)
+```
+
+Navigation: the fourth tab of the `Prices & memberships` nav button (`live.pricingTabs`), section key `billing`; the nav keeps
+its height (DV-322). `/settings#billing` opens it. Reading needs `set.billing` (`GET /settings/billing`, key
+`['settings','billing']`; without it the section is the locked card and nothing is read). The event stream refreshes it on
+`settings.changed` of sections `booking`, `payments`, `memberships` and `fees` (`src/data/realtime/invalidation.ts`).
+
+| Block | Values (`live.bill.*`) | Write |
+| --- | --- | --- |
+| Square | `sqHeadline`, `sqMissing`, `sqWarnings`, `sqLastTest`, `sqChecks`, `test`, `sync`, `syncNote` | `POST /integrations/square/test` (the checks show at once, `Square connection OK` / `… check(s) failed`); `POST /integrations/square/catalog/sync` (`Synced to Square · 5 made`, `Not synced: <reason>`) |
+| How payments run | `switches[]` | read only (server environment) |
+| Booking fee | `bookingFee`, `collectOpts`, `collectDirty`, `collectSave` | `PUT /catalog/guest-fee {cents (unchanged), collect, version}` (`set.services`; the amount is edited in Prices by size) |
+| Tips on payment links | `tipTrack`, `tipToggle` | `PUT /settings/billing/link-tipping {enabled, version}` at once |
+| No-show and late-cancel fees | `feeToggle`, `feeNoShow`, `feeLate`, `feeSave` | `PUT /settings/card-fees {enabled, noShowCents, lateCancelCents, version}` (whole dollars, $0–$1,000; on needs a fee) |
+| When a membership payment fails | `grace`, `cancel`, `policyText`, `policySave` | `PUT /settings/billing/renewal-policy {graceDays, cancelDays, version}` (0–60, 1–90, cancel after grace) |
+| Notice before a price change | `noticeDays`, `noticeSave` | `PUT /settings/billing/price-change-notice {days, version}` (0–90) |
+| Card consent | `consentVersion`, `consentText`, `consentPurposes` | read only |
+
+Every form is a draft over the server's copy and version (lib/settings/drafts.ts): a newer copy rebases it, a 412 keeps the
+edit with the usual message, a 422 is said under the block. Memberships (DV-909): each price cell's state comes from
+`priceSquareText(squareState, squareError)` with the error as the tooltip; `Move members` (only with `set.billing`) shows
+`moveMembersPreview` (the backend's `membership_price_change` text with the tier's lowest price, the date in the backend's
+`ccc, LLL d`, the notice from `priceChangeNotice.days`, else 30) and sends `POST /catalog/tiers/:key/move-members {notice}`.
+
+Tests: `src/lib/settings/billing.test.ts`, `src/screens/settings/live/billing.test.ts` (the section, the forms, permissions,
+Move members, the live template).

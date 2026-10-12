@@ -180,3 +180,45 @@ Not shown because the backend does not send it yet (see the package report): the
 Tests: `src/lib/payments/square.test.ts`, `src/screens/payments/live-square.test.ts` (view model, commands, permissions),
 `src/screens/payments/live-square.render.test.ts` (the live template). End to end: `pnpm e2e:visits`
 (docs/screens-operations-live.md, "Sizes, coverage and Square").
+
+## Saved cards, fees and Square receipts (Q3e; ADR 0171 waves Q3a, Q3 dashapi; DV-901, DV-902, DV-904)
+
+Everything below shows only when the server says so. With the defaults (`PAYMENT_PROCESSOR=squarespace`, Square writes off)
+the invoice's `processing.squareTenders` offers nothing new and the screen is the one above. Pure builders:
+`src/lib/payments/square.ts` (`collectTenderList`, `savedCardOf`, the saved card's words, `safeReceiptUrl`, `receiptMeta`),
+`src/lib/payments/live.ts` (the saved card's step in `liveSheetCalc`, the receipt link on ledger entries) and
+`src/lib/operations/live/billing.ts` (`feeRows`, shared with the appointment file).
+
+| Where | Value | Source and rule |
+| --- | --- | --- |
+| Collect sheet | `sh.payMethods` | `processing.squareTenders` (api-spec 30.13): `Square reader` while Square is the processor; `Saved card ••5858` only when `savedCard` is not null (Square writes on, an active unexpired card whose live consent covers balances, an open invoice); `Cash`; `Payment link` only while `link` (Square writes on). A server before wave Q3 (no `squareTenders`): the Square three of DV-802 |
+| the saved card's step | `sh.scShow`, `scOk`, `scOkText`, `scToggle`, `scRowStyle`, `scBoxStyle`, `scDeclined`, `scDeclineText`, `scWaiting`, `scWaitingText` | the client's OK box (unticked, the refund sheet's item row; the submit stays blocked until it is ticked), the summary (`Balance due`, `Card`), `Charge $42.80 to Visa ••5858` → `POST /invoices/:id/card-charges {cardId, amountCents: calc.balance}` (`pay.collect`) with the sheet's Idempotency-Key. 201: the sheet closes, toast `Charged $42.80 to Visa ••5858`. 202 (`charge.state = unknown`): the sheet stays with `Waiting for Square: …` and `Done` (the server's job finishes it with the same key). 422 `CARD_DECLINED`: the sheet stays, red line with Square's reason, the box unticked; the next submit sends the same key, which the server takes as a new attempt on the same charge. Any other refusal is the server's toast |
+| ledger entries | `d.ledger[].meta`, `sqHasReceipt`, `sqReceiptUrl`, `sqReceiptLabel`, `sqReceiptOpen` | `receiptNumber` / `receiptUrl` of a Square `pay` row: the meta ends `Receipt #Xy7Q`; the link (a button) opens the page in a new tab without an opener, only when the URL is https on squareup.com or squareupsandbox.com (or a subdomain) without user, password or port (checked here as on the server; a voided payment has none) |
+| under a canceled invoice's actions | `live.feeShow`, `live.feeRows[]` (`title`, `line`, `lineStyle`, `canDecide`, `chargeLabel`, `charge`, `confirming`, `confirmText`, `confirm`, `waive`, `waiving`, `reason`, `setReason`, `waiveConfirm`, `back`) | `GET /invoices/:id/card-charges` (quiet, only for a canceled invoice of a visit): its no-show and late-cancel fees as on the appointment file (DV-904); `Charge $15` asks first, then `POST /appointments/:appointmentId/fee-charges/:id/charge` (`pay.collect`, a key per fee); `Waive` needs a reason (`…/waive {reason}`) |
+
+Tests: `src/lib/payments/saved-card.test.ts`, `src/screens/payments/live-cards.test.ts` (view model, commands, keys,
+permissions), `src/screens/payments/live-cards.render.test.ts` (the live template). End to end: `pnpm e2e:billing`
+(below).
+
+### Running the end to end (`pnpm e2e:billing`)
+
+`scripts/e2e-billing-stack.sh` does it all in one shell on the test server: the backend's HTTP Square simulator (webhooks signed
+with a key made for the run), a live stack (`design,website-catalog,pricing-defaults`, real clock, `--jobs`) with
+`PAYMENT_PROCESSOR=square`, Square writes and memberships on, personal links on (a test `PIN_PEPPER` made for the run), the e2e,
+then the stack down and its schema dropped. Neither the key nor the pepper is printed.
+
+```bash
+oasis-remote ~/oasis/wt/q3-dashapi -- true
+oasis-remote ~/oasis/wt/q3-dash -- 'bash scripts/e2e-billing-stack.sh /home/ec2-user/oasis/wt/q3-dashapi [--only <step text>]'
+```
+
+The run (9 steps, as the Super Admin): three clients with a visit each (a test hook moves the visits to today and the no-show
+visit two hours back, since the server takes a no-show only after the start and the grace period); Settings → Billing &
+integrations: Test connection on the simulator (each check against the API), the no-show fee switched on at $100 and saved,
+Sync to Square (the Gold price `On Square` in Memberships); two clients save a card on their own card page (the real link
+routes: the link made with the backend's `issueClientLink`, the page verified by the code texted to it, recovered from its
+hash; `cnon:card-nonce-ok` is the simulator's Visa ••5858) and the file lists it with its consent; the Collect sheet offers
+`Saved card ••5858`, refuses before the client's OK and charges the balance (a Square payment on the ledger, the invoice
+paid); a no-show proposes the fee, charged after a confirm (Square's payment id on the charge); a client joins Gold on their
+membership page (Square subscription, first invoice paid, webhooks through the worker) and the Membership tab shows `Billed by
+Square`, then `Pause` (asked first) schedules the pause at Square. Screenshots: `parity-reports/e2e-billing/`.

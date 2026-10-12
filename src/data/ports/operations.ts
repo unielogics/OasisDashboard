@@ -265,7 +265,7 @@ export function createLiveOperationsPort(
     pickup: (id, state, o) => post(`${a(id)}/pickup`, { state }, o),
     notifyReady: (id, o) => post(`${a(id)}/notify-ready`, undefined, o),
     cancel: (id, input, o) => post(`${a(id)}/cancel`, input, o),
-    noShow: (id, o) => post(`${a(id)}/no-show`, undefined, o),
+    noShow: (id, o) => post(`${a(id)}/no-show`, {}, o),
     book: (input, o) => post('/appointments', input, o),
     setAddon: (id, serviceId, on, o) =>
       on
