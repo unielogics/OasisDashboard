@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Vehicle sizes on the live Operations screen (ADR 0170, DV-807..DV-813), pure: size chips, the price preview of the
 // booking sheet from the server's quote, the file's size and coverage words, the deposit of a canceled visit, the
 // household, and the booking and quote requests the sheet sends.

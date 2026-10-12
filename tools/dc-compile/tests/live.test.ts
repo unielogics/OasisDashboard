@@ -253,8 +253,9 @@ describe('live variant of the three screens', () => {
 
   // The Payments wave adds Squarespace states that its live view model owns (DV-214, DV-215); nothing else may leave live.*.
   // ADR 0160 plan K adds each row's category chip (DV-224).
+  // Square (ADR 0171, DV-802..DV-804) adds the ledger entries' Square controls (`sq*`) and the Collect sheet's link with Copy.
   const PAYMENTS_OWN =
-    /^(d\.ledger\[\]\.(awaiting|confirm|confirmStyle|confirmNote)|sh\.(needsUrl|urlRaw|setUrl|hasUrlError|urlError)|rows\[\]\.cat\.(show|style|label))$/
+    /^(d\.ledger\[\]\.(awaiting|confirm|confirmStyle|confirmNote|sq[A-Za-z]+)|sh\.(needsUrl|urlRaw|setUrl|hasUrlError|urlError|hasSentLink|sentLink|copyLink)|rows\[\]\.cat\.(show|style|label))$/
 
   // The Operations wave adds the New Appointment sheet's inputs (`nf.*`) and the file's live controls (`sel.*`: composer,
   // tender choice, Payment pending, SMS chip, photo file inputs) that its live view model owns (DV-402..DV-408, DV-420).
