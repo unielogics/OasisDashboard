@@ -56,8 +56,11 @@ describe('keysForEvent', () => {
     for (const x of ['reviews', 'status_texts', 'leads'])
       expect(s(x)).toEqual([['settings', x], ['settings', 'reminders']])
     expect(s('reminders')).toEqual([['settings', 'reminders']])
-    // the booking fee (booking.guest_fee) is edited in Settings → Prices by size, which reads the catalog
-    expect(s('booking')).toEqual([['settings', 'booking'], ['settings', 'catalog']])
+    // the booking fee (booking.guest_fee) is edited in Settings → Prices by size, which reads the catalog, and shows in
+    // Settings → Billing & integrations with link tipping, the membership renewal policy and notice and the card fees
+    // (ADR 0171, DV-908)
+    expect(s('booking')).toEqual([['settings', 'booking'], ['settings', 'catalog'], ['settings', 'billing']])
+    for (const x of ['payments', 'memberships', 'fees']) expect(s(x)).toEqual([['settings', x], ['settings', 'billing']])
     expect(s('constructor')).toEqual([['settings', 'constructor']])
   })
 })

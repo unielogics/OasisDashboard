@@ -25,6 +25,8 @@ export type SectionKey =
   | 'sizes'
   | 'prices'
   | 'memberships'
+  // live variant only (ADR 0171, DV-908): Square, payment links, saved-card fees, memberships billed by Square
+  | 'billing'
 
 /** One weekday of the opening hours (the state array is indexed by weekday, 0 = Sunday). */
 export interface HoursDay {

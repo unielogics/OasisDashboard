@@ -23,6 +23,7 @@ import { ApiError } from '@/data/http/problem'
 import { qk } from '@/data/query'
 import { QueryStore } from '@/data/query-store'
 import type {
+  BillingRes,
   CatalogRes,
   RemindersPreviewRes,
   RemindersRes,
@@ -64,12 +65,15 @@ import {
 import type { RemindersDraft, RemindersView, StepperKey } from '@/lib/settings/reminders'
 import { chip, navStyle, seg, serviceKindStyle, serviceRowStyle, sw } from '@/lib/settings/styles'
 import type { SectionKey } from '@/lib/settings/types'
+import { DEFAULT_TZ, businessClock, businessToday } from '@/lib/tz'
+import { serverNow } from '@/lib/clock'
+import { BillingSection } from './billing'
 import { MembershipSections } from './memberships'
 import { PricingSections } from './pricing'
 import { formError, saveButtonStyle, swatchButtonStyle } from './ui'
 import type { InputEvent, KeyEvent, RunOptions, RunResult, SectionCtx, Vals } from './ui'
 
-export type ExtraSection = 'catalog' | 'categories' | 'reminders' | 'sizes' | 'prices' | 'memberships'
+export type ExtraSection = 'catalog' | 'categories' | 'reminders' | 'sizes' | 'prices' | 'memberships' | 'billing'
 export const EXTRA_SECTIONS: readonly ExtraSection[] = [
   'catalog',
   'categories',
@@ -77,9 +81,13 @@ export const EXTRA_SECTIONS: readonly ExtraSection[] = [
   'sizes',
   'prices',
   'memberships',
+  'billing',
 ]
-/** Vehicle sizes, Prices by size, Memberships: one nav button, tabs over the section. */
-const PRICING_SECTIONS: readonly SectionKey[] = ['sizes', 'prices', 'memberships']
+/**
+ * Vehicle sizes, Prices by size, Memberships and Billing & integrations (DV-908): one nav button, tabs over the section
+ * (the nav has no room for another button at 1000 px, DV-322).
+ */
+const PRICING_SECTIONS: readonly SectionKey[] = ['sizes', 'prices', 'memberships', 'billing']
 /** The sections that read GET /catalog. */
 const CATALOG_SECTIONS: readonly SectionKey[] = ['catalog', 'categories', 'sizes', 'prices', 'memberships']
 export const isExtraSection = (s: SectionKey): s is ExtraSection =>
@@ -104,6 +112,8 @@ export interface ExtrasDeps {
 
 const CATALOG_KEY = qk.settings('catalog')
 const REMINDERS_KEY = qk.settings('reminders')
+const BILLING_KEY = qk.settings('billing')
+const BILLING_DENY = 'set.billing' as const
 const FOREVER = { staleTimeMs: Infinity }
 const noop = (): void => {}
 
@@ -120,6 +130,7 @@ const sameCategory = (a: CategoryDraft, b: CategoryDraft): boolean =>
   a.label === b.label && normalizeColour(a.colour) === normalizeColour(b.colour)
 
 const STEPPER_BTN = { dec: '−', inc: '+' } as const
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 interface RemPreview {
   key: string
@@ -147,6 +158,8 @@ export class SettingsExtras {
   // vehicle sizes, prices by size and the booking fee; memberships (ADR 0170)
   private readonly pricing: PricingSections
   private readonly memberships: MembershipSections
+  // Billing & integrations (ADR 0171, DV-908)
+  private readonly billingSection: BillingSection
   // categories
   private readonly cats = new DraftSet<CategoryDraft>(sameCategory)
   private catErrors: Record<string, string> = {}
@@ -180,7 +193,39 @@ export class SettingsExtras {
       go: (k) => this.host?.go(k),
     }
     this.pricing = new PricingSections(ctx)
-    this.memberships = new MembershipSections(ctx)
+    const runBilling = <T>(name: string, request: (idem: string) => Promise<T>, o: RunOptions = {}) =>
+      this.run(name, BILLING_KEY, request, BILLING_DENY, o.invalidate ?? [], o.staleMessage, o.explain)
+    this.memberships = new MembershipSections(ctx, {
+      canMove: () => this.can(BILLING_DENY),
+      allowedMove: () => this.allowed(BILLING_DENY),
+      // the notice the backend uses: the billing setting when this person may read it, else its default (30)
+      noticeDays: () => (this.can(BILLING_DENY) ? (this.billing()?.priceChangeNotice.days ?? null) : null),
+      today: () => businessToday(serverNow(), this.tz()),
+      runMove: (name, request, o = {}) =>
+        this.run(name, CATALOG_KEY, request, BILLING_DENY, o.invalidate ?? [], o.staleMessage, o.explain),
+    })
+    this.billingSection = new BillingSection({
+      api: this.api,
+      run: runBilling,
+      runServices: (name, request, o = {}) =>
+        this.run(name, CATALOG_KEY, request, SERVICES_DENY, [BILLING_KEY, ...(o.invalidate ?? [])], o.staleMessage, o.explain),
+      allowed: () => this.allowed(BILLING_DENY),
+      allowedServices: () => this.allowed(SERVICES_DENY),
+      busy: (name) => this.busy.has(name),
+      changed: () => this.changed(),
+      flash: (t) => this.flash(t),
+      stamp: (iso) => {
+        const ms = Date.parse(iso)
+        if (!Number.isFinite(ms)) return ''
+        const d = businessToday(ms, this.tz())
+        const [, m, day] = d.split('-').map(Number)
+        return MONTHS_SHORT[m! - 1] + ' ' + day + ', ' + businessClock(ms, this.tz())
+      },
+    })
+  }
+
+  private tz(): string {
+    return this.sessionOf()?.businessTz ?? DEFAULT_TZ
   }
 
   bind(host: ExtrasHost): void {
@@ -258,8 +303,21 @@ export class SettingsExtras {
     return this.store.read<RemindersRes>(REMINDERS_KEY, f, FOREVER)
   }
 
+  /** GET /settings/billing (set.billing only: nobody else reads it). */
+  billing(): BillingRes | undefined {
+    if (!this.can(BILLING_DENY)) return undefined
+    const f = () => this.api.billing()
+    this.watch('billing', BILLING_KEY, f)
+    return this.store.read<BillingRes>(BILLING_KEY, f, FOREVER)
+  }
+
   /** What stands in for an extra section while its data is not here. */
-  gate(sec: ExtraSection): 'loading' | 'failed' | null {
+  gate(sec: ExtraSection): 'locked' | 'loading' | 'failed' | null {
+    if (sec === 'billing') {
+      if (!this.can(BILLING_DENY)) return 'locked'
+      if (this.billing()) return null
+      return this.store.status(BILLING_KEY) === 'error' ? 'failed' : 'loading'
+    }
     const key = sec === 'reminders' ? REMINDERS_KEY : CATALOG_KEY
     const v = sec === 'reminders' ? this.reminders() : this.catalog()
     if (v) return null
@@ -269,6 +327,7 @@ export class SettingsExtras {
   reload(): void {
     void this.qc.invalidateQueries({ queryKey: CATALOG_KEY })
     void this.qc.invalidateQueries({ queryKey: REMINDERS_KEY })
+    void this.qc.invalidateQueries({ queryKey: BILLING_KEY })
   }
 
   private async run<T>(
@@ -331,6 +390,8 @@ export class SettingsExtras {
         this.host?.go('prices')
       },
       goMemberships: go('memberships'),
+      goBilling: go('billing'),
+      secBilling: sec === 'billing' && open,
       secCatalog: sec === 'catalog' && open,
       secCategories: sec === 'categories' && open,
       secReminders: sec === 'reminders' && open,
@@ -345,6 +406,7 @@ export class SettingsExtras {
             ['prices', 'Prices by size'],
             ['memberships', 'Memberships'],
             ['sizes', 'Vehicle sizes'],
+            ['billing', 'Billing & integrations'],
           ] as const
         ).map(([k, label]) => ({
           label,
@@ -360,6 +422,8 @@ export class SettingsExtras {
     }
     if (!CATALOG_SECTIONS.includes(sec)) this.unwatch('catalog')
     if (sec !== 'reminders') this.unwatch('reminders')
+    // Memberships reads the notice of "Move members" from the billing settings (set.billing)
+    if (sec !== 'billing' && sec !== 'memberships') this.unwatch('billing')
     const c = CATALOG_SECTIONS.includes(sec) ? this.catalog() : undefined
     out.cat = this.catalogVals(sec === 'catalog' ? c : undefined, dark)
     out.cats = this.categoriesVals(sec === 'categories' ? c : undefined)
@@ -367,6 +431,7 @@ export class SettingsExtras {
     out.sizes = this.pricing.sizesVals(sec === 'sizes' ? c : undefined)
     out.prices = this.pricing.pricesVals(sec === 'prices' ? c : undefined)
     out.mem = this.memberships.vals(sec === 'memberships' ? c : undefined)
+    out.bill = this.billingSection.vals(sec === 'billing' && open ? this.billing() : undefined, dark)
     return out
   }
 

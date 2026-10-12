@@ -116,6 +116,8 @@ export const SECTION_META: Record<SectionKey, readonly [title: string, descripti
   sizes: ['Vehicle sizes', 'The sizes every price is set for, smallest first.'],
   prices: ['Prices by size', 'One price per service and vehicle size, and the booking fee guests pay.'],
   memberships: ['Memberships', 'Tiers, what each includes, the member % off and the monthly price per size.'],
+  // live variant only (DV-908)
+  billing: ['Billing & integrations', 'Square, payment links, saved-card fees and how memberships billed by Square renew.'],
 }
 
 export const MON = [
@@ -182,4 +184,6 @@ export const SECTION_READ_PERMISSION: Partial<Record<SectionKey, string>> = {
   employees: 'team.view',
   roles: 'team.view',
   vip: 'cli.member',
+  // live only (DV-908): GET /settings/billing needs it
+  billing: 'set.billing',
 }

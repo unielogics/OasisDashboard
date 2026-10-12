@@ -163,7 +163,7 @@ export function fakeApi(): {
 
 export function setup(
   over: {
-    role?: 'mgmt' | 'crew' | 'super' | 'support'
+    role?: 'mgmt' | 'crew' | 'super' | 'support' | 'acct'
     toast?: (t: ToastSpec) => void
     debounceMs?: LiveDataDeps['debounceMs']
   } = {},

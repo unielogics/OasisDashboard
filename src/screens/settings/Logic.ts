@@ -127,6 +127,8 @@ const SECTION_PARTS: Record<SectionKey, SyncPartName[]> = {
   sizes: [],
   prices: [],
   memberships: [],
+  // live only (ADR 0171): Billing & integrations (live/billing.ts)
+  billing: [],
 }
 
 /** The sections the design does not have (live variant only, DV-317..DV-321, DV-322..DV-326). */
@@ -137,6 +139,7 @@ const EXTRA_SECTIONS: ReadonlySet<SectionKey> = new Set<SectionKey>([
   'sizes',
   'prices',
   'memberships',
+  'billing',
 ])
 
 export class SettingsLogic extends DCLogic<SettingsState> {
@@ -360,6 +363,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   componentDidMount(): void {
     if (location.hash === '#emergency') this.setState({ section: 'emergency' })
     else if (this.data.live && location.hash === '#assistant') this.setState({ section: 'assistant' })
+    else if (this.data.live && location.hash === '#billing') this.setState({ section: 'billing' })
     this.dataOff = this.data.subscribe(() => this.forceUpdate())
     if (this.extras) {
       this.extras.bind({

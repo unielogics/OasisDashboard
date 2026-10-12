@@ -309,6 +309,53 @@ const previewOf = (draft: any) => ({
   ],
 })
 
+/** GET /settings/billing as the backend answers it with the defaults (Squarespace, the simulator, everything off). */
+export function billingFixture(): any {
+  return {
+    square: {
+      status: {
+        key: 'square',
+        label: 'Square',
+        provider: 'sim',
+        live: false,
+        configured: false,
+        missing: [],
+        warnings: ['Squarespace is still the processor', 'Square simulator: nothing reaches Square'],
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+        details: { environment: 'sim' },
+      },
+      eventTypes: ['payment.created'],
+      lastTest: null,
+      catchup: { watermark: null, lastRunAt: null, lastEvents: 0 },
+      reconcile: null,
+    },
+    processing: {
+      processor: 'squarespace',
+      squareProvider: 'sim',
+      squareEnvironment: 'sandbox',
+      writesEnabled: false,
+      membershipsEnabled: false,
+      posAppSwitch: false,
+      posAutomatch: 'evidence',
+      publicLinksEnabled: false,
+      cardsOn: false,
+    },
+    guestFee: { cents: 2500, collect: 'counter', version: 3 },
+    linkTipping: { enabled: false, version: 0 },
+    cardFees: { fees: { enabled: false, noShowCents: 0, lateCancelCents: 0 }, version: 0, active: false },
+    renewalPolicy: { graceDays: 7, cancelDays: 21, version: 0 },
+    priceChangeNotice: { days: 30, version: 0 },
+    consent: {
+      version: 'v1',
+      checkedByDefault: false,
+      purposes: ['membership_billing', 'no_show_fee', 'late_cancel_fee', 'balance'],
+      text: 'Save this card with Square so Oasis Auto Spa can charge it for: membership payments, no-show fees, late-cancel fees, balances. Charges are made only after the shop confirms them, except your membership’s monthly payment. You can remove the card any time from your link or by asking us.',
+    },
+  }
+}
+
 /**
  * The catalog and reminders endpoints over in-memory state; every call is recorded in `calls` (shared with LiveData's).
  * Like the server, a write carrying another version than the stored one is refused with 412.
@@ -465,7 +512,66 @@ export function extendApi(f: ReturnType<typeof setup>) {
     return { ...clone(rem), changed: ['reminders.offsets_min'] }
   })
   api.previewReminders = step('previewReminders', (body: any) => previewOf(body?.draft))
-  return { cat, rem }
+  // Settings → Billing & integrations (api-spec 30.13) and Move members (30.12)
+  const bill = billingFixture()
+  api.billing = step('billing', () => {
+    bill.guestFee = { ...cat.guestFee }
+    return clone(bill)
+  })
+  api.saveLinkTipping = step('saveLinkTipping', (body: any) => {
+    fresh(bill.linkTipping.version, body.version)
+    bill.linkTipping = { enabled: body.enabled, version: bill.linkTipping.version + 1 }
+    return clone(bill.linkTipping)
+  })
+  api.saveCardFees = step('saveCardFees', (body: any) => {
+    fresh(bill.cardFees.version, body.version)
+    bill.cardFees = { fees: omitVersion(body), version: bill.cardFees.version + 1, active: false }
+    return clone(bill.cardFees)
+  })
+  api.saveRenewalPolicy = step('saveRenewalPolicy', (body: any) => {
+    fresh(bill.renewalPolicy.version, body.version)
+    if (!(body.cancelDays > body.graceDays)) throw validation('cancelDays must be greater than graceDays', 'body.cancelDays')
+    bill.renewalPolicy = { graceDays: body.graceDays, cancelDays: body.cancelDays, version: bill.renewalPolicy.version + 1 }
+    return clone(bill.renewalPolicy)
+  })
+  api.savePriceNotice = step('savePriceNotice', (body: any) => {
+    fresh(bill.priceChangeNotice.version, body.version)
+    bill.priceChangeNotice = { days: body.days, version: bill.priceChangeNotice.version + 1 }
+    return clone(bill.priceChangeNotice)
+  })
+  api.testSquare = step('testSquare', () => ({
+    ok: true,
+    environment: 'sim',
+    locationId: 'LSIMOASIS0001',
+    merchantId: 'MSIM',
+    webhookSubscriptionId: null,
+    checks: [
+      { key: 'token', ok: true, detail: 'Square answered' },
+      { key: 'location', ok: true, detail: 'Oasis Auto Spa, USD, takes cards' },
+      { key: 'events', ok: true, detail: 'Events API on' },
+      { key: 'webhook', ok: true, detail: 'Simulator' },
+    ],
+    testedAt: '2026-06-13T14:36:00.000Z',
+  }))
+  api.syncSquareCatalog = step('syncSquareCatalog', () => ({
+    status: 'skipped',
+    reason: 'Square writes are off',
+    plansCreated: 0,
+    plansRenamed: 0,
+    variationsCreated: 0,
+    retired: 0,
+    kept: 0,
+    drift: 0,
+    recreated: 0,
+    failed: 0,
+  }))
+  api.moveMembers = step('moveMembers', (key: string) => ({
+    tierKey: key,
+    moving: 2,
+    skipped: 1,
+    swapAfter: '2026-07-13T14:36:00.000Z',
+  }))
+  return { cat, rem, bill }
 }
 
 export const validation = (detail: string, path = 'body.x'): ApiError =>
@@ -479,7 +585,7 @@ export const inUse = (code: string, meta: Record<string, unknown>): ApiError =>
   new ApiError({ status: 409, title: 'In use', detail: 'Still in use. Turn it off instead', code, meta } as any)
 
 /** The Settings view model with LiveData and the extras over the fakes; `toasts` collects both success and error toasts. */
-export function makeExtrasLogic(role: 'mgmt' | 'crew' | 'super' | 'support' = 'mgmt') {
+export function makeExtrasLogic(role: 'mgmt' | 'crew' | 'super' | 'support' | 'acct' = 'mgmt') {
   const ref: { logic?: any } = {}
   const flashes: string[] = []
   const s = setup({ role, toast: (t) => ref.logic?.flash(t.desc ? t.title + ' · ' + t.desc : t.title) })

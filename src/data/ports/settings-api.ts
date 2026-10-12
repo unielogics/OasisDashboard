@@ -1,6 +1,7 @@
 // The Settings endpoints as the backend declares them (types from the generated settings-schema.d.ts), and a typed
 // client over ApiClient. The live Settings data (src/screens/settings/live) is the only caller.
 import type { ApiClient, RequestOptions } from '../http/client'
+import type { paths as apiPaths } from '../http/schema'
 import type { operations, paths } from './settings-schema'
 
 const enc = encodeURIComponent
@@ -79,6 +80,22 @@ export type RemindersSaveRes = Ok<operations['putSettingsReminders']>
 export type RemindersPreviewReq = Req<operations['previewSettingsReminders']>
 export type RemindersPreviewRes = Ok<operations['previewSettingsReminders']>
 
+// Settings → Billing & integrations (ADR 0171; api-spec 30.13, 30.11, 30.12, 30.3): typed from the full API schema
+type ApiOk<P extends keyof apiPaths, M extends 'get' | 'put' | 'post'> = Ok<NonNullable<apiPaths[P][M]>>
+type ApiReq<P extends keyof apiPaths, M extends 'put' | 'post'> = Req<NonNullable<apiPaths[P][M]>>
+export type BillingRes = ApiOk<'/api/v1/settings/billing', 'get'>
+export type SquareTestRes = ApiOk<'/api/v1/integrations/square/test', 'post'>
+export type CatalogSyncRes = ApiOk<'/api/v1/integrations/square/catalog/sync', 'post'>
+export type LinkTippingReq = ApiReq<'/api/v1/settings/billing/link-tipping', 'put'>
+export type LinkTippingRes = ApiOk<'/api/v1/settings/billing/link-tipping', 'put'>
+export type RenewalPolicyReq = ApiReq<'/api/v1/settings/billing/renewal-policy', 'put'>
+export type RenewalPolicyRes = ApiOk<'/api/v1/settings/billing/renewal-policy', 'put'>
+export type PriceNoticeReq = ApiReq<'/api/v1/settings/billing/price-change-notice', 'put'>
+export type PriceNoticeRes = ApiOk<'/api/v1/settings/billing/price-change-notice', 'put'>
+export type CardFeesReq = ApiReq<'/api/v1/settings/card-fees', 'put'>
+export type CardFeesRes = ApiOk<'/api/v1/settings/card-fees', 'put'>
+export type MoveMembersRes = ApiOk<'/api/v1/catalog/tiers/{key}/move-members', 'post'>
+
 type Opts = Pick<RequestOptions, 'idempotencyKey' | 'ifMatch' | 'signal'>
 
 export interface SettingsApi {
@@ -155,6 +172,18 @@ export interface SettingsApi {
   reminders(): Promise<RemindersRes>
   saveReminders(body: RemindersReq, o?: Opts): Promise<RemindersSaveRes>
   previewReminders(body: RemindersPreviewReq, o?: Pick<Opts, 'signal'>): Promise<RemindersPreviewRes>
+  // Settings → Billing & integrations (set.billing; the booking fee stays on saveGuestFee, set.services)
+  billing(): Promise<BillingRes>
+  saveLinkTipping(body: LinkTippingReq, o?: Opts): Promise<LinkTippingRes>
+  saveRenewalPolicy(body: RenewalPolicyReq, o?: Opts): Promise<RenewalPolicyRes>
+  savePriceNotice(body: PriceNoticeReq, o?: Opts): Promise<PriceNoticeRes>
+  saveCardFees(body: CardFeesReq, o?: Opts): Promise<CardFeesRes>
+  /** POST /integrations/square/test: token, location, Events API and webhook subscription (the simulator with sim). */
+  testSquare(o?: Opts): Promise<SquareTestRes>
+  /** POST /integrations/square/catalog/sync ("Sync to Square"): skipped while Square writes or memberships are off. */
+  syncSquareCatalog(o?: Opts): Promise<CatalogSyncRes>
+  /** POST /catalog/tiers/:key/move-members (set.billing): members on an older price are told, then moved. */
+  moveMembers(key: string, body: { notice?: number }, o?: Opts): Promise<MoveMembersRes>
 }
 
 export function createSettingsApi(c: ApiClient): SettingsApi {
@@ -217,5 +246,13 @@ export function createSettingsApi(c: ApiClient): SettingsApi {
     reminders: () => c.get('/settings/reminders'),
     saveReminders: (body, o) => c.put('/settings/reminders', body, o),
     previewReminders: (body, o) => c.post('/settings/reminders/preview', body, { ...o, retries: 0 }),
+    billing: () => c.get('/settings/billing'),
+    saveLinkTipping: (body, o) => c.put('/settings/billing/link-tipping', body, o),
+    saveRenewalPolicy: (body, o) => c.put('/settings/billing/renewal-policy', body, o),
+    savePriceNotice: (body, o) => c.put('/settings/billing/price-change-notice', body, o),
+    saveCardFees: (body, o) => c.put('/settings/card-fees', body, o),
+    testSquare: (o) => c.post('/integrations/square/test', {}, o),
+    syncSquareCatalog: (o) => c.post('/integrations/square/catalog/sync', {}, o),
+    moveMembers: (key, body, o) => c.post(`/catalog/tiers/${enc(key)}/move-members`, body, o),
   }
 }

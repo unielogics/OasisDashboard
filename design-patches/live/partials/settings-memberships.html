@@ -92,6 +92,19 @@
             <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:6px;">Kept until memberships move to Square. Never shown publicly.</div>
           </div>
         </div>
+        <sc-if value="{{ live.mem.t.canMove }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;">
+            <div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;"><div style="font-weight:700;font-size:14px;">Move members to today’s prices</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">Members keep the price they joined at until you do this.</div></div><sc-if value="{{ live.mem.t.moveOpen }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.mem.t.moveCancel }}" style="height:40px;padding:0 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:12.5px;">Keep prices</button></sc-if><sc-if value="{{ live.mem.t.moveClosed }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ live.mem.t.moveStart }}" style="height:40px;padding:0 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:12.5px;">Move members</button></sc-if></div>
+            <sc-if value="{{ live.mem.t.moveOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12.5px;font-weight:600;color:var(--ink2);line-height:1.5;margin-top:10px;">{{ live.mem.t.moveExplain }}</div>
+              <div style="font-size:11.5px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;margin:12px 0 6px;">The text they get</div>
+              <div style="padding:11px 14px;background:var(--accentSoft);border:1px solid var(--accentBrd);border-radius:12px;font-size:13px;font-weight:600;color:var(--accentInk);line-height:1.5;">{{ live.mem.t.moveText }}</div>
+              <div style="font-size:12.5px;font-weight:700;margin-top:10px;">{{ live.mem.t.moveWhen }}</div>
+              <sc-if value="{{ live.mem.t.moveHasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.mem.t.moveError }}</div></sc-if>
+              <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button sc-camel-on-click="{{ live.mem.t.moveConfirm }}" style="{{ live.mem.t.moveStyle }}">{{ live.mem.t.moveLabel }}</button></div>
+            </sc-if>
+          </div>
+        </sc-if>
         <sc-if value="{{ live.mem.t.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.mem.t.error }}</div></sc-if>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
           <sc-if value="{{ live.mem.t.dirty }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.mem.t.discard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button></sc-if>
@@ -111,7 +124,7 @@
       <div style="{{ r.style }}">
         <div style="min-width:0;padding:8px 0;"><div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;"><span style="{{ r.swatch }}"></span>{{ r.name }}</div><div style="font-size:11.5px;font-weight:700;color:var(--ink3);margin-top:2px;">{{ r.sub }}</div></div>
         <sc-for list="{{ r.cells }}" as="x" hint-placeholder-count="5">
-          <div style="min-width:0;padding:6px 0;"><input value="{{ x.value }}" sc-camel-on-input="{{ x.set }}" title="{{ x.label }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"><div style="font-size:10.5px;font-weight:700;color:var(--ink3);margin-top:3px;text-align:right;padding-right:4px;">{{ x.state }}</div></div>
+          <div style="min-width:0;padding:6px 0;"><input value="{{ x.value }}" sc-camel-on-input="{{ x.set }}" title="{{ x.label }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"><div title="{{ x.stateTitle }}" style="{{ x.stateStyle }}">{{ x.state }}</div></div>
         </sc-for>
       </div>
     </sc-for>

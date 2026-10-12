@@ -32,8 +32,13 @@ const SETTINGS_ALSO: Record<string, QueryKey[]> = {
   reviews: [['settings', 'reminders']],
   status_texts: [['settings', 'reminders']],
   leads: [['settings', 'reminders']],
-  // the booking fee (`booking.guest_fee`, ADR 0170) is read with the catalog (Settings → Prices by size)
-  booking: [['settings', 'catalog']],
+  // the booking fee (`booking.guest_fee`, ADR 0170) is read with the catalog (Settings → Prices by size) and by Settings →
+  // Billing & integrations, which also shows link tipping (`payments.*`), the renewal policy and the price-change notice
+  // (`memberships.*`) and the saved-card fees (`fees.*`) (ADR 0171, DV-908)
+  booking: [['settings', 'catalog'], ['settings', 'billing']],
+  payments: [['settings', 'billing']],
+  memberships: [['settings', 'billing']],
+  fees: [['settings', 'billing']],
 }
 
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */

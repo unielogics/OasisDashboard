@@ -1,0 +1,71 @@
+<sc-if value="{{ live.secBilling }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:14px 16px;background:var(--accentSoft);border:1px solid var(--accentBrd);border-radius:14px;margin-bottom:18px;color:var(--accentInk);font-size:13.5px;font-weight:700;line-height:1.45;">{{ live.bill.note }}</div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Square</div>
+        <div style="{{ live.bill.sqHeadStyle }}">{{ live.bill.sqHeadline }}</div>
+        <sc-if value="{{ live.bill.sqHasMissing }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12px;font-weight:800;color:#C2410C;">Still needed:</div><sc-for list="{{ live.bill.sqMissing }}" as="m" hint-placeholder-count="1"><div style="font-size:12.5px;font-weight:600;color:#C2410C;line-height:1.45;">· {{ m.text }}</div></sc-for></sc-if>
+        <sc-if value="{{ live.bill.sqHasWarnings }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;display:flex;flex-direction:column;gap:2px;"><sc-for list="{{ live.bill.sqWarnings }}" as="w" hint-placeholder-count="1"><div style="font-size:12.5px;font-weight:600;color:#8A5A06;line-height:1.45;">· {{ w.text }}</div></sc-for></div></sc-if>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:10px;">{{ live.bill.sqLastTest }}</div>
+        <sc-if value="{{ live.bill.sqHasChecks }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"><sc-for list="{{ live.bill.sqChecks }}" as="c" hint-placeholder-count="4"><div style="display:flex;gap:10px;"><div style="flex:none;width:110px;font-size:12px;font-weight:700;color:var(--ink3);">{{ c.label }}</div><div style="{{ c.style }}">{{ c.value }}</div></div></sc-for></div></sc-if>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+          <button sc-camel-on-click="{{ live.bill.test }}" style="height:42px;padding:0 16px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">{{ live.bill.testLabel }}</button>
+          <button sc-camel-on-click="{{ live.bill.sync }}" style="height:42px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;color:var(--ink2);">{{ live.bill.syncLabel }}</button>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:8px;line-height:1.45;">{{ live.bill.syncNote }}</div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">How payments run</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 12px;">Server switches, read only.</div>
+        <div style="display:flex;flex-direction:column;gap:8px;"><sc-for list="{{ live.bill.switches }}" as="l" hint-placeholder-count="8"><div><div style="font-size:11.5px;color:var(--ink3);font-weight:700;">{{ l.label }}</div><div style="{{ l.style }}">{{ l.value }}</div></div></sc-for></div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Card consent</div>
+        <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-top:4px;">{{ live.bill.consentVersion }}</div>
+        <div style="margin-top:10px;padding:11px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;font-size:13px;font-weight:600;line-height:1.5;">{{ live.bill.consentText }}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:8px;">{{ live.bill.consentPurposes }}</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Booking fee</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 12px;line-height:1.45;">{{ live.bill.bookingFee }}</div>
+        <div style="display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;"><sc-for list="{{ live.bill.collectOpts }}" as="o" hint-placeholder-count="2"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+        <sc-if value="{{ live.bill.collectHold }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:8px;">Set to “hold on a saved card”: collected at the counter for now.</div></sc-if>
+        <sc-if value="{{ live.bill.collectHasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.bill.collectError }}</div></sc-if>
+        <sc-if value="{{ live.bill.collectDirty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button sc-camel-on-click="{{ live.bill.collectDiscard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button><button sc-camel-on-click="{{ live.bill.collectSave }}" style="{{ live.bill.collectSaveStyle }}">{{ live.bill.collectSaveLabel }}</button></div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="display:flex;align-items:center;gap:14px;"><div style="flex:1;"><div style="font-weight:800;font-size:15px;">Tips on payment links</div><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">{{ live.bill.tipSub }}</div></div><button sc-camel-on-click="{{ live.bill.tipToggle }}" style="{{ live.bill.tipTrack }}"><span style="{{ live.bill.tipKnob }}"></span></button></div>
+        <sc-if value="{{ live.bill.tipHasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.bill.tipError }}</div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="display:flex;align-items:center;gap:14px;"><div style="flex:1;"><div style="font-weight:800;font-size:15px;">No-show and late-cancel fees</div><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">{{ live.bill.feeSub }}</div></div><button sc-camel-on-click="{{ live.bill.feeToggle }}" style="{{ live.bill.feeTrack }}"><span style="{{ live.bill.feeKnob }}"></span></button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
+          <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">No-show fee ($)</div><input value="{{ live.bill.feeNoShow }}" sc-camel-on-input="{{ live.bill.setNoShow }}" inputmode="numeric" placeholder="0" style="width:100%;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;"></div>
+          <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Late-cancel fee ($)</div><input value="{{ live.bill.feeLate }}" sc-camel-on-input="{{ live.bill.setLate }}" inputmode="numeric" placeholder="0" style="width:100%;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;"></div>
+        </div>
+        <sc-if value="{{ live.bill.feeHasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.bill.feeError }}</div></sc-if>
+        <sc-if value="{{ live.bill.feeDirty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button sc-camel-on-click="{{ live.bill.feeDiscard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button><button sc-camel-on-click="{{ live.bill.feeSave }}" style="{{ live.bill.feeSaveStyle }}">{{ live.bill.feeSaveLabel }}</button></div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">When a membership payment fails</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Perks stay on (days)</div><input value="{{ live.bill.grace }}" sc-camel-on-input="{{ live.bill.setGrace }}" inputmode="numeric" style="width:100%;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;"></div>
+          <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Canceled after (days)</div><input value="{{ live.bill.cancel }}" sc-camel-on-input="{{ live.bill.setCancel }}" inputmode="numeric" style="width:100%;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;"></div>
+        </div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:10px;line-height:1.45;">{{ live.bill.policyText }}</div>
+        <sc-if value="{{ live.bill.policyHasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.bill.policyError }}</div></sc-if>
+        <sc-if value="{{ live.bill.policyDirty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button sc-camel-on-click="{{ live.bill.policyDiscard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button><button sc-camel-on-click="{{ live.bill.policySave }}" style="{{ live.bill.policySaveStyle }}">{{ live.bill.policySaveLabel }}</button></div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Notice before a price change</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 12px;line-height:1.45;">{{ live.bill.noticeSub }}</div>
+        <div style="display:flex;align-items:center;gap:10px;"><input value="{{ live.bill.noticeDays }}" sc-camel-on-input="{{ live.bill.setNotice }}" inputmode="numeric" style="width:90px;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;"><span style="font-weight:700;font-size:14px;">days</span></div>
+        <sc-if value="{{ live.bill.noticeHasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.bill.noticeError }}</div></sc-if>
+        <sc-if value="{{ live.bill.noticeDirty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button sc-camel-on-click="{{ live.bill.noticeDiscard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button><button sc-camel-on-click="{{ live.bill.noticeSave }}" style="{{ live.bill.noticeSaveStyle }}">{{ live.bill.noticeSaveLabel }}</button></div></sc-if>
+      </div>
+    </div>
+  </div>
+</sc-if>

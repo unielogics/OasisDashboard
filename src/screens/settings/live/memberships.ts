@@ -22,7 +22,6 @@ import {
   newTierProblem,
   parsePercent,
   sortTiers,
-  squareStateText,
   staleTierMessage,
   tierBody,
   tierBodyOf,
@@ -32,8 +31,19 @@ import {
   tierSub,
 } from '@/lib/settings/tiers'
 import type { InclusionDraft, InclusionKind, TierDraft, TierItem, TierPriceDraft } from '@/lib/settings/tiers'
+import { moveMembersPreview, moveToast, priceSquareText } from '@/lib/settings/billing'
 import { cellInputStyle, formError, gridColumns, saveButtonStyle, swatchButtonStyle } from './ui'
-import type { InputEvent, KeyEvent, SectionCtx, Vals } from './ui'
+import type { InputEvent, KeyEvent, RunOptions, RunResult, SectionCtx, Vals } from './ui'
+
+const STATE_COLOURS = { ink: 'var(--ink3)', green: '#0E9E6E', amber: '#8A5A06', red: '#C2410C' } as const
+const stateStyle = (tone: keyof typeof STATE_COLOURS): Record<string, string | number> => ({
+  fontSize: '10.5px',
+  fontWeight: 700,
+  color: STATE_COLOURS[tone],
+  marginTop: '3px',
+  textAlign: 'right',
+  paddingRight: '4px',
+})
 
 const KINDS: [InclusionKind, string][] = [
   ['count', 'Per month'],
@@ -41,7 +51,22 @@ const KINDS: [InclusionKind, string][] = [
   ['every_visit', 'Every wash'],
 ]
 
+/** "Move members" (ADR 0171 D9, DV-909): set.billing, the notice from the billing settings, the shop's today. */
+export interface MoveHooks {
+  canMove(): boolean
+  /** set.billing, or the "Your role can’t …" toast and false. */
+  allowedMove(): boolean
+  /** The billing setting's notice (days) when this person may read it; null: the server's default applies (30). */
+  noticeDays(): number | null
+  today(): string
+  runMove<T>(name: string, request: (idem: string) => Promise<T>, o?: RunOptions): Promise<RunResult<T>>
+}
+
+const DEFAULT_NOTICE_DAYS = 30
+
 export class MembershipSections {
+  private moveFor: string | null = null
+  private moveError = ''
   private selKey: string | null = null
   private readonly drafts = new DraftSet<TierDraft>()
   private errors: Record<string, string> = {}
@@ -51,7 +76,16 @@ export class MembershipSections {
   private priceError = ''
   private conflictTier: string | null = null
 
-  constructor(private readonly ctx: SectionCtx) {}
+  constructor(
+    private readonly ctx: SectionCtx,
+    private readonly move: MoveHooks = {
+      canMove: () => false,
+      allowedMove: () => false,
+      noticeDays: () => null,
+      today: () => '1970-01-01',
+      runMove: async () => ({ ok: false, message: '' }),
+    },
+  ) {}
 
   private tiers(c: CatalogRes): TierItem[] {
     return sortTiers(c.tiers as TierItem[])
@@ -218,6 +252,7 @@ export class MembershipSections {
       saveStyle: saveButtonStyle(dirty && !busy),
       saveLabel: busy ? 'Saving…' : 'Save tier',
       save: () => void this.saveTier(t),
+      ...this.moveVals(t),
       discard: () => {
         this.drafts.drop(t.key)
         delete this.errors[t.key]
@@ -282,6 +317,64 @@ export class MembershipSections {
       remove: () => edit((x) => x.inclusions.splice(k, 1)),
       isNew: inc.id === null,
     }
+  }
+
+  /**
+   * "Move members" of the picked tier (DV-909): members billed by Square at an older price of their size are told (text and
+   * email) and moved to today's price after the notice. The box shows the text they get and the date; a second click
+   * sends it. Only for set.billing (others see nothing) and only once the tier has a price.
+   */
+  private moveVals(t: TierItem): Vals {
+    const can = this.move.canMove() && t.prices.length > 0
+    const days = this.move.noticeDays() ?? DEFAULT_NOTICE_DAYS
+    const open = this.moveFor === t.key
+    const pv = moveMembersPreview({ tierName: t.name, fromCents: t.fromMonthlyCents ?? null, days, today: this.move.today() })
+    const busy = this.ctx.busy('move:' + t.key)
+    return {
+      canMove: can,
+      moveOpen: can && open,
+      moveClosed: can && !open,
+      moveStart: () => {
+        if (!this.move.allowedMove()) return
+        this.moveFor = t.key
+        this.moveError = ''
+        this.ctx.changed()
+      },
+      moveCancel: () => {
+        this.moveFor = null
+        this.moveError = ''
+        this.ctx.changed()
+      },
+      moveExplain: pv.explain,
+      moveText: pv.text,
+      moveWhen: 'Moves at the first bill after ' + pv.when,
+      moveLabel: busy ? 'Sending…' : 'Send the notice and move them',
+      moveConfirm: () => void this.doMove(t, days, pv.when),
+      moveHasError: open && !!this.moveError,
+      moveError: open ? this.moveError : '',
+      moveStyle: saveButtonStyle(!busy),
+    }
+  }
+
+  private async doMove(t: TierItem, days: number, when: string): Promise<void> {
+    if (!this.move.allowedMove()) return
+    const r = await this.move.runMove(
+      'move:' + t.key,
+      (idem) => this.ctx.api.moveMembers(t.key, { notice: days }, { idempotencyKey: idem }),
+      {
+        explain: (e) =>
+          e.code === 'TIER_PRICE_NOT_SYNCED'
+            ? 'Today’s ' + t.name + ' prices are not on Square yet. Sync to Square first (Billing & integrations), then move the members.'
+            : null,
+      },
+    )
+    if (!r.ok) {
+      this.moveError = r.message
+      return this.ctx.changed()
+    }
+    this.moveFor = null
+    this.moveError = ''
+    this.ctx.flash(moveToast(r.data, when))
   }
 
   /** The cheapest wash with a price, for the % off example ("Signature Hand Wash $40 costs them $36"). */
@@ -424,7 +517,10 @@ export class MembershipSections {
               this.ctx.changed()
             },
             style: cellInputStyle(changed, changed && (!!entry?.conflict || conflict === t.key)),
-            state: p ? squareStateText(p.squareState) : 'No price',
+            // DV-909: the state the catalog sync keeps, with its last problem in the cell's tooltip
+            state: p ? priceSquareText(p.squareState, p.squareError).text : 'No price',
+            stateStyle: stateStyle(p ? priceSquareText(p.squareState, p.squareError).tone : 'ink'),
+            stateTitle: p?.squareError ?? '',
             label: t.name + ' · ' + s.label,
           }
         }),
@@ -435,7 +531,7 @@ export class MembershipSections {
     const anyConflict = tiers.some((t) => this.prices.get(t.key, tierPriceDraft(t, all), t.priceVersion)?.conflict)
     const err = this.priceError || (anyConflict ? CONFLICT_MESSAGE : '')
     return {
-      note: 'Whole dollars a month per plan size. Changing a price starts a new price version: members keep the price they joined at. Square sync is shown for each price; Square billing comes later.',
+      note: 'Whole dollars a month per plan size. Changing a price starts a new price version: members keep the price they joined at until you use “Move members”. Each price shows whether Square has it.',
       heads: active.map((s) => ({ label: s.label })),
       headStyle: gridColumns(active.length),
       rows,

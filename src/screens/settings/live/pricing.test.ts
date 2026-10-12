@@ -45,6 +45,7 @@ describe('Settings → Vehicle sizes', () => {
       ['Prices by size', 'var(--accent)'],
       ['Memberships', 'transparent'],
       ['Vehicle sizes', 'transparent'],
+      ['Billing & integrations', 'transparent'],
     ])
     const lit = vals(t.logic).live.xnav.pricing.background
     call(t.logic, 'live.pricingTabs.tabs.1.onClick')

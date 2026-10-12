@@ -7,7 +7,7 @@ import { parseWhole, wholeMoney, wholeText } from './sizes'
 import type { VehicleClassItem } from './sizes'
 
 export type InclusionMode = 'per_cycle' | 'every_visit'
-export type SquareState = 'pending' | 'synced' | 'failed'
+export type SquareState = 'pending' | 'synced' | 'failed' | 'retired'
 
 export interface InclusionItem {
   id: string
@@ -25,6 +25,9 @@ export interface TierPriceItem {
   priceVersion: number
   effectiveFrom: string
   squareState?: SquareState
+  /** The last sync problem in plain words (set.services holders; ADR 0171 wave Q3 dashapi), null once synced. */
+  squareError?: string | null
+  squareSyncedAt?: string | null
 }
 
 /** A membership tier as GET /catalog sends it. */
