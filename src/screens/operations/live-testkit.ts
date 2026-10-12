@@ -376,6 +376,7 @@ export function stubPayments(): StubPayments {
     squareIgnore: step('squareIgnore', () => ({})),
     squareReassign: step('squareReassign', () => ({})),
     reconciliation: step('reconciliation', () => ({})),
+    chargeCard: step('chargeCard', () => ({})),
   }
   return p as unknown as StubPayments
 }

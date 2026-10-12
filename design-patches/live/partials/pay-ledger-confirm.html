@@ -20,3 +20,6 @@
     <sc-if value="{{ e.sqHasMoveError }}" hint-placeholder-val="{{ false }}"><div style="font-size:11.5px;font-weight:700;color:var(--red);margin-top:5px;">{{ e.sqMoveError }}</div></sc-if>
   </sc-if>
 </sc-if>
+<sc-if value="{{ e.sqHasReceipt }}" hint-placeholder-val="{{ false }}">
+  <button sc-camel-on-click="{{ e.sqReceiptOpen }}" style="display:block;margin-top:6px;padding:0;background:none;border:none;font-size:11.5px;font-weight:700;color:var(--accentInk);text-decoration:underline;">{{ e.sqReceiptLabel }}</button>
+</sc-if>

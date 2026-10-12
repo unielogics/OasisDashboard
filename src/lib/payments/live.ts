@@ -45,6 +45,12 @@ import {
   itemLabel,
   processorMeta,
   processorOf,
+  receiptMeta,
+  safeReceiptUrl,
+  savedCardOf,
+  savedCardOkText,
+  savedCardPermText,
+  savedCardTender,
   squareCollectText,
   squareState,
 } from './square'
@@ -362,6 +368,10 @@ export interface LiveLedgerEntry {
     sqMatchNote: string
     /** DV-804: a Square payment recorded here may be moved to the right invoice (pay.void). */
     sqCanMove: boolean
+    /** DV-902: Square's receipt page of a Square payment (checked https Square host), shown as a link under the entry. */
+    sqHasReceipt: boolean
+    sqReceiptUrl: string
+    sqReceiptLabel: string
   }
   event: LedgerEvent
   canApprove: boolean
@@ -408,6 +418,7 @@ export function eventMeta(e: LedgerEvent, d: Pick<InvoiceDetail, 'processing'> =
     e.deniedBy ? 'Denied by ' + e.deniedBy : null,
     e.voided ? 'Voided' : null,
     processorMeta(e, d) || null,
+    receiptMeta(e) || null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -423,6 +434,16 @@ const amountText = (e: LedgerEvent): string => {
       return '+' + abs
     default:
       return abs
+  }
+}
+
+/** DV-902: the link to Square's receipt page of a Square payment (only a checked https Square URL). */
+function receiptLink(e: LedgerEvent): { sqHasReceipt: boolean; sqReceiptUrl: string; sqReceiptLabel: string } {
+  const url = e.type === 'pay' && !e.voided ? safeReceiptUrl(e.receiptUrl) : null
+  return {
+    sqHasReceipt: !!url,
+    sqReceiptUrl: url ?? '',
+    sqReceiptLabel: e.receiptNumber ? 'Square receipt #' + e.receiptNumber : 'Square receipt',
   }
 }
 
@@ -483,6 +504,7 @@ export function liveLedgerEntries(d: InvoiceDetail, p: LivePerms): LiveLedgerEnt
               : 'Needs a role that can collect payments.'
             : '',
         sqCanMove: canMoveSquarePay(e),
+        ...receiptLink(e),
         confirmNote: e.awaitingProcessor
           ? canConfirm
             ? 'Mark it done once Squarespace shows it.'
@@ -500,6 +522,8 @@ export function liveLedgerEntries(d: InvoiceDetail, p: LivePerms): LiveLedgerEnt
 export interface LiveSheetForm extends SheetForm {
   /** Collect, "Payment link": the Squarespace checkout or invoice URL (DV-215). */
   url: string
+  /** Collect, "Saved card" (DV-901): the client said yes to this charge (the box starts unticked). */
+  cardOk: boolean
 }
 
 export const liveSheetForm = (
@@ -518,6 +542,7 @@ export const liveSheetForm = (
   expiry: '90 days',
   method: 'Card on file',
   url: attachedUrl ?? '',
+  cardOk: false,
   ...(preset ?? {}),
 })
 
@@ -526,6 +551,7 @@ export type SheetRequest =
   | { kind: 'adjust'; input: AdjustInput }
   | { kind: 'credit'; input: CreditInput }
   | { kind: 'collect'; input: CollectInput }
+  | { kind: 'card_charge'; input: { cardId: string; amountCents: number }; card: string }
   | { kind: 'apply' }
 
 export interface LiveSheetCalc {
@@ -539,6 +565,8 @@ export interface LiveSheetCalc {
   showSettle: boolean
   /** The collect sheet shows the URL input (method Payment link). */
   needsUrl: boolean
+  /** DV-901: the Saved card tender is picked: the sheet shows the client's OK box. */
+  savedCard: { label: string; okText: string } | null
   /** null while the form is not submittable. */
   request: SheetRequest | null
 }
@@ -593,6 +621,7 @@ export function liveSheetCalc(args: {
   let submitLabel = ''
   let showSettle = false
   let needsUrl = false
+  let savedCard: LiveSheetCalc['savedCard'] = null
   let request: SheetRequest | null = null
 
   if (sk === 'refund') {
@@ -715,7 +744,22 @@ export function liveSheetCalc(args: {
       }
   }
 
-  if (sk === 'collect' && processorOf(d) === 'square') {
+  const card = sk === 'collect' ? savedCardOf(d) : null
+  if (card && f.method === savedCardTender(card)) {
+    // DV-901: the balance on the saved card the server named, only with the client's OK, for exactly the balance
+    const first = firstName(d.client)
+    summary = [
+      { label: 'Balance due', value: money(c.balance), color: 'var(--red)' },
+      { label: 'Card', value: card.label, color: 'var(--ink)' },
+    ]
+    savedCard = { label: card.label, okText: savedCardOkText(first, c.balance, card.label) }
+    blocked = c.balance <= 0 || !f.cardOk
+    permText = savedCardPermText(first, f.cardOk)
+    permOk = f.cardOk
+    submitLabel = 'Charge ' + money(c.balance) + ' to ' + card.label
+    if (!blocked)
+      request = { kind: 'card_charge', input: { cardId: card.cardId, amountCents: c.balance }, card: card.label }
+  } else if (sk === 'collect' && processorOf(d) === 'square') {
     // DV-802: Square takes the card money. No URL to paste: the server makes the link for the exact balance.
     const method = methodOfLabel(f.method)
     summary = [{ label: 'Balance due', value: money(c.balance), color: 'var(--red)' }]
@@ -758,7 +802,7 @@ export function liveSheetCalc(args: {
     if (!blocked) request = { kind: 'apply' }
   }
 
-  return { reasons, reason, summary, blocked, permText, permOk, submitLabel, showSettle, needsUrl, request }
+  return { reasons, reason, summary, blocked, permText, permOk, submitLabel, showSettle, needsUrl, savedCard, request }
 }
 
 // ---- toasts (after the server answered; the title/detail of a failure come from the server) --------------------------

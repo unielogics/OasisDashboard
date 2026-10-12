@@ -93,6 +93,12 @@
       "tpl": 159,
       "expectTag": "sc-if",
       "htmlFile": "pay-square-sheet.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 221,
+      "expectTag": "div",
+      "htmlFile": "pay-collect-card.html"
     }
   ]
 }

@@ -1,0 +1,9 @@
+<sc-if value="{{ sh.scShow }}" hint-placeholder-val="{{ false }}">
+  <button sc-camel-on-click="{{ sh.scToggle }}" style="{{ sh.scRowStyle }}"><span style="{{ sh.scBoxStyle }}"><sc-if value="{{ sh.scOk }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if></span><span style="flex:1;font-size:13.5px;font-weight:700;">{{ sh.scOkText }}</span></button>
+</sc-if>
+<sc-if value="{{ sh.scDeclined }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:12px 14px;border-radius:12px;font-size:12.5px;font-weight:700;line-height:1.45;background:rgba(194,65,12,.1);border:1px solid rgba(194,65,12,.3);color:#C2410C;">{{ sh.scDeclineText }}</div>
+</sc-if>
+<sc-if value="{{ sh.scWaiting }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:12px 14px;border-radius:12px;font-size:12.5px;font-weight:700;line-height:1.45;background:rgba(194,116,11,.12);border:1px solid rgba(194,116,11,.3);color:#8A5A06;">{{ sh.scWaitingText }}</div>
+</sc-if>

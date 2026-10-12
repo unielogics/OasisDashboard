@@ -182,6 +182,7 @@ export function createFixtureDataPort(opts: FixtureOptions = {}): DataPort {
       squareIgnore: async () => unavailable('payments.squareIgnore'),
       squareReassign: async () => unavailable('payments.squareReassign'),
       reconciliation: async () => unavailable('payments.reconciliation'),
+      chargeCard: async () => unavailable('payments.chargeCard'),
       exportCsv: async () => unavailable('payments.exportCsv'),
     },
     settings: new Proxy({} as SettingsApi, {

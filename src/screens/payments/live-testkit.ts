@@ -6,6 +6,7 @@ import type { Session } from '@/auth/session-model'
 import { QueryStore } from '@/data/query-store'
 import type {
   AdjustResult,
+  CardChargeResult,
   CollectResult,
   EventResult,
   InvoiceDetail,
@@ -315,6 +316,7 @@ export function stubPort(): StubPort {
       calls.push({ op: 'reconciliation', args: [] })
       return p.recon
     },
+    chargeCard: (id, input, o) => cmd<CardChargeResult>('chargeCard', [id, input], o),
     async exportCsv(q) {
       calls.push({ op: 'exportCsv', args: [q] })
       return { body: new Blob(['Invoice\r\n']), filename: 'oasis-invoices_2026-06-07_2026-06-13.csv' }
@@ -345,6 +347,8 @@ export interface Live {
   themes: string[]
   /** Texts put on the clipboard (Copy link). */
   copied: string[]
+  /** Pages opened in a new tab (the Square receipt). */
+  opened: string[]
   /** Settle queued microtasks and the store's frame scheduling. */
   settle(): Promise<void>
   vals(): Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -357,6 +361,7 @@ export function makeLive(session: Session, port: StubPort = stubPort()): Live {
   const downloads: Live['downloads'] = []
   const themes: string[] = []
   const copied: string[] = []
+  const opened: string[] = []
   const deps: LiveDeps = {
     port,
     queryClient: qc,
@@ -366,6 +371,7 @@ export function makeLive(session: Session, port: StubPort = stubPort()): Live {
     saveTheme: (t) => void themes.push(t),
     download: (f) => void downloads.push({ filename: f.filename }),
     copy: async (t) => void copied.push(t),
+    openUrl: (u) => void opened.push(u),
   }
   const logic = new LivePaymentsLogic({}, deps)
   attach(logic)
@@ -373,5 +379,5 @@ export function makeLive(session: Session, port: StubPort = stubPort()): Live {
   const settle = async (): Promise<void> => {
     for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
   }
-  return { logic, port, chrome, qc, downloads, themes, copied, settle, vals: () => logic.renderVals() }
+  return { logic, port, chrome, qc, downloads, themes, copied, opened, settle, vals: () => logic.renderVals() }
 }

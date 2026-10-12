@@ -19,6 +19,7 @@ import { getDataPort } from '@/data/default-port'
 import { getQueryClient, qk } from '@/data/query'
 import { QueryStore } from '@/data/query-store'
 import type {
+  CardChargeResult,
   CollectResult,
   CsvDownload,
   InvoiceDetail,
@@ -32,10 +33,13 @@ import type {
 import {
   IGNORE_REASONS,
   applyButtonStyle,
+  WAITING_FOR_SQUARE_TEXT,
   applyTargets,
   bannerStyle,
+  cardChargeToast,
   chipStyle,
-  collectTenders,
+  collectTenderList,
+  declinedText,
   failedRefundLine,
   inFlightText,
   parseInvoiceNo,
@@ -135,6 +139,8 @@ export interface LiveState {
   moveFor: string | null
   moveTo: string
   moveError: string
+  /** DV-901: the saved-card charge of the Collect sheet: declined (Square's reason) or waiting for Square (202). */
+  cardState: { kind: 'declined' | 'waiting'; text: string } | null
 }
 
 export interface LiveDeps {
@@ -147,6 +153,8 @@ export interface LiveDeps {
   download(file: CsvDownload): void
   /** Copies a text to the clipboard (the Square link of DV-802). */
   copy(text: string): Promise<void>
+  /** Opens a checked Square receipt page in a new tab, without an opener (DV-902). */
+  openUrl(url: string): void
 }
 
 type Vals = Record<string, unknown>
@@ -180,6 +188,9 @@ export function defaultLiveDeps(): LiveDeps {
     download: (f) => saveBlob(f.body, f.filename),
     copy: async (text) => {
       await navigator.clipboard.writeText(text)
+    },
+    openUrl: (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
     },
   }
 }
@@ -238,6 +249,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       moveFor: null,
       moveTo: '',
       moveError: '',
+      cardState: null,
     }
   }
 
@@ -392,6 +404,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       adjust: perms.adjust.has ? null : deniedTitle('pay.adjust'),
       credit: perms.credit.has ? null : deniedTitle('pay.credit'),
       collect: perms.canCollect ? null : deniedTitle('pay.collect'),
+      card_charge: perms.canCollect ? null : deniedTitle('pay.collect'),
       apply: perms.canCollect ? null : deniedTitle('pay.collect'),
     }
     const denied = verbs[req.kind]
@@ -435,8 +448,40 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       case 'apply':
         res = await this.run(act, (i) => port.applyCredit(d.id, o(i)), applyToast, 'collect payments')
         break
+      case 'card_charge':
+        // DV-901: the server charges the card the client said yes to; a decline keeps the sheet (the same key again is a
+        // new attempt on the same charge), a charge Square has not answered yet stays on screen as waiting
+        res = await this.run(
+          act,
+          (i) => port.chargeCard(d.id, req.input, o(i)),
+          (r) => cardChargeToast(r.charge),
+          'collect payments',
+        )
+        break
     }
     if (this.unmounted) return
+    if (req.kind === 'card_charge') {
+      if (res.ok) {
+        act.renew()
+        const waiting = (res.data as CardChargeResult).charge.state === 'unknown'
+        this.setState({
+          busy: false,
+          sheet: waiting ? 'collect' : null,
+          cardState: waiting ? { kind: 'waiting', text: WAITING_FOR_SQUARE_TEXT } : null,
+        })
+      } else {
+        const e = res.error
+        this.setState((st) => ({
+          busy: false,
+          f: { ...st.f, cardOk: false },
+          cardState:
+            e.code === 'CARD_DECLINED'
+              ? { kind: 'declined', text: declinedText(d.client.split(' ')[0]!, e.detail) }
+              : st.cardState,
+        }))
+      }
+      return
+    }
     if (res.ok) {
       act.renew()
       // DV-802: a Square link the server made (pay links off) stays on screen with Copy; a texted personal link never shows
@@ -655,11 +700,17 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       busy: false,
       urlError: null,
       sentLink: null,
+      cardState: null,
     })
   }
 
   setF(p: Partial<LiveSheetForm>): void {
     this.setState((s) => ({ f: { ...s.f, ...p }, urlError: null }))
+  }
+
+  /** Another tender: the saved card's OK and its last answer start over. */
+  private pickTender(method: string): void {
+    this.setState((s) => ({ f: { ...s.f, method, cardOk: false }, urlError: null, cardState: null }))
   }
 
   // ---- the template's values -----------------------------------------------------------------------------------
@@ -756,7 +807,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       d,
       sheetOpen: !!sk && !!detail,
       sh,
-      closeSheet: () => this.setState({ sheet: null, busy: false, urlError: null, sentLink: null }),
+      closeSheet: () => this.setState({ sheet: null, busy: false, urlError: null, sentLink: null, cardState: null }),
       stop: (e: { stopPropagation(): void }) => e.stopPropagation(),
       toast: s.toast,
     }
@@ -878,6 +929,10 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
         sqMoveError: moving ? s.moveError : '',
         sqHasMoveError: moving && !!s.moveError,
         sqMoveStyle: approveButtonStyle(!s.sqBusy),
+        // DV-902: Square's receipt page, opened without an opener
+        sqReceiptOpen: () => {
+          if (en.view.sqReceiptUrl) this.deps.openUrl(en.view.sqReceiptUrl)
+        },
       }
     })
     return {
@@ -997,21 +1052,63 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
         isCollect: true,
         title: 'Collect payment',
         sub: det.label + ' · ' + det.client,
-        // DV-802: Square reader / Cash / Payment link once Square takes card money
-        payMethods: collectTenders(processorOf(det)).map((k) => ({
+        // DV-802: Square reader / Cash / Payment link once Square takes card money; DV-901: Saved card when the server
+        // names a usable card
+        payMethods: collectTenderList(det.processing).map((k) => ({
           label: k,
-          onClick: () => this.setF({ method: k }),
+          onClick: () => this.pickTender(k),
           style: seg(f.method === k),
         })),
       }
     }
     if (sk === 'apply') sh = { title: 'Apply store credit', sub: det.client }
     const req = calc.request
+    const cs = sk === 'collect' ? this.state.cardState : null
+    // DV-901: the saved card's step: the client's OK (a tick box with the amount and the card), then the server's answer
+    const sc: Vals = {
+      scShow: !!calc.savedCard && cs?.kind !== 'waiting',
+      scOk: f.cardOk,
+      scOkText: calc.savedCard?.okText ?? '',
+      scToggle: () => this.setState((st) => ({ f: { ...st.f, cardOk: !st.f.cardOk }, cardState: null })),
+      scBoxStyle: itemBoxStyle(f.cardOk),
+      scRowStyle: { ...itemRowStyle(f.cardOk), width: '100%', textAlign: 'left' },
+      scDeclined: cs?.kind === 'declined',
+      scDeclineText: cs?.kind === 'declined' ? cs.text : '',
+      scWaiting: cs?.kind === 'waiting',
+      scWaitingText: cs?.kind === 'waiting' ? cs.text : '',
+    }
+    if (cs?.kind === 'waiting')
+      return {
+        ...sh,
+        ...sc,
+        hasSentLink: false,
+        sentLink: '',
+        copyLink: () => undefined,
+        needsUrl: false,
+        urlRaw: '',
+        setUrl: () => undefined,
+        urlError: '',
+        hasUrlError: false,
+        summary: calc.summary,
+        blocked: false,
+        submit: () => this.setState({ sheet: null, cardState: null }),
+        submitLabel: 'Done',
+        hasReasons: false,
+        amountRaw: '',
+        note: '',
+        setAmount: () => undefined,
+        setNote: () => undefined,
+        reasons: [],
+        permText: 'Square has not answered yet. You can close this: the invoice updates by itself.',
+        permStyle: permBoxStyle(false),
+        submitStyle: submitStyle(false, sk),
+      }
     // DV-802: the Square link the server made stays on screen with Copy; the button then closes the sheet
     const sent = sk === 'collect' ? this.state.sentLink : null
     if (sent)
       return {
         ...sh,
+        ...sc,
         needsUrl: false,
         urlRaw: '',
         setUrl: () => undefined,
@@ -1042,6 +1139,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       }
     return {
       ...sh,
+      ...sc,
       hasSentLink: false,
       sentLink: '',
       copyLink: () => undefined,

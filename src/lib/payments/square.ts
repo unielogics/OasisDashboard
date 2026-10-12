@@ -4,7 +4,9 @@
 // these builders only word and style what it answered. The Squarespace screen (DV-212..DV-217) stays exactly as it was
 // while the server reports `processing.processor = squarespace` (or says nothing: an older server).
 import type {
+  CardCharge,
   InvoiceDetail,
+  InvoiceProcessing,
   LedgerEvent,
   Processor,
   Reconciliation,
@@ -39,6 +41,80 @@ export const TENDER_SQUARE_READER = 'Square reader'
 /** The Collect sheet's tenders: the design's three with Squarespace; Square reader / Cash / Payment link with Square. */
 export const collectTenders = (p: Processor): string[] =>
   p === 'square' ? [TENDER_SQUARE_READER, 'Cash', 'Payment link'] : ['Card on file', 'Cash', 'Payment link']
+
+/** The saved card the server says may be charged for this balance (api-spec 30.13 `squareTenders.savedCard`), or null. */
+export const savedCardOf = (d: { processing?: InvoiceProcessing } | undefined): SavedCard | null =>
+  d?.processing?.processor === 'square' ? (d.processing.squareTenders?.savedCard ?? null) : null
+
+type SavedCard = NonNullable<NonNullable<InvoiceProcessing['squareTenders']>['savedCard']>
+
+/** The tender's label: "Saved card ••4242" (the card's own label when Square gave no last 4). */
+export const savedCardTender = (c: SavedCard): string =>
+  c.last4 ? 'Saved card ••' + c.last4 : 'Saved card · ' + c.label
+
+/**
+ * The tenders the server allows on this invoice (DV-802, DV-901): with Square, `Square reader` while Square is the processor,
+ * `Saved card ••4242` only when the server names a usable card (Square writes on, an active card whose consent covers
+ * balances), `Cash`, and `Payment link` only while Square writes are on. A server before wave Q3 says nothing about the
+ * tenders: the Square three.
+ */
+export function collectTenderList(proc: InvoiceProcessing | undefined): string[] {
+  if (proc?.processor !== 'square') return collectTenders('squarespace')
+  const t = proc.squareTenders
+  if (!t) return collectTenders('square')
+  return [
+    ...(t.reader ? [TENDER_SQUARE_READER] : []),
+    ...(t.savedCard ? [savedCardTender(t.savedCard)] : []),
+    'Cash',
+    ...(t.link ? ['Payment link'] : []),
+  ]
+}
+
+/** The tick box of the saved-card step: the client's OK, with the amount and the card. */
+export const savedCardOkText = (first: string, cents: number, card: string): string =>
+  first + ' said OK to charge ' + money(cents) + ' to ' + card
+
+/** What the permission box says on the saved-card step. */
+export const savedCardPermText = (first: string, ok: boolean): string =>
+  ok
+    ? 'Square charges the card as soon as you press the button. The receipt goes out by SMS and email.'
+    : 'Ask ' + first + ' first. The card is charged only after they say yes and you confirm here.'
+
+/** A declined card, in the sheet: Square's reason in plain words, and what to do. */
+export const declinedText = (first: string, detail: string | null | undefined): string =>
+  'Card declined: ' + (detail?.trim() || 'the bank said no.') + ' Ask ' + first + ' for another way to pay.'
+
+/** Square did not answer the charge (202): the job finishes it with the same request, so it is never charged twice. */
+export const WAITING_FOR_SQUARE_TEXT =
+  'Waiting for Square: the charge was sent and Square has not answered yet. It shows on the invoice as soon as Square answers, and it is never charged twice.'
+
+/** The toast after a saved-card charge the server answered. */
+export function cardChargeToast(c: Pick<CardCharge, 'state' | 'amountCents' | 'card'>): string {
+  const card = c.card?.label ?? 'the saved card'
+  if (c.state === 'charged') return 'Charged ' + money(c.amountCents) + ' to ' + card
+  return 'Waiting for Square · ' + money(c.amountCents) + ' on ' + card
+}
+
+// ---- receipts on ledger entries (DV-902) -------------------------------------------------------------------------------
+
+/** Square's receipt page, only an https page on squareup.com or squareupsandbox.com (the server checks too); else null. */
+export function safeReceiptUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return null
+  }
+  if (u.protocol !== 'https:' || u.username || u.password || u.port) return null
+  const h = u.hostname.toLowerCase()
+  const ok = ['squareup.com', 'squareupsandbox.com'].some((d) => h === d || h.endsWith('.' + d))
+  return ok ? u.toString() : null
+}
+
+/** "Receipt #Xy7Q" for a Square payment's ledger meta ('' for any other entry). */
+export const receiptMeta = (e: Pick<LedgerEvent, 'type' | 'receiptNumber'>): string =>
+  e.type === 'pay' && e.receiptNumber ? 'Receipt #' + e.receiptNumber : ''
 
 /** What the permission box of the Collect sheet says for a tender when Square is the processor. */
 export function squareCollectText(method: 'card' | 'cash' | 'payment_link', first: string): string {

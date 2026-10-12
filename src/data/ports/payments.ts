@@ -182,12 +182,67 @@ export interface LedgerEvent {
   processor?: Processor | null
   /** The Square order of a Square payment (a link's order, a POS order). */
   processorOrderId?: string | null
+  /** Square's receipt number of a Square payment (`pay` rows only, from the Square mirror); absent from an older server. */
+  receiptNumber?: string | null
+  /** Square's receipt page (https on squareup.com or squareupsandbox.com only, else null). */
+  receiptUrl?: string | null
   needsReview: boolean
   canApprove: boolean
   approveBlock: 'permission' | 'limit' | 'self' | null
 }
 
 export type Processor = 'squarespace' | 'square'
+
+/** The card POST /invoices/:id/card-charges would charge (ADR 0171, api-spec 30.13): the client's OK is still asked. */
+export interface SavedCardTender {
+  cardId: string
+  /** "Visa ••4242" */
+  label: string
+  brand: string | null
+  last4: string | null
+}
+
+/** The invoice's `processing` block (api-spec 30.13): the same for every role. */
+export interface InvoiceProcessing {
+  processor: Processor
+  squarePosAppSwitch: boolean
+  /** Absent from a server before wave Q3: reader and link follow the processor, no saved card. */
+  squareTenders?: {
+    reader: boolean
+    link: boolean
+    savedCard: SavedCardTender | null
+  }
+}
+
+/** A saved-card charge (api-spec 30.11 ChargeDto): a balance with the client's OK, or a no-show / late-cancel fee. */
+export interface CardCharge {
+  id: string
+  purpose: 'no_show_fee' | 'late_cancel_fee' | 'balance'
+  /** proposed until a staff member decides; unknown = Square did not answer yet (the job finishes it, never twice). */
+  state: 'proposed' | 'charging' | 'charged' | 'declined' | 'unknown' | 'waived'
+  amountCents: number
+  reason: string
+  card: { id: string; label: string; brand: string | null; last4: string | null } | null
+  invoiceId: string | null
+  appointmentId: string | null
+  squarePaymentId: string | null
+  /** Why it was declined (plain words), or that Square did not answer. */
+  error: string | null
+  declineCode: string | null
+  attempts: number
+  proposedBy: string | null
+  decidedBy: string | null
+  decidedAt: string | null
+  chargedAt: string | null
+  waiveReason: string | null
+  createdAt: string
+}
+
+/** 201 charged, 202 `charge.state = unknown` (Square did not answer: the job records it). */
+export interface CardChargeResult {
+  charge: CardCharge
+  invoice: InvoiceDetail | null
+}
 
 export interface InvoiceItem {
   id: string
@@ -237,10 +292,10 @@ export interface InvoiceDetail {
   paymentLinkUrl: string | null
   awaitingProcessorCount: number
   /**
-   * Who takes new card money (PAYMENT_PROCESSOR, ADR 0171) and whether "Open Square POS" is on. Absent from an older
-   * server: today's Squarespace screen.
+   * Who takes new card money (PAYMENT_PROCESSOR, ADR 0171), whether "Open Square POS" is on and which Square tenders the
+   * Collect sheet may offer. Absent from an older server: today's Squarespace screen.
    */
-  processing?: { processor: Processor; squarePosAppSwitch: boolean }
+  processing?: InvoiceProcessing
   version: number
   items: InvoiceItem[]
   adjustments: Array<{
@@ -449,6 +504,11 @@ export interface PaymentsPort {
   squareReassign(paymentId: string, toInvoiceId: string, o?: CommandOptions): Promise<SquareDecided>
   /** GET /payments/reconciliation (pay.reports): the screen reads its Square section. */
   reconciliation(): Promise<Reconciliation>
+  /**
+   * POST /invoices/:id/card-charges (pay.collect): the balance on a saved card, after the client said yes. 422
+   * CARD_DECLINED keeps the charge (the same key again is a new attempt on it).
+   */
+  chargeCard(id: string, input: { cardId: string; amountCents: number }, o?: CommandOptions): Promise<CardChargeResult>
   /** GET /payments/export.csv with the active range, filter and search. */
   exportCsv(q: InvoiceQuery): Promise<CsvDownload>
 }
@@ -502,6 +562,7 @@ export function createLivePaymentsPort(c: ApiClient): PaymentsPort {
     squareReassign: (paymentId, toInvoiceId, o) =>
       c.post(`/payments/square/${enc(paymentId)}/reassign`, { toInvoiceId }, o),
     reconciliation: () => c.get('/payments/reconciliation'),
+    chargeCard: (id, input, o) => c.post(`/invoices/${enc(id)}/card-charges`, input, o),
     async exportCsv(q) {
       const query = {
         range: q.range,
