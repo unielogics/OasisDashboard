@@ -90,6 +90,35 @@ export type HouseholdRes = Ok<Op<'/api/v1/memberships/{id}/household', 'post'>>
 export type VehicleClasses = Ok<Op<'/api/v1/catalog/vehicle-classes', 'get'>>
 export type VehicleClass = VehicleClasses['vehicleClasses'][number]
 
+// ---- cards on file, fees and memberships billed by Square (ADR 0171 wave Q3; api-spec 30.11, 30.12) -----------------------
+// Typed from the full API schema: these routes are outside the Operations subset.
+
+type ApiOk<P extends keyof apiPaths, M extends 'get' | 'post' | 'delete'> = Ok<apiPaths[P][M]>
+export type CustomerCards = ApiOk<'/api/v1/customers/{id}/cards', 'get'>
+export type SavedCard = CustomerCards['cards'][number]
+export type RemoveCardRes = ApiOk<'/api/v1/customers/{id}/cards/{cardId}', 'delete'>
+export type CardLinkRes = ApiOk<'/api/v1/customers/{id}/card-link', 'post'>
+export type FeeCharges = ApiOk<'/api/v1/appointments/{id}/fee-charges', 'get'>
+export type FeeCharge = FeeCharges['items'][number]
+/** 201 charged, 202 `charge.state = unknown` (Square did not answer: the job finishes it, never twice). */
+export interface FeeChargeRes {
+  charge: FeeCharge
+  invoice: unknown
+}
+export type WaiveFeeRes = ApiOk<'/api/v1/appointments/{id}/fee-charges/{chargeId}/waive', 'post'>
+export type CancelRes = Ok<Op<'/api/v1/appointments/{id}/cancel', 'post'>>
+export type Settlement = NonNullable<CancelRes['settlement']>
+export type BillingAction = 'pause' | 'resume' | 'cancel' | 'cancel/undo' | 'change/undo' | 'card-link'
+export type BillingRes = ApiOk<'/api/v1/memberships/{id}/billing/pause', 'post'> & {
+  /** card-link: whether the text went. */
+  sms?: 'queued' | 'skipped'
+  /** refund-last: what Square was asked to give back. */
+  refund?: { amountCents: number; status: string }
+}
+export type MembershipBilling = NonNullable<NonNullable<MembershipView['membership']>['billing']>
+export type TierList = ApiOk<'/api/v1/catalog/tiers', 'get'>
+export type TierOption = TierList['tiers'][number]
+
 type Opts = Pick<RequestOptions, 'idempotencyKey' | 'signal'>
 
 export interface OperationsPort {
@@ -126,8 +155,8 @@ export interface OperationsPort {
     id: string,
     input: { reason: string; notify?: boolean; deposit?: 'keep' | 'refund_card' | 'refund_credit' },
     o?: Opts,
-  ): Promise<CommandRes>
-  noShow(id: string, o?: Opts): Promise<CommandRes>
+  ): Promise<CancelRes>
+  noShow(id: string, o?: Opts): Promise<CancelRes>
   book(input: BookingReq, o?: Opts): Promise<BookingRes>
   // file
   setAddon(id: string, serviceId: string, on: boolean, o?: Opts): Promise<AddonRes>
@@ -153,6 +182,27 @@ export interface OperationsPort {
   // identity
   /** POST /customers/:id/identity/pin/clear (cli.edit): removes the website PIN, ends links, sessions and the trust. */
   clearPin(customerId: string, o?: Opts): Promise<ClientIdentity>
+  // cards on file and fees (ADR 0171 wave Q3a)
+  /** GET /customers/:id/cards (cli.view): the client's saved cards and every consent given for them. */
+  cards(customerId: string): Promise<CustomerCards>
+  /** DELETE /customers/:id/cards/:cardId (cli.edit): DisableCard at Square first, then the card and its consents end. */
+  removeCard(customerId: string, cardId: string, o?: Opts): Promise<RemoveCardRes>
+  /** POST /customers/:id/card-link (cli.edit): texts the client a page to save a card (#/k). */
+  cardLink(customerId: string, o?: Opts): Promise<CardLinkRes>
+  /** GET /appointments/:id/fee-charges (pay.collect or sched.cancel): the visit's no-show and late-cancel fees. */
+  feeCharges(id: string): Promise<FeeCharges>
+  /** POST /appointments/:id/fee-charges/:chargeId/charge (pay.collect): a proposed or declined fee on its saved card. */
+  chargeFee(id: string, chargeId: string, o?: Opts): Promise<FeeChargeRes>
+  /** POST /appointments/:id/fee-charges/:chargeId/waive (pay.collect): the fee is not charged; the reason is kept. */
+  waiveFee(id: string, chargeId: string, reason: string, o?: Opts): Promise<WaiveFeeRes>
+  // memberships billed by Square (ADR 0171 wave Q3b; cli.member, refund-last pay.refund)
+  billing(membershipId: string, action: BillingAction, o?: Opts): Promise<BillingRes>
+  /** POST /memberships/:id/billing/change: the tier and size Square bills from the next billing date. */
+  changeBilling(membershipId: string, input: { planKey: string; planClass?: string }, o?: Opts): Promise<BillingRes>
+  /** POST /memberships/:id/billing/refund-last (pay.refund, Idempotency-Key required): the latest paid month in full. */
+  refundLast(membershipId: string, o?: Opts): Promise<BillingRes>
+  /** GET /catalog/tiers (any signed-in user): the tiers with their current monthly price per size. */
+  tiers(): Promise<TierList>
   // photos
   presignPhoto(
     id: string,
@@ -234,6 +284,16 @@ export function createLiveOperationsPort(
     sendMessage: (id, input, o) => post(`${a(id)}/messages`, input, o),
     markRead: (customerId, o) => post(`/customers/${enc(customerId)}/messages/read`, {}, o),
     clearPin: (customerId, o) => post(`/customers/${enc(customerId)}/identity/pin/clear`, undefined, o),
+    cards: (customerId) => c.get(`/customers/${enc(customerId)}/cards`),
+    removeCard: (customerId, cardId, o) => c.delete(`/customers/${enc(customerId)}/cards/${enc(cardId)}`, o),
+    cardLink: (customerId, o) => post(`/customers/${enc(customerId)}/card-link`, {}, o),
+    feeCharges: (id) => c.get(`${a(id)}/fee-charges`),
+    chargeFee: (id, chargeId, o) => post(`${a(id)}/fee-charges/${enc(chargeId)}/charge`, {}, o),
+    waiveFee: (id, chargeId, reason, o) => post(`${a(id)}/fee-charges/${enc(chargeId)}/waive`, { reason }, o),
+    billing: (membershipId, action, o) => post(`/memberships/${enc(membershipId)}/billing/${action}`, {}, o),
+    changeBilling: (membershipId, input, o) => post(`/memberships/${enc(membershipId)}/billing/change`, input, o),
+    refundLast: (membershipId, o) => post(`/memberships/${enc(membershipId)}/billing/refund-last`, {}, o),
+    tiers: () => c.get('/catalog/tiers'),
     presignPhoto: (id, input, o) => post(`${a(id)}/photos/presign`, input, o),
     completePhoto: (id, photoId, o) => post(`${a(id)}/photos/${enc(photoId)}/complete`, undefined, o),
     deletePhoto: (id, photoId, o) => c.delete(`${a(id)}/photos/${enc(photoId)}`, o),

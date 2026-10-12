@@ -17,6 +17,9 @@ import { QueryStore } from '@/data/query-store'
 import type {
   AppointmentFile,
   Availability,
+  CustomerCards,
+  FeeCharges,
+  TierList,
   CalendarDay,
   CalendarSummary,
   ClientIdentity,
@@ -105,14 +108,36 @@ import {
   coverageLines,
   depositFactsOf,
   fileHasSizes,
+  hasServerDeposit,
   householdOf,
   planSizeText,
   quoteVM,
+  sizeChipStyle,
   sizeChipVMs,
   sizeLabel,
   visitSizeText,
 } from '@/lib/operations/live/sizes'
 import type { ProcessorName, SizeOption } from '@/lib/operations/live/sizes'
+import {
+  actionButtonStyle,
+  billingBlock,
+  canCloseVisit,
+  cancelText,
+  cardRows,
+  cardsShown,
+  changeChoice,
+  chargeFeeText,
+  closedText,
+  confirmBoxStyle,
+  feeLineStyle,
+  feeRows,
+  isClosedVisit,
+  noShowText,
+  plainButtonStyle,
+  removeCardText,
+  toneStyle,
+} from '@/lib/operations/live/billing'
+import type { BillingActionKey } from '@/lib/operations/live/billing'
 import { OpsCommands } from './live/commands'
 
 const THEME_KEY = 'oasis-theme'
@@ -165,6 +190,20 @@ export interface LiveState {
   carSizeOpen: boolean
   /** The Membership tab's "Add to household" search text (DV-813). */
   hhQuery: string
+  /** DV-903: the saved card whose "Remove" asks first. */
+  cardConfirm: string | null
+  /** DV-904: the visit's cancel or no-show confirmation, the cancel reason. */
+  visitConfirm: 'cancel' | 'no_show' | null
+  cancelReason: string
+  /** DV-904: the fee whose charge asks first, the fee being waived and the reason typed. */
+  feeConfirm: string | null
+  feeWaive: string | null
+  waiveReason: string
+  /** DV-907: the billing action that asks first, and the "Change tier or size" chooser. */
+  billConfirm: string | null
+  changeOpen: boolean
+  changeTier: string | null
+  changeSize: string | null
 }
 
 export interface LiveOpsDeps {
@@ -255,6 +294,20 @@ const WINDOW_OF: Record<RangeName, OpsWindow> = {
 
 const FIRST_NAME = (name: string): string => name.split(' ')[0] ?? name
 
+/** The file's card, visit, fee and billing confirmations, closed when another file opens. */
+const FILE_WALLET_RESET = {
+  cardConfirm: null,
+  visitConfirm: null,
+  cancelReason: '',
+  feeConfirm: null,
+  feeWaive: null,
+  waiveReason: '',
+  billConfirm: null,
+  changeOpen: false,
+  changeTier: null,
+  changeSize: null,
+} as const
+
 export class LiveOperationsLogic extends DCLogic<LiveState> {
   readonly deps: LiveOpsDeps
   readonly cmd: OpsCommands
@@ -335,6 +388,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       sizeOpen: false,
       carSizeOpen: false,
       hhQuery: '',
+      ...FILE_WALLET_RESET,
     }
   }
 
@@ -560,12 +614,15 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
   }
 
   /**
-   * Who takes card money on this invoice (ADR 0171): from the invoice detail (pay.reports, Payments tab open), else what a
-   * collect answered earlier in this session (its invoice carries `processing`; the setting is the server's, the same for
-   * every invoice), else Squarespace, the design's words (backend gap: the file's invoice does not say; see the report).
+   * Who takes card money on this invoice (ADR 0171): the file's own invoice summary says so for every role since wave Q3
+   * (DV-905); a server before it: the invoice detail (pay.reports, Payments tab open), else what a collect answered earlier
+   * in this session (its invoice carries `processing`; the setting is the server's, the same for every invoice), else
+   * Squarespace, the design's words.
    */
-  private processorOf(invoiceId: string | undefined): ProcessorName {
-    return this.invoiceDetail(invoiceId)?.processing?.processor ?? this.learnedProcessor ?? 'squarespace'
+  private processorOf(f: Pick<AppointmentFile, 'invoice'>): ProcessorName {
+    const inv = f.invoice
+    if (inv?.processing) return inv.processing.processor
+    return this.invoiceDetail(inv?.invoiceId)?.processing?.processor ?? this.learnedProcessor ?? 'squarespace'
   }
 
   private catalog(): ServiceCatalog | undefined {
@@ -600,6 +657,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       sizeOpen: false,
       carSizeOpen: false,
       hhQuery: '',
+      ...FILE_WALLET_RESET,
     })
     this.afterTab(tab, id)
   }
@@ -923,7 +981,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const tender = this.state.payTender
     const ok = await this.cmd.collect(f.invoice.invoiceId, tender, {
       first: FIRST_NAME(f.customer.name),
-      processor: this.processorOf(f.invoice.invoiceId),
+      processor: this.processorOf(f),
     })
     if (ok) this.deps.saveTender(tender)
   }
@@ -931,7 +989,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
   private async submitLink(f: AppointmentFile): Promise<void> {
     if (!f.invoice) return
     // DV-809: with Square there is no URL to paste: the server makes the link (or texts the client's own pay page)
-    const url = this.processorOf(f.invoice.invoiceId) === 'square' ? '' : this.state.payLinkUrl
+    const url = this.processorOf(f) === 'square' ? '' : this.state.payLinkUrl
     const r = await this.cmd.sendLink(f.invoice.invoiceId, url)
     if (r.ok) this.setState({ payLinkOpen: false, payLinkUrl: '', payLinkError: '' })
     else if (r.error) this.setState({ payLinkError: r.error.detail || r.error.title })
@@ -1298,8 +1356,9 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       },
       busy: new Set(s.busy),
       sending: s.busy.includes('send'),
-      processor: this.processorOf(f.invoice?.invoiceId),
-      depositFacts: depositFactsOf(this.invoiceDetail(f.invoice?.invoiceId)),
+      processor: this.processorOf(f),
+      // a server before wave Q3 has no deposit state on the file: the ledger of the invoice says it (pay.reports)
+      depositFacts: hasServerDeposit(f.invoice) ? undefined : depositFactsOf(this.invoiceDetail(f.invoice?.invoiceId)),
     }
     const h: FileHandlers = {
       setTab: (t) => this.setTab(t),
@@ -1364,6 +1423,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       aiLineText: line.text,
       aiLineSub: line.sub,
       ...this.sizeFileVals(f, mem, ui.dark),
+      ...this.walletVals(f, mem, ui.tz, today),
     }
   }
 
@@ -1465,6 +1525,210 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       hhHasHits: hits.length > 0,
       hhInputStyle: { ...inputStyle, height: '42px', fontSize: '13px' },
     }
+  }
+
+  /**
+   * Cards on file (Overview, DV-903), the visit's cancel / no-show and the fee the server proposed after them (Overview,
+   * DV-904), and the Membership tab's billing block of a membership billed by Square (DV-907). Each read is quiet (an
+   * older server or a role that may not read it shows nothing) and each block shows only when the server has something
+   * to say, so a file with today's defaults looks as before (the visit's two buttons aside).
+   */
+  private walletVals(f: AppointmentFile, mem: MembershipView | undefined, tz: string, today: string): VM {
+    const s = this.state
+    const dark = s.theme === 'dark'
+    const first = FIRST_NAME(f.customer.name)
+    const busy = (k: string) => s.busy.includes(k)
+    const track = (k: string, p: Promise<unknown>) => {
+      this.setState({ busy: [...this.state.busy, k] })
+      void p.finally(() => this.setState({ busy: this.state.busy.filter((b) => b !== k) }))
+    }
+
+    // ---- cards on file (Overview)
+    const overview = s.modalTab === 'overview'
+    const cards =
+      overview && this.can('cli.view')
+        ? this.deps.store.read<CustomerCards>(qk.ops('cards', f.customer.id), () => this.deps.port.cards(f.customer.id), {
+            staleTimeMs: FRESH_MS,
+          })
+        : undefined
+    const rows = cardRows(cards, tz, today)
+    const cardVals: VM = {
+      cdShow: overview && cardsShown(cards),
+      cdRows: rows.map((r) => ({
+        ...r,
+        remove: () => {
+          if (this.cmd.allow('cli.edit')) this.setState({ cardConfirm: r.id })
+        },
+        confirming: s.cardConfirm === r.id,
+        confirmText: removeCardText(first, r.label),
+        confirm: () => {
+          if (busy('card')) return
+          track(
+            'card',
+            this.cmd.removeCard(f.customer.id, r.id, r.label).then((ok) => ok && this.setState({ cardConfirm: null })),
+          )
+        },
+        keep: () => this.setState({ cardConfirm: null }),
+      })),
+      cdEmpty: rows.length === 0,
+      cdEmptyText: 'No card saved yet. Text ' + first + ' a secure link to save one.',
+      cdCanLink: !!cards?.charge,
+      cdLinkLabel: busy('card-link') ? 'Texting…' : 'Text card link',
+      cdLink: () => {
+        if (busy('card-link')) return
+        track('card-link', this.cmd.cardLink(f.customer.id, first))
+      },
+      cdButtonStyle: plainButtonStyle(),
+      cdConfirmStyle: confirmBoxStyle(dark, 'red'),
+      cdConfirmBtnStyle: actionButtonStyle('danger', busy('card')),
+    }
+
+    // ---- the visit: cancel / no-show, then the fee (Overview)
+    const open = canCloseVisit(f)
+    const closed = isClosedVisit(f)
+    const fees =
+      overview && closed && (this.can('pay.collect') || this.can('sched.cancel'))
+        ? this.deps.store.read<FeeCharges>(qk.ops('fees', f.id), () => this.deps.port.feeCharges(f.id), {
+            staleTimeMs: FRESH_MS,
+          })
+        : undefined
+    const feeVMs = feeRows(fees?.items, tz, today)
+    const reason = s.cancelReason.trim()
+    const visitVals: VM = {
+      vsShow: overview && (open || closed),
+      vsCanClose: open,
+      vsClosed: closed,
+      vsClosedText: closedText(f),
+      vsCancel: () => {
+        if (this.cmd.allow('sched.cancel')) this.setState({ visitConfirm: 'cancel', cancelReason: '' })
+      },
+      vsNoShow: () => {
+        if (this.cmd.allow('sched.cancel')) this.setState({ visitConfirm: 'no_show' })
+      },
+      vsCancelling: open && s.visitConfirm === 'cancel',
+      vsNoShowing: open && s.visitConfirm === 'no_show',
+      vsCancelText: cancelText(first),
+      vsNoShowText: noShowText(first),
+      vsReason: s.cancelReason,
+      vsSetReason: (e: { target: { value: string } }) => this.setState({ cancelReason: e.target.value }),
+      vsConfirmCancel: () => {
+        if (busy('visit')) return
+        if (!reason) {
+          this.flash('Say why first', 'The reason is kept with the visit')
+          return
+        }
+        track('visit', this.cmd.cancelVisit(f.id, reason).then((r) => r && this.setState({ visitConfirm: null })))
+      },
+      vsConfirmNoShow: () => {
+        if (busy('visit')) return
+        track('visit', this.cmd.noShow(f.id).then((r) => r && this.setState({ visitConfirm: null })))
+      },
+      vsKeep: () => this.setState({ visitConfirm: null }),
+      vsButtonStyle: plainButtonStyle(),
+      vsConfirmStyle: confirmBoxStyle(dark, 'red'),
+      vsConfirmBtnStyle: actionButtonStyle('danger', busy('visit')),
+      vsInputStyle: { ...inputStyle, height: '42px', fontSize: '13px', marginTop: '10px' },
+      feeRows: feeVMs.map((r) => ({
+        ...r,
+        lineStyle: feeLineStyle(r.tone),
+        charge: () => {
+          if (this.cmd.allow('pay.collect')) this.setState({ feeConfirm: r.id, feeWaive: null })
+        },
+        waive: () => {
+          if (this.cmd.allow('pay.collect')) this.setState({ feeWaive: r.id, feeConfirm: null, waiveReason: '' })
+        },
+        confirming: s.feeConfirm === r.id && r.canDecide,
+        confirmText: chargeFeeText(r),
+        confirm: () => {
+          if (busy('fee')) return
+          track('fee', this.cmd.chargeFee(f.id, r.id).then(() => this.setState({ feeConfirm: null })))
+        },
+        waiving: s.feeWaive === r.id && r.canDecide,
+        reason: s.feeWaive === r.id ? s.waiveReason : '',
+        setReason: (e: { target: { value: string } }) => this.setState({ waiveReason: e.target.value }),
+        waiveConfirm: () => {
+          if (busy('fee')) return
+          const why = this.state.waiveReason.trim()
+          if (why.length < 2) {
+            this.flash('Say why first', 'The reason is kept with the fee')
+            return
+          }
+          track('fee', this.cmd.waiveFee(f.id, r.id, why).then((ok) => ok && this.setState({ feeWaive: null, waiveReason: '' })))
+        },
+        back: () => this.setState({ feeConfirm: null, feeWaive: null }),
+      })),
+      feeHas: feeVMs.length > 0,
+      feeConfirmStyle: confirmBoxStyle(dark, 'accent'),
+      feeConfirmBtnStyle: actionButtonStyle('primary', busy('fee')),
+    }
+
+    // ---- the billing block (Membership tab)
+    const block = s.modalTab === 'membership' ? billingBlock(mem, { tz, today }) : billingBlock(undefined, { tz, today })
+    const m = mem?.membership
+    const tiers =
+      block.show && s.changeOpen
+        ? this.deps.store.read<TierList>(qk.ops('tiers'), () => this.deps.port.tiers(), { staleTimeMs: 10 * 60_000 })
+        : undefined
+    const choice = m
+      ? changeChoice(tiers?.tiers, this.sizes(), { planKey: m.plan.key, planClass: m.planClass }, { tier: s.changeTier, size: s.changeSize })
+      : null
+    const act = (key: BillingActionKey, change?: { planKey: string; planClass?: string }) => {
+      if (!m || busy('billing')) return
+      track(
+        'billing',
+        this.cmd.billing(m.id, mem!.customerId, key, first, change).then((ok) => {
+          if (ok) this.setState({ billConfirm: null, changeOpen: false, changeTier: null, changeSize: null })
+        }),
+      )
+    }
+    const confirmOf = block.buttons.find((b) => b.key === s.billConfirm)
+    const billingVals: VM = {
+      blShow: block.show,
+      blTitle: block.title,
+      blStatus: block.status.value,
+      blStatusStyle: toneStyle(block.status.tone),
+      blLines: block.lines.map((l) => ({ label: l.label, value: l.value, style: toneStyle(l.tone) })),
+      blNotes: block.notes.map((text) => ({ text })),
+      blHasNotes: block.notes.length > 0,
+      blButtons: block.buttons.map((b) => ({
+        label: b.label,
+        style: plainButtonStyle(busy('billing')),
+        onClick: () => {
+          if (!this.cmd.allow(b.key === 'refund-last' ? 'pay.refund' : 'cli.member')) return
+          if (b.key === 'change') this.setState({ changeOpen: true, billConfirm: null, changeTier: null, changeSize: null })
+          else if (b.confirm) this.setState({ billConfirm: b.key, changeOpen: false })
+          else act(b.key)
+        },
+      })),
+      blConfirming: !!confirmOf,
+      blConfirmText: confirmOf?.confirm ?? '',
+      blConfirmLabel: confirmOf?.label ?? '',
+      blConfirm: () => confirmOf && act(confirmOf.key),
+      blKeep: () => this.setState({ billConfirm: null }),
+      blConfirmStyle: confirmBoxStyle(dark, confirmOf?.danger ? 'red' : 'accent'),
+      blConfirmBtnStyle: actionButtonStyle(confirmOf?.danger ? 'danger' : 'primary', busy('billing')),
+      blChangeOpen: block.show && s.changeOpen,
+      blTiers: (choice?.tiers ?? []).map((t) => ({
+        label: t.label,
+        style: sizeChipStyle(t.on),
+        onClick: () => this.setState({ changeTier: t.key, changeSize: null }),
+      })),
+      blSizes: (choice?.sizes ?? []).map((z) => ({
+        label: z.label + ' · ' + z.price,
+        style: sizeChipStyle(z.on),
+        onClick: () => this.setState({ changeSize: z.key }),
+      })),
+      blChangeSummary: choice?.summary ?? '',
+      blChangeLoading: block.show && s.changeOpen && !tiers,
+      blChangeConfirm: () => {
+        if (!choice?.ready || !m) return
+        act('change', { planKey: s.changeTier ?? m.plan.key, planClass: s.changeSize ?? m.planClass })
+      },
+      blChangeCancel: () => this.setState({ changeOpen: false, changeTier: null, changeSize: null }),
+      blChangeBtnStyle: actionButtonStyle('primary', busy('billing') || !choice?.ready),
+      blChangeBoxStyle: confirmBoxStyle(dark, 'accent'),
+    }
+    return { ...cardVals, ...visitVals, ...billingVals }
   }
 
   /** "Change size" (DV-808): the server prices the visit again; the chips close when it answered. */

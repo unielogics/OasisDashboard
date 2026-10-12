@@ -260,6 +260,63 @@ export function depositState(
   return { label: 'Deposit kept (canceled)', value: opsMoney(kept) }
 }
 
+/** The invoice summary's `deposit` (api-spec 30.13, wave Q3 dashapi): absent from an older server, null without a deposit. */
+export type DepositView = NonNullable<NonNullable<AppointmentFile['invoice']>['deposit']>
+
+/** The server sends the deposit state (wave Q3): the file reads it instead of working it out from the ledger. */
+export const hasServerDeposit = (inv: AppointmentFile['invoice']): boolean => !!inv && 'deposit' in inv
+
+/**
+ * DV-905: the deposit line of the Payments tab from the server's own state, for every role (no ledger read). A paid deposit
+ * of an open visit is the design's "Deposit paid" row (null here; `paidLabel` names a partial refund on it); everything
+ * else is one line: a deposit link asked for, texted or lapsed, a refund waiting for approval, refunded (on its way to the
+ * card), kept by the cancel and no-show rules, or a card refund that failed.
+ */
+export function depositLine(
+  inv: AppointmentFile['invoice'],
+): { row: { label: string; value: string } | null; paidLabel: string } {
+  const d = inv?.deposit
+  const paidLabel = d && d.state === 'paid' && d.refundedCents > 0 ? 'Deposit paid · ' + opsMoney(d.refundedCents) + ' refunded' : 'Deposit paid'
+  if (!inv || !d) return { row: null, paidLabel }
+  const canceled = inv.status.startsWith('canceled')
+  const asked = d.requestedCents ?? d.paidCents
+  switch (d.state) {
+    case 'requested':
+      return { row: { label: 'Deposit requested · not paid yet', value: opsMoney(asked) }, paidLabel }
+    case 'link_sent':
+      return { row: { label: 'Deposit link texted · not paid yet', value: opsMoney(asked) }, paidLabel }
+    case 'link_expired':
+      return { row: { label: 'Deposit link expired · not paid', value: opsMoney(asked) }, paidLabel }
+    case 'paid':
+      return { row: null, paidLabel }
+    case 'refund_pending':
+      return {
+        row: {
+          label: 'Deposit refund waiting for approval' + (canceled ? ' (canceled)' : ''),
+          value: opsMoney(d.pendingRefundCents),
+        },
+        paidLabel,
+      }
+    case 'refunded':
+      return {
+        row: {
+          label: d.refundSending ? 'Deposit refund on its way to the card' : 'Deposit refunded',
+          value: opsMoney(d.refundedCents),
+        },
+        paidLabel,
+      }
+    case 'kept':
+      if (d.refundFailed) return { row: { label: 'Deposit refund failed · not refunded', value: opsMoney(d.keptCents) }, paidLabel }
+      return {
+        row: {
+          label: 'Deposit kept (canceled)' + (d.refundedCents > 0 ? ' · ' + opsMoney(d.refundedCents) + ' refunded' : ''),
+          value: opsMoney(d.keptCents),
+        },
+        paidLabel,
+      }
+  }
+}
+
 // ---- the membership tab: plan size and household --------------------------------------------------------------------
 
 export interface HouseholdMember {

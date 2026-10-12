@@ -373,6 +373,18 @@
       "tpl": 569,
       "expectTag": "div",
       "htmlFile": "ops-member-household.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 450,
+      "expectTag": "div",
+      "htmlFile": "ops-file-wallet.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 569,
+      "expectTag": "div",
+      "htmlFile": "ops-member-billing.html"
     }
   ]
 }

@@ -151,13 +151,8 @@ export function cardVM(c: OpsCard, ui: BoardUi, h: BoardHandlers): VM {
     member: !!c.member,
     memberLabel: c.member ? c.member.label : '',
     memberPlain: c.member ? c.member.plan : 'Non-member',
-    // DV-812: the server's tier colours once the card carries them (backend gap: the card's member has only plan and label)
-    memberStyle: memberBadge(
-      c.member?.plan ?? null,
-      dark,
-      'card',
-      c.member as { color?: string | null; bgColor?: string | null } | null,
-    ),
+    // DV-812: the tier's own colours, which the card carries since wave Q3 (DV-906)
+    memberStyle: memberBadge(c.member?.plan ?? null, dark, 'card', c.member),
     bayLabel: c.bayLabel,
     durLabel: c.durLabel,
     payLabel: c.pay.label,

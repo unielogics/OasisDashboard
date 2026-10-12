@@ -1,0 +1,36 @@
+<sc-if value="{{ sel.blShow }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-top:16px;padding:16px 18px;background:var(--panel);border:1px solid var(--line);border-radius:14px;">
+    <div style="font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;">{{ sel.blTitle }}</div>
+    <div style="{{ sel.blStatusStyle }}">{{ sel.blStatus }}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+      <sc-for list="{{ sel.blLines }}" as="bl" hint-placeholder-count="4">
+        <div><div style="font-size:11.5px;color:var(--ink3);font-weight:700;">{{ bl.label }}</div><div style="{{ bl.style }}">{{ bl.value }}</div></div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ sel.blHasNotes }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:12px;">
+        <sc-for list="{{ sel.blNotes }}" as="bn" hint-placeholder-count="1"><div style="font-size:12.5px;font-weight:700;color:#8A5A06;line-height:1.45;">{{ bn.text }}</div></sc-for>
+      </div>
+    </sc-if>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;">
+      <sc-for list="{{ sel.blButtons }}" as="bb" hint-placeholder-count="4"><button sc-camel-on-click="{{ bb.onClick }}" style="{{ bb.style }}">{{ bb.label }}</button></sc-for>
+    </div>
+    <sc-if value="{{ sel.blConfirming }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ sel.blConfirmStyle }}">
+        <div style="font-size:13px;font-weight:700;line-height:1.45;">{{ sel.blConfirmText }}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;"><button sc-camel-on-click="{{ sel.blConfirm }}" style="{{ sel.blConfirmBtnStyle }}">{{ sel.blConfirmLabel }}</button><button sc-camel-on-click="{{ sel.blKeep }}" style="height:38px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);">Keep it</button></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ sel.blChangeOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ sel.blChangeBoxStyle }}">
+        <div style="font-size:11.5px;color:var(--ink3);font-weight:700;">Tier</div>
+        <sc-if value="{{ sel.blChangeLoading }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:6px;">Loading the tiers…</div></sc-if>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"><sc-for list="{{ sel.blTiers }}" as="bt" hint-placeholder-count="3"><button sc-camel-on-click="{{ bt.onClick }}" style="{{ bt.style }}">{{ bt.label }}</button></sc-for></div>
+        <div style="font-size:11.5px;color:var(--ink3);font-weight:700;margin-top:10px;">Plan size</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"><sc-for list="{{ sel.blSizes }}" as="bz" hint-placeholder-count="3"><button sc-camel-on-click="{{ bz.onClick }}" style="{{ bz.style }}">{{ bz.label }}</button></sc-for></div>
+        <div style="font-size:13px;font-weight:700;line-height:1.45;margin-top:10px;">{{ sel.blChangeSummary }}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;"><button sc-camel-on-click="{{ sel.blChangeConfirm }}" style="{{ sel.blChangeBtnStyle }}">Change plan</button><button sc-camel-on-click="{{ sel.blChangeCancel }}" style="height:38px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);">Keep it</button></div>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>

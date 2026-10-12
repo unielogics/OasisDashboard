@@ -1,0 +1,62 @@
+<sc-if value="{{ sel.cdShow }}" hint-placeholder-val="{{ false }}">
+  <div style="grid-column:1/3;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div style="flex:1;font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;">Cards on file</div>
+      <sc-if value="{{ sel.cdCanLink }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ sel.cdLink }}" style="{{ sel.cdButtonStyle }}">{{ sel.cdLinkLabel }}</button></sc-if>
+    </div>
+    <sc-if value="{{ sel.cdEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;font-weight:600;color:var(--ink2);">{{ sel.cdEmptyText }}</div></sc-if>
+    <sc-for list="{{ sel.cdRows }}" as="cr" hint-placeholder-count="1">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid var(--line2);">
+        <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">{{ cr.label }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ cr.sub }}</div><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:2px;">{{ cr.consent }}</div></div>
+        <sc-if value="{{ cr.canRemove }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ cr.remove }}" style="{{ sel.cdButtonStyle }}">Remove</button></sc-if>
+      </div>
+      <sc-if value="{{ cr.confirming }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ sel.cdConfirmStyle }}">
+          <div style="font-size:13px;font-weight:700;color:#C2410C;line-height:1.45;">{{ cr.confirmText }}</div>
+          <div style="display:flex;gap:8px;margin-top:10px;"><button sc-camel-on-click="{{ cr.confirm }}" style="{{ sel.cdConfirmBtnStyle }}">Remove card</button><button sc-camel-on-click="{{ cr.keep }}" style="height:38px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);">Keep it</button></div>
+        </div>
+      </sc-if>
+    </sc-for>
+  </div>
+</sc-if>
+<sc-if value="{{ sel.vsShow }}" hint-placeholder-val="{{ false }}">
+  <div style="grid-column:1/3;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;">Visit</div>
+      <sc-if value="{{ sel.vsCanClose }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ sel.vsCancel }}" style="{{ sel.vsButtonStyle }}">Cancel visit</button><button sc-camel-on-click="{{ sel.vsNoShow }}" style="{{ sel.vsButtonStyle }}">No-show</button></sc-if>
+    </div>
+    <sc-if value="{{ sel.vsClosed }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;font-weight:700;margin-top:8px;">{{ sel.vsClosedText }}</div></sc-if>
+    <sc-if value="{{ sel.vsCancelling }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ sel.vsConfirmStyle }}">
+        <div style="font-size:13px;font-weight:700;color:#C2410C;line-height:1.45;">{{ sel.vsCancelText }}</div>
+        <input value="{{ sel.vsReason }}" sc-camel-on-input="{{ sel.vsSetReason }}" placeholder="Why is it canceled?" autocomplete="off" style="{{ sel.vsInputStyle }}">
+        <div style="display:flex;gap:8px;margin-top:10px;"><button sc-camel-on-click="{{ sel.vsConfirmCancel }}" style="{{ sel.vsConfirmBtnStyle }}">Cancel visit</button><button sc-camel-on-click="{{ sel.vsKeep }}" style="height:38px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);">Keep it</button></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ sel.vsNoShowing }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ sel.vsConfirmStyle }}">
+        <div style="font-size:13px;font-weight:700;color:#C2410C;line-height:1.45;">{{ sel.vsNoShowText }}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;"><button sc-camel-on-click="{{ sel.vsConfirmNoShow }}" style="{{ sel.vsConfirmBtnStyle }}">Mark no-show</button><button sc-camel-on-click="{{ sel.vsKeep }}" style="height:38px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);">Keep it</button></div>
+      </div>
+    </sc-if>
+    <sc-for list="{{ sel.feeRows }}" as="fr" hint-placeholder-count="1">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;margin-top:8px;border-top:1px solid var(--line2);">
+        <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">{{ fr.title }}</div><div style="{{ fr.lineStyle }}">{{ fr.line }}</div></div>
+        <sc-if value="{{ fr.canDecide }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ fr.charge }}" style="{{ sel.vsButtonStyle }}">{{ fr.chargeLabel }}</button><button sc-camel-on-click="{{ fr.waive }}" style="{{ sel.vsButtonStyle }}">Waive</button></sc-if>
+      </div>
+      <sc-if value="{{ fr.confirming }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ sel.feeConfirmStyle }}">
+          <div style="font-size:13px;font-weight:700;color:var(--accentInk);line-height:1.45;">{{ fr.confirmText }}</div>
+          <div style="display:flex;gap:8px;margin-top:10px;"><button sc-camel-on-click="{{ fr.confirm }}" style="{{ sel.feeConfirmBtnStyle }}">{{ fr.chargeLabel }}</button><button sc-camel-on-click="{{ fr.back }}" style="height:38px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);">Back</button></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ fr.waiving }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ sel.feeConfirmStyle }}">
+          <div style="font-size:13px;font-weight:700;color:var(--accentInk);line-height:1.45;">Waive the fee? Nothing is charged. Say why:</div>
+          <input value="{{ fr.reason }}" sc-camel-on-input="{{ fr.setReason }}" placeholder="Why is it waived?" autocomplete="off" style="{{ sel.vsInputStyle }}">
+          <div style="display:flex;gap:8px;margin-top:10px;"><button sc-camel-on-click="{{ fr.waiveConfirm }}" style="{{ sel.feeConfirmBtnStyle }}">Waive fee</button><button sc-camel-on-click="{{ fr.back }}" style="height:38px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink2);">Back</button></div>
+        </div>
+      </sc-if>
+    </sc-for>
+  </div>
+</sc-if>

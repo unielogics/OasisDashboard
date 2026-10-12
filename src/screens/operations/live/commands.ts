@@ -14,8 +14,11 @@ import { qk } from '@/data/query'
 import type {
   AppointmentFile,
   ApptStatus,
+  BillingRes,
   BookingReq,
+  CancelRes,
   CommandRes,
+  FeeChargeRes,
   OperationsPort,
   PhotoCategory,
   SendMessageReq,
@@ -25,6 +28,8 @@ import type { CollectResult, PaymentsPort } from '@/data/ports/payments'
 import type { ToastSpec } from '@/data/toast'
 import { businessClock } from '@/lib/tz'
 import { applyChecklist } from '@/lib/operations/live/optimistic'
+import { billingToast, cardLinkToast, feeChargeToast } from '@/lib/operations/live/billing'
+import type { BillingActionKey } from '@/lib/operations/live/billing'
 import type { NextStepKey } from '@/lib/operations/live/file'
 
 export interface CommandDeps {
@@ -396,6 +401,127 @@ export class OpsCommands {
         desc: (first || 'The client') + ' confirms with a texted code next time',
       }),
       deny: 'edit clients',
+    })
+    return this.done(a, r)
+  }
+
+  // ---- cards on file, fees and Square memberships (ADR 0171 wave Q3; DV-903, DV-904, DV-907) -----------------------
+
+  /** Remove a saved card: Square disables it first; the server's refusal (Square not answering, watch-only) changes nothing. */
+  async removeCard(customerId: string, cardId: string, label: string): Promise<boolean> {
+    if (!this.allow('cli.edit')) return false
+    const a = this.action('card-remove:' + cardId)
+    const r = await this.run({
+      action: a,
+      key: qk.ops('cards', customerId),
+      invalidate: [qk.ops('file'), qk.payments()],
+      request: (idem) => this.d.port.removeCard(customerId, cardId, { idempotencyKey: idem }),
+      onOk: () => ({ title: 'Card removed', desc: label + ' can’t be charged any more' }),
+      deny: 'edit clients',
+    })
+    return this.done(a, r)
+  }
+
+  /** Text the client a secure page to save a card. A text that could not go is said, not hidden. */
+  async cardLink(customerId: string, first: string): Promise<boolean> {
+    if (!this.allow('cli.edit')) return false
+    const a = this.action('card-link:' + customerId)
+    const r = await this.run({
+      action: a,
+      key: qk.ops('cards', customerId),
+      request: (idem) => this.d.port.cardLink(customerId, { idempotencyKey: idem }),
+      onOk: (res) => cardLinkToast(first, res),
+      deny: 'edit clients',
+    })
+    return this.done(a, r)
+  }
+
+  /** Cancel a booked or confirmed visit; the deposit follows the cancellation rules and the client is texted. */
+  async cancelVisit(fileId: string, reason: string): Promise<CancelRes | null> {
+    if (!this.allow('sched.cancel')) return null
+    const a = this.action('cancel:' + fileId)
+    const r = await this.run({
+      action: a,
+      invalidate: [qk.payments()],
+      request: (idem) => this.d.port.cancel(fileId, { reason, notify: true }, { idempotencyKey: idem }),
+      onOk: toast,
+      deny: 'cancel appointments',
+    })
+    return this.done(a, r) && r.ok ? r.data : null
+  }
+
+  /** A no-show (only after the start and the grace period: the server says so otherwise). */
+  async noShow(fileId: string): Promise<CancelRes | null> {
+    if (!this.allow('sched.cancel')) return null
+    const a = this.action('no-show:' + fileId)
+    const r = await this.run({
+      action: a,
+      invalidate: [qk.payments()],
+      request: (idem) => this.d.port.noShow(fileId, { idempotencyKey: idem }),
+      onOk: toast,
+      deny: 'cancel appointments',
+    })
+    return this.done(a, r) && r.ok ? r.data : null
+  }
+
+  /**
+   * Charge a proposed (or declined) fee on its saved card, after the staff member confirmed it. A decline keeps the fee
+   * (charged again later as a new attempt); a charge Square has not answered is said and finished by the server's job.
+   */
+  async chargeFee(fileId: string, chargeId: string): Promise<FeeChargeRes | null> {
+    if (!this.allow('pay.collect')) return null
+    const a = this.action('fee-charge:' + chargeId)
+    const r = await this.run({
+      action: a,
+      key: qk.ops('fees', fileId),
+      invalidate: [qk.ops('file', fileId), qk.payments()],
+      request: (idem) => this.d.port.chargeFee(fileId, chargeId, { idempotencyKey: idem }),
+      onOk: (res) => feeChargeToast(res.charge),
+      deny: 'collect payments',
+    })
+    return this.done(a, r) && r.ok ? r.data : null
+  }
+
+  async waiveFee(fileId: string, chargeId: string, reason: string): Promise<boolean> {
+    if (!this.allow('pay.collect')) return false
+    const a = this.action('fee-waive:' + chargeId)
+    const r = await this.run({
+      action: a,
+      key: qk.ops('fees', fileId),
+      invalidate: [qk.ops('file', fileId), qk.payments()],
+      request: (idem) => this.d.port.waiveFee(fileId, chargeId, reason, { idempotencyKey: idem }),
+      onOk: () => ({ title: 'Fee waived', desc: 'Nothing is charged' }),
+      deny: 'collect payments',
+    })
+    return this.done(a, r)
+  }
+
+  /**
+   * A Square billing action on the membership (pause, resume, cancel at period end and their undo, change tier or size,
+   * text the card link, refund the last payment). The server makes the Square call and answers the membership again;
+   * its refusals (the state does not fit, Square watch-only or not answering) are its own words.
+   */
+  async billing(
+    membershipId: string,
+    customerId: string,
+    key: BillingActionKey,
+    first: string,
+    change?: { planKey: string; planClass?: string },
+  ): Promise<boolean> {
+    if (!this.allow(key === 'refund-last' ? 'pay.refund' : 'cli.member')) return false
+    const a = this.action('billing:' + membershipId + ':' + key + (change ? ':' + change.planKey + ':' + change.planClass : ''))
+    const r = await this.run<BillingRes>({
+      action: a,
+      key: qk.ops('membership', customerId),
+      invalidate: [qk.ops('file'), qk.ops('snapshot'), ...(key === 'refund-last' ? [qk.payments()] : [])],
+      request: (idem) => {
+        const o = { idempotencyKey: idem }
+        if (key === 'change') return this.d.port.changeBilling(membershipId, change!, o)
+        if (key === 'refund-last') return this.d.port.refundLast(membershipId, o)
+        return this.d.port.billing(membershipId, key, o)
+      },
+      onOk: (res) => billingToast(key, first, res),
+      deny: key === 'refund-last' ? 'issue refunds' : 'manage memberships',
     })
     return this.done(a, r)
   }

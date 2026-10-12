@@ -13,7 +13,15 @@ import type {
   AddonRes,
   AppointmentFile,
   Availability,
+  BillingRes,
   BookingRes,
+  CardLinkRes,
+  CustomerCards,
+  FeeChargeRes,
+  FeeCharges,
+  RemoveCardRes,
+  TierList,
+  WaiveFeeRes,
   CalendarDay,
   CalendarSummary,
   ChecklistBulkRes,
@@ -105,6 +113,14 @@ export interface StubPort extends OperationsPort {
   sizes: VehicleClasses
   /** The answer of quote(); by default built from the request by QUOTE_OF. */
   quoteOf: (req: QuoteReq) => QuoteRes
+  /** GET /customers/:id/cards per customer (default: no cards, saved cards off). */
+  cardsOf: Map<string, CustomerCards>
+  /** GET /appointments/:id/fee-charges per visit (default: none). */
+  feesOf: Map<string, FeeCharges>
+  /** GET /catalog/tiers. */
+  tierList: TierList
+  /** The answer of the next charge of a fee (default: charged). */
+  feeAnswer: (chargeId: string) => FeeChargeRes
 }
 
 /** The five default sizes (ADR 0170 seed), all on. */
@@ -337,6 +353,37 @@ export function stubPort(): StubPort {
     ),
     addHousehold: step('addHousehold', () => ({ membership: {} }) as unknown as HouseholdRes),
     removeHousehold: step('removeHousehold', () => ({ membership: {} }) as unknown as HouseholdRes),
+    cardsOf: new Map(),
+    feesOf: new Map(),
+    tierList: { tiers: [] } as unknown as TierList,
+    feeAnswer: (chargeId: string) => {
+      const known = [...port.feesOf.values()].flatMap((f) => f.items).find((c) => c.id === chargeId)
+      return { charge: { ...known, id: chargeId, state: 'charged' }, invoice: null } as unknown as FeeChargeRes
+    },
+    cards: step('cards', (id: string) => clone(port.cardsOf.get(id) ?? ({ cards: [], charge: false } as CustomerCards))),
+    removeCard: step(
+      'removeCard',
+      (_c: string, cardId: string) => ({ cardId, state: 'disabled', revokedConsents: 1 }) as unknown as RemoveCardRes,
+    ),
+    cardLink: step('cardLink', () => ({ sent: true, reason: null, linkId: 'l1', expiresAt: '2026-06-14T14:36:00.000Z' }) as CardLinkRes),
+    feeCharges: step('feeCharges', (id: string) => clone(port.feesOf.get(id) ?? ({ items: [] } as unknown as FeeCharges))),
+    chargeFee: step('chargeFee', (_id: string, chargeId: string) => port.feeAnswer(chargeId)),
+    waiveFee: step(
+      'waiveFee',
+      (_id: string, chargeId: string, reason: string) =>
+        ({ charge: { id: chargeId, state: 'waived', waiveReason: reason } }) as unknown as WaiveFeeRes,
+    ),
+    billing: step(
+      'billing',
+      (_m: string, action: string) =>
+        ({ membership: {}, ...(action === 'card-link' ? { sms: 'queued' } : {}) }) as unknown as BillingRes,
+    ),
+    changeBilling: step('changeBilling', () => ({ membership: {} }) as unknown as BillingRes),
+    refundLast: step(
+      'refundLast',
+      () => ({ membership: {}, refund: { amountCents: 12900, status: 'PENDING' } }) as unknown as BillingRes,
+    ),
+    tiers: step('tiers', () => clone(port.tierList)),
   }
   return port
 }

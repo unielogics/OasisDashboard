@@ -21,7 +21,7 @@ import { AMBER, LATE_COLOR, badgeStyle, memberBadge, payColor } from './board'
 import { firstWord, initialsOf, opsMoney } from './fmt'
 import { channelTagOf } from './assistant'
 import { coverageText } from '@/lib/sizes'
-import { depositState, itemLabelOf, processorWord, tenderLabel } from './sizes'
+import { depositLine, depositState, hasServerDeposit, itemLabelOf, processorWord, tenderLabel } from './sizes'
 import type { DepositFacts } from './sizes'
 import type { ProcessorName } from './sizes'
 
@@ -553,8 +553,12 @@ export function fileVM(
     kind,
   })
   const taxLabel = 'Tax (' + (inv?.taxBp ? trimRate(inv.taxBp) : '7') + '%)'
-  const processor: ProcessorName = ui.processor ?? 'squarespace'
-  const deposit = depositState(inv, ui.depositFacts)
+  // DV-905: the server's processor and deposit state on the file's own invoice, for every role (a server before wave Q3:
+  // what the screen learned, and the deposit worked out from the ledger, DV-809/DV-811)
+  const processor: ProcessorName = inv?.processing?.processor ?? ui.processor ?? 'squarespace'
+  const server = hasServerDeposit(inv)
+  const dep = depositLine(inv)
+  const deposit = server ? dep.row : depositState(inv, ui.depositFacts)
   const rows = inv
     ? [
         // DV-810: a line names its size and member % off (a line priced before sizes reads as designed)
@@ -573,7 +577,7 @@ export function fileVM(
         lineRow(taxLabel, opsMoney(inv.taxCents), 'item'),
         lineRow('Total', opsMoney(inv.totalCents), 'total'),
         ...(inv.depositCents > 0 && inv.balanceCents > 0
-          ? [lineRow('Deposit paid', '– ' + opsMoney(inv.depositCents), 'paid')]
+          ? [lineRow(server ? dep.paidLabel : 'Deposit paid', '– ' + opsMoney(inv.depositCents), 'paid')]
           : []),
         // DV-811: the deposit of a canceled visit, kept or refunded by the cancel and no-show rules
         ...(deposit ? [lineRow(deposit.label, deposit.value, 'paid')] : []),
