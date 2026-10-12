@@ -219,18 +219,45 @@ export const itemLabelOf = (it: {
   discountBp?: number | null
 }): string => lineLabel(it.name, it.classLabel, it.discountBp)
 
+/** What the invoice's ledger says about refunds (GET /invoices/:id, pay.reports): the file's summary does not carry it. */
+export interface DepositFacts {
+  /** Refunds that gave money back (calc.refunded: done and not failed, ADR 0171 D4). */
+  refundedCents: number
+  /** Card refunds the processor reported failed (they gave nothing back). */
+  failedRefundCents: number
+}
+
+export function depositFactsOf(
+  d: { calc: { refunded: number }; ledger: ReadonlyArray<{ type: string; status: string; voided: boolean; processorState: string; amountCents: number }> } | undefined,
+): DepositFacts | undefined {
+  if (!d?.calc || !d.ledger) return undefined
+  const failed = d.ledger
+    .filter((e) => e.type === 'refund' && e.status === 'done' && !e.voided && e.processorState === 'failed')
+    .reduce((n, e) => n + e.amountCents, 0)
+  return { refundedCents: d.calc.refunded, failedRefundCents: failed }
+}
+
 /**
- * The deposit of a canceled visit (D2: a deposit toward the visit, settled by the cancel and no-show rules): "Deposit kept"
- * or "Deposit refunded" with the amount. A paid deposit of an open visit is the design's own "Deposit paid" row; a deposit
- * link still waiting is not in the file (backend gap, see the report).
+ * The deposit of a canceled visit (D2: a deposit toward the visit, settled by the cancel and no-show rules). "Deposit
+ * refunded" when the server says so. Otherwise the summary's paidCents does not subtract refunds (a partial policy refund,
+ * a failed Square refund), so the amount kept is only shown from the invoice's ledger (`facts`, pay.reports): kept in
+ * full, kept after a partial refund, or a refund that failed. Without it the row only says it was not fully refunded.
+ * A paid deposit of an open visit is the design's own "Deposit paid" row; a deposit link still waiting is not in the file
+ * (backend gap, see the report).
  */
 export function depositState(
   inv: AppointmentFile['invoice'],
+  facts?: DepositFacts,
 ): { label: string; value: string } | null {
   if (!inv || inv.paidCents <= 0) return null
-  if (inv.status === 'canceled_kept') return { label: 'Deposit kept (canceled)', value: opsMoney(inv.paidCents) }
   if (inv.status === 'canceled_refunded') return { label: 'Deposit refunded', value: opsMoney(inv.paidCents) }
-  return null
+  if (inv.status !== 'canceled_kept') return null
+  if (!facts) return { label: 'Canceled · deposit not fully refunded', value: '' }
+  const kept = Math.max(0, inv.paidCents - facts.refundedCents)
+  if (facts.failedRefundCents > 0) return { label: 'Deposit refund failed · not refunded', value: opsMoney(kept) }
+  if (facts.refundedCents > 0)
+    return { label: 'Deposit kept (canceled) · ' + opsMoney(facts.refundedCents) + ' refunded', value: opsMoney(kept) }
+  return { label: 'Deposit kept (canceled)', value: opsMoney(kept) }
 }
 
 // ---- the membership tab: plan size and household --------------------------------------------------------------------

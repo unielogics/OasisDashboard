@@ -286,13 +286,19 @@ none of it, so the seeded design day and the parity runs read as before.
 | file Overview, vehicle card | `sel.sizeShow`, `sizeText`, `sizeBadge*`, `sizeToggle`, `sizeChips`, `carText`, `carToggle`, `carChips` | the file's `vehicleClass`, `vehicleClassLabel`, `needsSizeConfirm`, `needsPriceConfirm`, `priceBasis`, `vehicle.vehicleClass`/`vehicleClassSource`; `Change size` → `PUT /appointments/:id/vehicle-class {vehicleClass, version}` (`sched.edit`), the car alone → `PATCH /customers/:id/vehicles/:vehicleId {vehicleClass}` (`cli.edit`) |
 | file header | `sel.sizeBadge` | `Confirm size` / `Confirm price` after the status badge |
 | file Overview, appointment card | `sel.covShow`, `sel.covLines[]` | the invoice summary's `coverage[]` |
-| Payments tab | `sel.payRows`, `payTenders`, `payLink*` | items' `classLabel`/`discountBp`, a row per coverage line, the deposit of a canceled visit (`canceled_kept` / `canceled_refunded`); the processor from `GET /invoices/:id` (`processing`) while the tab is open and the role has `pay.reports`: `Square reader`, `Awaiting Square`, the link without a URL box |
+| Payments tab | `sel.payRows`, `payTenders`, `payLink*` | items' `classLabel`/`discountBp`, a row per coverage line, the deposit of a canceled visit (`canceled_refunded`: `Deposit refunded`; `canceled_kept`: the amount kept only from the ledger of `GET /invoices/:id` with `pay.reports` (`Deposit kept (canceled)`, `… · $12.50 refunded`, `Deposit refund failed · not refunded`), else `Canceled · deposit not fully refunded` without an amount, since the summary's `paidCents` does not subtract refunds); the processor from `GET /invoices/:id` (`processing`) while the tab is open and the role has `pay.reports`, else from the `invoice.processing` a collect answered earlier in the session, else Squarespace: `Square reader`, `Awaiting Square`, the link without a URL box |
 | Membership tab | `sel.hh*` | `GET /customers/:id/membership`: `planClassLabel`, `household[]`, `sharedFrom`; `Add` → `POST /memberships/:id/household {customerId}`, `Remove` → `DELETE /memberships/:id/household/:customerId` (`cli.member`) |
 | member badges | `sel.memberStyle`, cards' `memberStyle` | the file membership's `color`/`bgColor`; the card's when the server sends them; `memberMeta` otherwise |
 
 Commands (`OpsCommands`): `setVisitSize`, `setVehicleSize`, `addHousehold`, `removeHousehold` (permission first, an
 Idempotency-Key per action, the server's toast or `Car size saved`, `Added to the membership`, `Removed from the
-membership`); `collect` says `Square reader payment recorded · Waiting for Square to confirm` with Square.
+membership`); `collect` says `Square reader payment recorded · Waiting for Square to confirm` with Square (the
+processor of its own answer first).
+
+Backend gaps (Q2c): the file's invoice summary carries neither the processor nor the refunded amount. A role with
+`pay.collect` but without `pay.reports` (the default Customer Support role) therefore sees the Squarespace words until its
+first collect answers (`invoice.processing`), and the deposit of a canceled visit without an amount. Before the Square
+cutover (`PAYMENT_PROCESSOR=square`) the backend should add `processor` and `refundedCents` to the file's invoice summary.
 
 ### Running the end to end (`pnpm e2e:visits`)
 

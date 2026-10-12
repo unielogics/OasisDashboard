@@ -22,6 +22,7 @@ import { firstWord, initialsOf, opsMoney } from './fmt'
 import { channelTagOf } from './assistant'
 import { coverageText } from '@/lib/sizes'
 import { depositState, itemLabelOf, processorWord, tenderLabel } from './sizes'
+import type { DepositFacts } from './sizes'
 import type { ProcessorName } from './sizes'
 
 type VM = Record<string, unknown>
@@ -423,6 +424,8 @@ export interface FileUi {
   sending: boolean
   /** Who takes card money (ADR 0171): the Payments tab says "Square reader" and "Awaiting Square" with Square. */
   processor?: ProcessorName
+  /** F1: the refunds of the visit's invoice, from its ledger (pay.reports); absent otherwise. */
+  depositFacts?: DepositFacts
 }
 
 export interface FileHandlers extends PhotoHandlers {
@@ -551,7 +554,7 @@ export function fileVM(
   })
   const taxLabel = 'Tax (' + (inv?.taxBp ? trimRate(inv.taxBp) : '7') + '%)'
   const processor: ProcessorName = ui.processor ?? 'squarespace'
-  const deposit = depositState(inv)
+  const deposit = depositState(inv, ui.depositFacts)
   const rows = inv
     ? [
         // DV-810: a line names its size and member % off (a line priced before sizes reads as designed)

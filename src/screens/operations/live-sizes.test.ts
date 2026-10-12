@@ -284,6 +284,64 @@ describe('the appointment file: size, coverage, household, Square (DV-808..DV-81
     expect(payCalls(l, 'collect')[0]![2]).toEqual({ method: 'payment_link' })
   })
 
+  it('front desk (pay.collect without pay.reports): the processor a collect answers sets the Square words (F3)', async () => {
+    const port = stubPort()
+    const f = sizedFile({ vehicleClass: 'large_suv', vehicleClassLabel: 'Large SUV', needsSizeConfirm: false, priceBasis: 'class' })
+    port.files.set(f.id, f)
+    const payments = stubPayments()
+    ;(payments as any).collect = async (...a: unknown[]) => {
+      payments.calls.push(['collect', ...a])
+      return {
+        event: { id: 'ev1', amountCents: 4280, awaitingProcessor: true },
+        invoice: { id: 'inv', ledger: [], processing: { processor: 'square', squarePosAppSwitch: false } },
+      }
+    }
+    const l = makeLive(makeSession({ role: 'support' }), port, payments)
+    l.vals()
+    await l.settle()
+    let v = await openFile(l, f.id, 'payments')
+    // before any answer the role cannot know: today's words
+    expect(v.sel.payTenders.map((t: any) => t.label)).toEqual(['Card', 'Cash'])
+    expect(payCalls(l, 'invoice')).toHaveLength(0)
+    v.sel.collect()
+    await flushed(l)
+    v = l.vals()
+    expect(v.toastTitle).toBe('Square reader payment recorded')
+    expect(v.toastDesc).toMatch(/^Waiting for Square to confirm/)
+    v = await openFile(l, f.id, 'payments')
+    expect(v.sel.payTenders.map((t: any) => t.label)).toEqual(['Square reader', 'Cash'])
+    expect(v.sel.payLinkNeedsUrl).toBe(false)
+  })
+
+  it('a canceled visit’s deposit: the amount kept comes from the ledger, never the paid total (F1)', async () => {
+    const port = stubPort()
+    const f = sizedFile() as any
+    f.invoice = { ...f.invoice, status: 'canceled_kept', paidCents: 2500, balanceCents: 0, depositCents: 2500 }
+    port.files.set(f.id, f)
+    const payments = stubPayments()
+    ;(payments as any).invoice = async (id: string) => {
+      payments.calls.push(['invoice', id])
+      return {
+        id,
+        calc: { refunded: 1250 },
+        ledger: [{ id: 'r1', type: 'refund', status: 'done', voided: false, processorState: 'confirmed', amountCents: 1250 }],
+      }
+    }
+    const l = makeLive(makeSession({ role: 'mgmt' }), port, payments)
+    l.vals()
+    await l.settle()
+    const v = await openFile(l, f.id, 'payments')
+    const row = v.sel.payRows.find((r: any) => r.label.startsWith('Deposit'))
+    expect(row).toMatchObject({ label: 'Deposit kept (canceled) · $12.50 refunded', val: '$12.50' })
+    // a role without pay.reports cannot read the ledger: no amount is called kept
+    const desk = makeLive(makeSession({ role: 'support' }), port, stubPayments())
+    desk.vals()
+    await desk.settle()
+    const dv = await openFile(desk, f.id, 'payments')
+    const drow = dv.sel.payRows.find((r: any) => r.label.includes('deposit'))
+    expect(drow).toMatchObject({ label: 'Canceled · deposit not fully refunded', val: '' })
+  })
+
   it('the Membership tab: plan size and household; add and remove go to the server', async () => {
     const port = stubPort()
     const f = clone(FILES.cleaning) as any

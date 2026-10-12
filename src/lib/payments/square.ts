@@ -49,6 +49,23 @@ export function squareCollectText(method: 'card' | 'cash' | 'payment_link', firs
   return 'Receipt goes out by SMS and email.'
 }
 
+/**
+ * The note under a Square link the server made and left on screen (DV-802): texted, or why not, so staff send it another
+ * way. `sms` is the server's delivery state of the link's text; `cents` the exact amount the link asks for.
+ */
+export function sentLinkText(sms: string, client: string, cents: number): string {
+  const amount = 'It is for exactly ' + money(cents) + '.'
+  if (sms === 'queued') return 'Link texted. ' + amount
+  const first = client.split(' ')[0]!
+  return (
+    'Not texted: ' +
+    first +
+    (sms === 'skipped_opt_out' ? ' opted out of SMS' : ' has no phone on file') +
+    '. Copy the link and send it another way. ' +
+    amount
+  )
+}
+
 // ---- invoice lines ----------------------------------------------------------------------------------------------------
 
 /** An item's label with its size and member % off (ADR 0170): "Signature Hand Wash · Large SUV · 10% member price". */

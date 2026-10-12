@@ -42,6 +42,7 @@ import {
   paymentLine,
   paymentMeta,
   processorOf,
+  sentLinkText,
   toMatchBanner,
 } from '@/lib/payments/square'
 import { toastForError, toastText } from '@/data/toast'
@@ -118,6 +119,10 @@ export interface LiveState {
   urlError: string | null
   /** DV-802: a Square payment link the server made (pay links off: the plain square.link URL), shown with Copy. */
   sentLink: string | null
+  /** The note under that link: texted, or why it was not (the client opted out or has no phone). */
+  sentNote: string
+  /** That link was texted to the client. */
+  sentTexted: boolean
   /** DV-805: the "Square payments to match" sheet is open. */
   sqOpen: boolean
   /** DV-804: the staff Square reader entry the sheet was opened for (its amount is matched first). */
@@ -224,6 +229,8 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       busy: false,
       urlError: null,
       sentLink: null,
+      sentNote: '',
+      sentTexted: false,
       sqOpen: false,
       sqFocus: null,
       sqReasons: {},
@@ -433,11 +440,16 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     if (res.ok) {
       act.renew()
       // DV-802: a Square link the server made (pay links off) stays on screen with Copy; a texted personal link never shows
-      const link =
-        req.kind === 'collect' && processorOf(d) === 'square'
-          ? ((res.data as CollectResult).paymentLink?.url ?? null)
-          : null
-      if (link) this.setState({ busy: false, urlError: null, sentLink: link })
+      const pl = req.kind === 'collect' && processorOf(d) === 'square' ? (res.data as CollectResult).paymentLink : undefined
+      const link = pl?.url ?? null
+      if (link && pl)
+        this.setState({
+          busy: false,
+          urlError: null,
+          sentLink: link,
+          sentNote: sentLinkText(pl.sms, d.client, pl.expectedCents),
+          sentTexted: pl.sms === 'queued',
+        })
       else this.setState({ busy: false, sheet: null, urlError: null })
       return
     }
@@ -1023,8 +1035,9 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
         setAmount: () => undefined,
         setNote: () => undefined,
         reasons: [],
-        permText: 'Link texted. It is for exactly ' + money(det.calc.balance) + '.',
-        permStyle: permBoxStyle(true),
+        // F2: says whether the link was texted (the client may have opted out or have no phone)
+        permText: this.state.sentNote,
+        permStyle: permBoxStyle(this.state.sentTexted),
         submitStyle: submitStyle(false, sk),
       }
     return {

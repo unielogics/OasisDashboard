@@ -35,6 +35,8 @@ export interface CommandDeps {
   flash(title: string, desc?: string): void
   now(): number
   tz(): string
+  /** F3: a collect's answer names the processor (its invoice's `processing`), also for roles without pay.reports. */
+  learnProcessor?(p: 'squarespace' | 'square'): void
 }
 
 /** What a card or file tells a command about the appointment it acts on. */
@@ -454,8 +456,10 @@ export class OpsCommands {
     })
     if (!r.ok) return false
     a.renew()
+    const learned = r.data?.invoice?.processing?.processor
+    if (learned) this.d.learnProcessor?.(learned)
     const receipt = await this.receipt(invoiceId)
-    const square = who.processor === 'square'
+    const square = (learned ?? who.processor) === 'square'
     this.d.flash(
       method === 'card' ? (square ? 'Square reader payment recorded' : 'Card payment recorded') : 'Payment collected',
       (method === 'card' ? 'Waiting for ' + (square ? 'Square' : 'Squarespace') + ' to confirm · ' : '') +
@@ -485,19 +489,27 @@ export class OpsCommands {
           { method: 'payment_link', url: url.trim() || undefined },
           { idempotencyKey: idem },
         ),
-      onOk: (c: CollectResult) => ({
-        title: 'Payment link sent',
-        desc:
-          // DV-809: with Square the server makes the link; a plain Square link (pay links off) is shown to copy
-          (c.paymentLink?.sms === 'queued' ? 'Secure link via SMS' : 'Link saved · the client could not be texted') +
-          (c.paymentLink?.url && c.paymentLink.provider && c.paymentLink.provider !== 'squarespace'
-            ? ' · ' + c.paymentLink.url
-            : ''),
-      }),
+      onOk: (c: CollectResult) => {
+        const learned = c.invoice?.processing?.processor
+        if (learned) this.d.learnProcessor?.(learned)
+        return this.linkToast(c)
+      },
       deny: 'collect payments',
     })
     if (r.ok) a.renew()
     return r.ok ? { ok: true } : { ok: false, error: r.error }
+  }
+
+  private linkToast(c: CollectResult): ToastSpec {
+    return {
+      title: 'Payment link sent',
+      desc:
+        // DV-809: with Square the server makes the link; a plain Square link (pay links off) is shown to copy
+        (c.paymentLink?.sms === 'queued' ? 'Secure link via SMS' : 'Link saved · the client could not be texted') +
+        (c.paymentLink?.url && c.paymentLink.provider && c.paymentLink.provider !== 'squarespace'
+          ? ' · ' + c.paymentLink.url
+          : ''),
+    }
   }
 
   /** "Unpaid": reverses the last payment through the ledger (a void), never by editing the invoice. */

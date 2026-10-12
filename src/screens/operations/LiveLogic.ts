@@ -103,6 +103,7 @@ import {
   confirmBadgeStyle,
   confirmBadgeText,
   coverageLines,
+  depositFactsOf,
   fileHasSizes,
   householdOf,
   planSizeText,
@@ -288,6 +289,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
   private identityReadFor: string | null = null
   private markedRead = new Set<string>()
   private sending = false
+  /** F3: the processor a collect answered (its invoice's `processing`), for roles that cannot read the invoice. */
+  private learnedProcessor: ProcessorName | null = null
 
   constructor(props: Record<string, unknown> | undefined, deps: LiveOpsDeps) {
     super(props)
@@ -300,6 +303,9 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       flash: (title, desc) => this.flash(title, desc),
       now: () => deps.now(),
       tz: () => this.tz(),
+      learnProcessor: (p) => {
+        this.learnedProcessor = p
+      },
     })
     this.state = {
       theme: deps.loadTheme(),
@@ -543,18 +549,23 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     return this.deps.store.read(key, () => this.deps.port.quote(req), { staleTimeMs: 30_000 })
   }
 
-  /**
-   * Who takes card money on this invoice (ADR 0171), from the invoice detail of the Payments port while the Payments tab
-   * is open (pay.reports); Squarespace otherwise, the design's words (backend gap: the file's invoice does not say).
-   */
-  private processorOf(invoiceId: string | undefined): ProcessorName {
-    if (!invoiceId || this.state.modalTab !== 'payments' || !this.can('pay.reports')) return 'squarespace'
-    const d = this.deps.store.read<InvoiceDetail>(
+  /** The invoice detail of the Payments port, read while the file's Payments tab is open (pay.reports only). */
+  private invoiceDetail(invoiceId: string | undefined): InvoiceDetail | undefined {
+    if (!invoiceId || this.state.modalTab !== 'payments' || !this.can('pay.reports')) return undefined
+    return this.deps.store.read<InvoiceDetail>(
       qk.payments('invoice', invoiceId),
       () => this.deps.payments.invoice(invoiceId),
       { staleTimeMs: FRESH_MS },
     )
-    return d?.processing?.processor ?? 'squarespace'
+  }
+
+  /**
+   * Who takes card money on this invoice (ADR 0171): from the invoice detail (pay.reports, Payments tab open), else what a
+   * collect answered earlier in this session (its invoice carries `processing`; the setting is the server's, the same for
+   * every invoice), else Squarespace, the design's words (backend gap: the file's invoice does not say; see the report).
+   */
+  private processorOf(invoiceId: string | undefined): ProcessorName {
+    return this.invoiceDetail(invoiceId)?.processing?.processor ?? this.learnedProcessor ?? 'squarespace'
   }
 
   private catalog(): ServiceCatalog | undefined {
@@ -1288,6 +1299,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       busy: new Set(s.busy),
       sending: s.busy.includes('send'),
       processor: this.processorOf(f.invoice?.invoiceId),
+      depositFacts: depositFactsOf(this.invoiceDetail(f.invoice?.invoiceId)),
     }
     const h: FileHandlers = {
       setTab: (t) => this.setTab(t),

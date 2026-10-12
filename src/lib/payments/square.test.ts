@@ -19,6 +19,7 @@ import {
   parseInvoiceNo,
   processorMeta,
   processorOf,
+  sentLinkText,
   squareState,
   toMatchBanner,
 } from './square'
@@ -115,6 +116,15 @@ describe('the processor (DV-802)', () => {
     const link = liveSheetCalc({ kind: 'collect', f: liveSheetForm({ method: 'Payment link' }, null), d, p: PERMS })
     expect(link.needsUrl).toBe(true)
     expect(link.blocked).toBe(true)
+  })
+  it('the Square link left on screen says whether it was texted (F2)', () => {
+    expect(sentLinkText('queued', 'Maria Alvarez', 4280)).toBe('Link texted. It is for exactly $42.80.')
+    expect(sentLinkText('skipped_opt_out', 'Maria Alvarez', 4280)).toBe(
+      'Not texted: Maria opted out of SMS. Copy the link and send it another way. It is for exactly $42.80.',
+    )
+    expect(sentLinkText('no_contact', 'Maria Alvarez', 4280)).toBe(
+      'Not texted: Maria has no phone on file. Copy the link and send it another way. It is for exactly $42.80.',
+    )
   })
   it('collect toasts: a texted personal link, a Square link, the reader entry', () => {
     resetIds()

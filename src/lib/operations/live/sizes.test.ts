@@ -11,6 +11,7 @@ import {
   carSizeText,
   confirmBadgeText,
   coverageLines,
+  depositFactsOf,
   depositState,
   fileHasSizes,
   householdOf,
@@ -161,10 +162,36 @@ describe('the appointment file (DV-808, DV-810, DV-811)', () => {
     expect(coverageLines({ invoice: null })).toEqual([])
     expect(itemLabelOf({ name: 'Wax', classLabel: 'Truck', discountBp: 1000 })).toBe('Wax · Truck · 10% member price')
     expect(itemLabelOf({ name: 'Wax' })).toBe('Wax')
-    expect(depositState(inv)).toEqual({ label: 'Deposit kept (canceled)', value: '$25' })
+    // F1: the file's summary does not subtract refunds, so without the invoice's ledger no amount is called kept
+    expect(depositState(inv)).toEqual({ label: 'Canceled · deposit not fully refunded', value: '' })
+    // with the ledger (pay.reports): kept in full, kept after a partial policy refund, a failed Square refund
+    expect(depositState(inv, { refundedCents: 0, failedRefundCents: 0 })).toEqual({
+      label: 'Deposit kept (canceled)',
+      value: '$25',
+    })
+    expect(depositState(inv, { refundedCents: 1250, failedRefundCents: 0 })).toEqual({
+      label: 'Deposit kept (canceled) · $12.50 refunded',
+      value: '$12.50',
+    })
+    expect(depositState(inv, { refundedCents: 0, failedRefundCents: 2500 })).toEqual({
+      label: 'Deposit refund failed · not refunded',
+      value: '$25',
+    })
     expect(depositState({ ...inv!, status: 'canceled_refunded' })).toEqual({ label: 'Deposit refunded', value: '$25' })
     expect(depositState({ ...inv!, status: 'partially_paid' })).toBeNull()
     expect(depositState({ ...inv!, paidCents: 0 })).toBeNull()
+    expect(depositFactsOf(undefined)).toBeUndefined()
+    expect(
+      depositFactsOf({
+        calc: { refunded: 1250 },
+        ledger: [
+          { type: 'refund', status: 'done', voided: false, processorState: 'failed', amountCents: 1250 },
+          { type: 'refund', status: 'done', voided: false, processorState: 'confirmed', amountCents: 1250 },
+          { type: 'refund', status: 'pending', voided: false, processorState: 'na', amountCents: 500 },
+          { type: 'pay', status: 'done', voided: false, processorState: 'failed', amountCents: 2500 },
+        ],
+      } as never),
+    ).toEqual({ refundedCents: 1250, failedRefundCents: 1250 })
   })
   it('the processor words of the Payments tab', () => {
     expect(tenderLabel('card', 'square')).toBe('Square reader')

@@ -120,6 +120,7 @@ describe('Collect with Square (DV-802)', () => {
     expect(v.sh.hasSentLink).toBe(true)
     expect(v.sh.sentLink).toBe('https://square.link/u/AbCd')
     expect(v.toast).toBe('Pay link texted to Maria · $42.80')
+    expect(v.sh.permText).toBe('Link texted. It is for exactly $42.80.')
     v.sh.copyLink()
     await l.settle()
     expect(l.copied).toEqual(['https://square.link/u/AbCd'])
@@ -127,6 +128,36 @@ describe('Collect with Square (DV-802)', () => {
     l.vals().sh.submit()
     expect(l.vals().sheetOpen).toBe(false)
     expect(l.port.calls.filter((c) => c.op === 'collect')).toHaveLength(1)
+  })
+
+  it('a Square link the client could not be texted says so on the sheet, not "Link texted" (F2)', async () => {
+    const l = boot('mgmt', unpaid())
+    let v = await load(l)
+    v.d.actions.find((a: any) => a.label.startsWith('Collect')).onClick()
+    l.vals().sh.payMethods.find((m: any) => m.label === 'Payment link').onClick()
+    l.port.next.collect = {
+      invoice: unpaid(),
+      paymentLink: {
+        id: 'pl1',
+        url: 'https://square.link/u/AbCd',
+        expectedCents: 4280,
+        purpose: 'balance',
+        sms: 'skipped_opt_out',
+        provider: 'square',
+      },
+    }
+    l.vals().sh.submit()
+    await l.settle()
+    v = l.vals()
+    expect(v.sheetOpen).toBe(true)
+    expect(v.sh.sentLink).toBe('https://square.link/u/AbCd')
+    expect(v.toast).toBe('Pay link ready · Maria opted out of SMS')
+    expect(v.sh.permText).toBe(
+      'Not texted: Maria opted out of SMS. Copy the link and send it another way. It is for exactly $42.80.',
+    )
+    expect(v.sh.permText).not.toContain('Link texted')
+    l.vals().sh.submit()
+    expect(l.vals().sheetOpen).toBe(false)
   })
 
   it('a texted personal link (no URL back) closes the sheet', async () => {
