@@ -33,10 +33,20 @@ describe('the Square row and Test connection', () => {
   })
   it('live: set up, or what is still missing', () => {
     const b = billingFixture()
-    const live = { ...b.square, status: { ...b.square.status, live: true, configured: true, details: { environment: 'production' } } }
+    const live = {
+      ...b.square,
+      status: { ...b.square.status, live: true, configured: true, details: { environment: 'production' } },
+    }
     expect(squareStatus(live).headline).toBe('Connected to Square (production) · set up')
-    const missing = { ...live, status: { ...live.status, configured: false, missing: ['SQUARE_ACCESS_TOKEN'] } }
-    expect(squareStatus(missing)).toMatchObject({ headline: 'Connected to Square (production) · not set up yet', tone: 'red', missing: ['SQUARE_ACCESS_TOKEN'] })
+    const missing = {
+      ...live,
+      status: { ...live.status, configured: false, missing: ['SQUARE_ACCESS_TOKEN'] },
+    }
+    expect(squareStatus(missing)).toMatchObject({
+      headline: 'Connected to Square (production) · not set up yet',
+      tone: 'red',
+      missing: ['SQUARE_ACCESS_TOKEN'],
+    })
   })
   it('the checks, the last test and the toast', () => {
     const checks = [
@@ -48,7 +58,9 @@ describe('the Square row and Test connection', () => {
       { label: 'Webhook', value: 'Not OK · No subscription for the webhook URL', tone: 'red' },
     ])
     expect(lastTestText(null, '')).toBe('Never tested')
-    expect(lastTestText({ ok: true, at: 'x', checks: [] }, 'Jun 13, 10:36 AM')).toBe('Last test: all checks passed · Jun 13, 10:36 AM')
+    expect(lastTestText({ ok: true, at: 'x', checks: [] }, 'Jun 13, 10:36 AM')).toBe(
+      'Last test: all checks passed · Jun 13, 10:36 AM',
+    )
     expect(testToast({ ok: true, checks: [] as never })).toBe('Square connection OK')
     expect(testToast({ ok: false, checks: checks as never })).toBe('Square connection: 1 check(s) failed')
   })
@@ -81,13 +93,22 @@ describe('the forms’ checks', () => {
       ok: true,
       value: { enabled: true, noShowCents: 1500, lateCancelCents: 1000 },
     })
-    expect(feesBody({ enabled: true, noShow: '0', lateCancel: '' })).toEqual({ ok: false, message: 'Set at least one fee before turning fees on.' })
+    expect(feesBody({ enabled: true, noShow: '0', lateCancel: '' })).toEqual({
+      ok: false,
+      message: 'Set at least one fee before turning fees on.',
+    })
     expect(feesBody({ enabled: false, noShow: '1001', lateCancel: '0' }).ok).toBe(false)
     expect(feesBody({ enabled: false, noShow: '0', lateCancel: '0' }).ok).toBe(true)
   })
   it('the renewal policy: the cancel day comes after the last day of perks; what it means', () => {
-    expect(policyBody({ grace: '7', cancel: '21' })).toEqual({ ok: true, value: { graceDays: 7, cancelDays: 21 } })
-    expect(policyBody({ grace: '21', cancel: '21' })).toEqual({ ok: false, message: 'The cancel day must come after the last day of perks.' })
+    expect(policyBody({ grace: '7', cancel: '21' })).toEqual({
+      ok: true,
+      value: { graceDays: 7, cancelDays: 21 },
+    })
+    expect(policyBody({ grace: '21', cancel: '21' })).toEqual({
+      ok: false,
+      message: 'The cancel day must come after the last day of perks.',
+    })
     expect(policyBody({ grace: '61', cancel: '90' }).ok).toBe(false)
     expect(policyBody({ grace: '0', cancel: '0' }).ok).toBe(false)
     expect(policyText({ grace: '7', cancel: '21' })).toBe(
@@ -101,9 +122,22 @@ describe('the forms’ checks', () => {
     expect(noticeBody('-1').ok).toBe(false)
   })
   it('Sync to Square: skipped with the server’s reason, or what was made', () => {
-    const base = { plansCreated: 0, plansRenamed: 0, variationsCreated: 0, retired: 0, kept: 0, drift: 0, recreated: 0, failed: 0 }
-    expect(syncToast({ ...base, status: 'skipped', reason: 'Square writes are off' })).toBe('Not synced: Square writes are off')
-    expect(syncToast({ ...base, status: 'done', plansCreated: 1, variationsCreated: 4, failed: 1 })).toBe('Synced to Square · 5 made · 1 failed')
+    const base = {
+      plansCreated: 0,
+      plansRenamed: 0,
+      variationsCreated: 0,
+      retired: 0,
+      kept: 0,
+      drift: 0,
+      recreated: 0,
+      failed: 0,
+    }
+    expect(syncToast({ ...base, status: 'skipped', reason: 'Square writes are off' })).toBe(
+      'Not synced: Square writes are off',
+    )
+    expect(syncToast({ ...base, status: 'done', plansCreated: 1, variationsCreated: 4, failed: 1 })).toBe(
+      'Synced to Square · 5 made · 1 failed',
+    )
     expect(syncToast({ ...base, status: 'done' })).toBe('Synced to Square · nothing to change')
   })
 })
@@ -127,8 +161,14 @@ describe('Move members and the price cells (DV-909)', () => {
   })
   it('each price’s Square state, with the reason when Square lost it', () => {
     expect(priceSquareText('synced', null)).toEqual({ text: 'On Square', tone: 'green' })
-    expect(priceSquareText('failed', 'Square refused the price')).toEqual({ text: 'Square sync failed', tone: 'red' })
-    expect(priceSquareText('pending', 'Square lost its plan variation')).toEqual({ text: 'Square lost it · making it again', tone: 'amber' })
+    expect(priceSquareText('failed', 'Square refused the price')).toEqual({
+      text: 'Square sync failed',
+      tone: 'red',
+    })
+    expect(priceSquareText('pending', 'Square lost its plan variation')).toEqual({
+      text: 'Square lost it · making it again',
+      tone: 'amber',
+    })
     expect(priceSquareText('pending', null)).toEqual({ text: 'Not synced yet', tone: 'ink' })
     expect(priceSquareText(undefined, undefined).text).toBe('Not synced yet')
   })

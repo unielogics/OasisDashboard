@@ -46,7 +46,11 @@ export interface BillingCtx {
 
 const toneColour = (t: Line['tone']): string =>
   t === 'red' ? '#C2410C' : t === 'amber' ? '#8A5A06' : t === 'green' ? '#0E9E6E' : 'var(--ink)'
-const lineVals = (l: Line) => ({ label: l.label, value: l.value, style: { fontSize: '13.5px', fontWeight: 700, color: toneColour(l.tone) } })
+const lineVals = (l: Line) => ({
+  label: l.label,
+  value: l.value,
+  style: { fontSize: '13.5px', fontWeight: 700, color: toneColour(l.tone) },
+})
 
 const COLLECT: ReadonlyArray<readonly ['counter' | 'link', string]> = [
   ['counter', 'At the counter'],
@@ -83,7 +87,10 @@ export class BillingSection {
     const fSw = sw(f.enabled)
     const editFees = (patch: Partial<FeesDraft>) => {
       if (!this.ctx.allowed()) return
-      this.fees.set('fees', fBase, b.cardFees.version, { ...this.fees.value('fees', fBase, b.cardFees.version), ...patch })
+      this.fees.set('fees', fBase, b.cardFees.version, {
+        ...this.fees.value('fees', fBase, b.cardFees.version),
+        ...patch,
+      })
       delete this.errors.fees
       this.ctx.changed()
     }
@@ -129,7 +136,8 @@ export class BillingSection {
       test: () => void this.runTest(),
       syncLabel: this.ctx.busy('billing:sync') ? 'Syncing…' : 'Sync to Square',
       sync: () => void this.runSync(),
-      syncNote: 'Puts every membership price on Square now (it also happens by itself every few minutes once memberships on Square are on).',
+      syncNote:
+        'Puts every membership price on Square now (it also happens by itself every few minutes once memberships on Square are on).',
       // the server's switches
       switches: processingLines(b.processing).map(lineVals),
       // link tipping
@@ -186,7 +194,8 @@ export class BillingSection {
         delete this.errors.notice
         this.ctx.changed()
       },
-      noticeSub: '“Move members” (Memberships) tells members on an older price this many days before their price moves.',
+      noticeSub:
+        '“Move members” (Memberships) tells members on an older price this many days before their price moves.',
       noticeDirty: !!nEntry,
       noticeHasError: !!err('notice', nEntry),
       noticeError: err('notice', nEntry),
@@ -201,7 +210,9 @@ export class BillingSection {
       // booking fee collect mode
       bookingFee:
         b.guestFee.cents > 0
-          ? '$' + Math.round(b.guestFee.cents / 100) + ' per online booking by a guest, toward the visit (set in Prices by size).'
+          ? '$' +
+            Math.round(b.guestFee.cents / 100) +
+            ' per online booking by a guest, toward the visit (set in Prices by size).'
           : 'No booking fee (set in Prices by size).',
       collectOpts: COLLECT.map(([k, label]) => ({
         label,
@@ -244,9 +255,13 @@ export class BillingSection {
 
   private async runSync(): Promise<void> {
     if (!this.ctx.allowed()) return
-    const r = await this.ctx.run('billing:sync', (idem) => this.ctx.api.syncSquareCatalog({ idempotencyKey: idem }), {
-      invalidate: [['settings', 'catalog']],
-    })
+    const r = await this.ctx.run(
+      'billing:sync',
+      (idem) => this.ctx.api.syncSquareCatalog({ idempotencyKey: idem }),
+      {
+        invalidate: [['settings', 'catalog']],
+      },
+    )
     if (!r.ok) {
       if (r.message) this.ctx.flash(r.message)
       return
@@ -317,7 +332,11 @@ export class BillingSection {
 
   private async saveNotice(b: BillingRes): Promise<void> {
     if (!this.ctx.allowed()) return
-    const e = this.notice.get('notice', { days: String(b.priceChangeNotice.days) }, b.priceChangeNotice.version)
+    const e = this.notice.get(
+      'notice',
+      { days: String(b.priceChangeNotice.days) },
+      b.priceChangeNotice.version,
+    )
     if (!e) return
     const body = noticeBody(e.value.days)
     if (!body.ok) {
@@ -352,6 +371,8 @@ export class BillingSection {
     }
     this.collect.drop('collect')
     delete this.errors.collect
-    this.ctx.flash('Booking fee: collected ' + (e.value.mode === 'link' ? 'by payment link' : 'at the counter'))
+    this.ctx.flash(
+      'Booking fee: collected ' + (e.value.mode === 'link' ? 'by payment link' : 'at the counter'),
+    )
   }
 }

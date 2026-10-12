@@ -57,17 +57,26 @@ async function step(name: string, fn: () => Promise<void>): Promise<void> {
     results.push({ step: name, ok: true })
     console.log(`  ok   ${name}`)
   } catch (e) {
-    const detail = (e as Error).message.split('\n').filter((l) => l.trim()).slice(0, 4).join(' | ').slice(0, 500)
+    const detail = (e as Error).message
+      .split('\n')
+      .filter((l) => l.trim())
+      .slice(0, 4)
+      .join(' | ')
+      .slice(0, 500)
     results.push({ step: name, ok: false, detail })
     console.log(`  FAIL ${name}\n       ${detail}`)
-    if (current) await shot(current, 'FAILED-' + name.replace(/[^a-z0-9]+/gi, '-').slice(0, 40)).catch(() => {})
+    if (current)
+      await shot(current, 'FAILED-' + name.replace(/[^a-z0-9]+/gi, '-').slice(0, 40)).catch(() => {})
   } finally {
     expected4xx = []
   }
 }
 
 async function shot(page: Page, name: string): Promise<void> {
-  await page.screenshot({ path: path.join(shots, `${String(++shotNo).padStart(2, '0')}-${name}.png`), fullPage: true })
+  await page.screenshot({
+    path: path.join(shots, `${String(++shotNo).padStart(2, '0')}-${name}.png`),
+    fullPage: true,
+  })
 }
 
 function watch(page: Page, who: string): void {
@@ -89,7 +98,9 @@ function watch(page: Page, who: string): void {
         .text()
         .catch(() => '')
         .then((body) =>
-          problems.push(`[${who}] unexpected API 4xx during "${during}": ${line} ${body.replace(/\s+/g, ' ').slice(0, 300)}`),
+          problems.push(
+            `[${who}] unexpected API 4xx during "${during}": ${line} ${body.replace(/\s+/g, ' ').slice(0, 300)}`,
+          ),
         )
     }
   })
@@ -101,7 +112,12 @@ async function api<T = any>(req: APIRequestContext, p: string): Promise<T> {
   return (await r.json()) as T
 }
 
-async function write(ctx: BrowserContext, method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', p: string, data?: unknown): Promise<any> {
+async function write(
+  ctx: BrowserContext,
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  p: string,
+  data?: unknown,
+): Promise<any> {
   const csrf = (await api(ctx.request, '/auth/csrf')).csrfToken as string
   const r = await ctx.request.fetch(`${stack.webUrl}/api/v1${p}`, {
     method,
@@ -119,12 +135,20 @@ async function write(ctx: BrowserContext, method: 'POST' | 'PUT' | 'PATCH' | 'DE
 
 /** A control of the Square simulator (never the API: the simulator is Square). */
 async function sim(p: string, body: unknown = {}): Promise<any> {
-  const r = await fetch(`${SIM}${p}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const r = await fetch(`${SIM}${p}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!r.ok) throw new Error(`simulator ${p} -> ${r.status} ${(await r.text()).slice(0, 200)}`)
   return r.json()
 }
 
-async function until<T>(what: string, fn: () => Promise<T | undefined | null | false>, ms = 30_000): Promise<T> {
+async function until<T>(
+  what: string,
+  fn: () => Promise<T | undefined | null | false>,
+  ms = 30_000,
+): Promise<T> {
   const t0 = Date.now()
   let last: unknown
   for (;;) {
@@ -135,13 +159,15 @@ async function until<T>(what: string, fn: () => Promise<T | undefined | null | f
     } catch (e) {
       last = (e as Error).message
     }
-    if (Date.now() - t0 > ms) throw new Error(`timed out waiting for ${what} (last: ${JSON.stringify(last)?.slice(0, 200)})`)
+    if (Date.now() - t0 > ms)
+      throw new Error(`timed out waiting for ${what} (last: ${JSON.stringify(last)?.slice(0, 200)})`)
     await sleep(400)
   }
 }
 
 const fileModal = (page: Page) => page.locator('div[style*="z-index: 60"]').first()
-const seeText = (page: Page, text: string | RegExp, ms = 15_000) => page.getByText(text).first().waitFor({ timeout: ms })
+const seeText = (page: Page, text: string | RegExp, ms = 15_000) =>
+  page.getByText(text).first().waitFor({ timeout: ms })
 
 // ---- the backend's own modules on the stack's schema: issue a personal link, recover the code a text carried ------------------
 
@@ -165,8 +191,15 @@ const [dbm, ids, clockm, links, otp, consents] = await Promise.all([
 ])
 const clock = clockm.systemClock
 const newId = ids.createIdGenerator(clock)
-const db = dbm.createDb({ url: dbUrl, searchPath: `${stack.schema},public`, poolMax: 2, applicationName: 'dash-e2e-billing' })
-const locationId: string = (await db.selectFrom('locations').select('id').orderBy('created_at').orderBy('id').executeTakeFirstOrThrow()).id
+const db = dbm.createDb({
+  url: dbUrl,
+  searchPath: `${stack.schema},public`,
+  poolMax: 2,
+  applicationName: 'dash-e2e-billing',
+})
+const locationId: string = (
+  await db.selectFrom('locations').select('id').orderBy('created_at').orderBy('id').executeTakeFirstOrThrow()
+).id
 
 function psql(sql: string): string {
   return execFileSync('psql', [dbUrl, '-Atq', '-v', 'ON_ERROR_STOP=1', '-f', '-'], {
@@ -177,11 +210,19 @@ function psql(sql: string): string {
 }
 
 /** The link routes as a client's page calls them (the link API, never the dashboard's). */
-async function linkApi(method: string, p: string, o: { session?: string; body?: unknown; key?: string } = {}): Promise<{ status: number; body: any }> {
+async function linkApi(
+  method: string,
+  p: string,
+  o: { session?: string; body?: unknown; key?: string } = {},
+): Promise<{ status: number; body: any }> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (o.session) headers.authorization = `Bearer ${o.session}`
   if (o.key) headers['idempotency-key'] = o.key
-  const r = await fetch(`${stack.apiUrl}/api/v1/public/links${p}`, { method, headers, ...(o.body !== undefined ? { body: JSON.stringify(o.body) } : {}) })
+  const r = await fetch(`${stack.apiUrl}/api/v1/public/links${p}`, {
+    method,
+    headers,
+    ...(o.body !== undefined ? { body: JSON.stringify(o.body) } : {}),
+  })
   const text = await r.text()
   let body: any = text
   try {
@@ -193,10 +234,20 @@ async function linkApi(method: string, p: string, o: { session?: string; body?: 
 }
 
 /** A client's own page of a kind (card, membership), verified now by the code texted to their number. */
-async function verifiedPage(customerId: string, kind: 'card' | 'membership', planKey: string | null = null): Promise<string> {
+async function verifiedPage(
+  customerId: string,
+  kind: 'card' | 'membership',
+  planKey: string | null = null,
+): Promise<string> {
   const link = await db
     .transaction()
-    .execute((t: any) => links.issueClientLink(t, { newId, now: clock.now() }, { locationId, kind, customerId, planKey, issuedBy: 'staff' }))
+    .execute((t: any) =>
+      links.issueClientLink(
+        t,
+        { newId, now: clock.now() },
+        { locationId, kind, customerId, planKey, issuedBy: 'staff' },
+      ),
+    )
   const ex = await linkApi('POST', '/exchange', { body: { token: link.token } })
   check(ex.status === 200, `the ${kind} page opens (${ex.status})`)
   const session = ex.body.session as string
@@ -219,8 +270,16 @@ async function verifiedPage(customerId: string, kind: 'card' | 'membership', pla
 
 const browser = await chromium.launch({ args: ['--disable-dev-shm-usage', '--font-render-hinting=none'] })
 
-async function session(email: string, who: string, next: string): Promise<{ ctx: BrowserContext; page: Page }> {
-  const ctx = await browser.newContext({ viewport: { width: 1480, height: 1000 }, timezoneId: 'America/New_York', locale: 'en-US' })
+async function session(
+  email: string,
+  who: string,
+  next: string,
+): Promise<{ ctx: BrowserContext; page: Page }> {
+  const ctx = await browser.newContext({
+    viewport: { width: 1480, height: 1000 },
+    timezoneId: 'America/New_York',
+    locale: 'en-US',
+  })
   const page = await ctx.newPage()
   page.setDefaultTimeout(15_000)
   watch(page, who)
@@ -234,11 +293,17 @@ async function openFileOf(page: Page, name: string): Promise<void> {
   await page.waitForSelector('#dc-root .sc-host', { timeout: 20_000 })
   await page.locator('#dc-root button', { hasText: name }).first().click()
   await fileModal(page).waitFor()
-  await page.waitForFunction((n) => document.querySelector('div[style*="z-index: 60"]')?.textContent?.includes(n), name)
+  await page.waitForFunction(
+    (n) => document.querySelector('div[style*="z-index: 60"]')?.textContent?.includes(n),
+    name,
+  )
 }
 
 async function fileTab(page: Page, label: string): Promise<void> {
-  await fileModal(page).locator('button', { hasText: new RegExp('^\\s*' + label) }).first().click()
+  await fileModal(page)
+    .locator('button', { hasText: new RegExp('^\\s*' + label) })
+    .first()
+    .click()
   await sleep(500)
 }
 
@@ -268,8 +333,13 @@ try {
       let booked: any = null
       for (let d = 0; d < 7 && !booked; d++) {
         const snap = await api(req, '/ops/snapshot?window=today')
-        const date = new Date(Date.parse(snap.now.bizDate + 'T12:00:00Z') + d * 86_400_000).toISOString().slice(0, 10)
-        const av = await api(req, `/availability?date=${date}&serviceId=${pkg.id}&channel=desk&customerId=${S[k].id}`)
+        const date = new Date(Date.parse(snap.now.bizDate + 'T12:00:00Z') + d * 86_400_000)
+          .toISOString()
+          .slice(0, 10)
+        const av = await api(
+          req,
+          `/availability?date=${date}&serviceId=${pkg.id}&channel=desk&customerId=${S[k].id}`,
+        )
         const slot = av.slots.find((s: any) => s.state === 'available')
         if (slot)
           booked = await write(ctx, 'POST', '/appointments', {
@@ -301,45 +371,60 @@ try {
           from appointments a where a.id = '${S[k].appt}' and i.appointment_id = a.id;`)
   })
 
-  await step('Settings → Billing & integrations: Test connection on the simulator, the switches read only', async () => {
-    await page.goto(`${stack.webUrl}/settings#billing`, { waitUntil: 'load' })
-    await seeText(page, 'How payments run')
-    const b = await api(req, '/settings/billing')
-    eq(b.processing.processor, 'square', 'Square takes card money in this stack')
-    await seeText(page, 'Card payments go through')
-    await seeText(page, /^Square$/)
-    await page.locator('#dc-root button', { hasText: 'Test connection' }).click()
-    await seeText(page, /Square connection/)
-    const after = await until('the test is stored', async () => {
-      const x = await api(req, '/settings/billing')
-      return x.square.lastTest ? x : null
-    })
-    for (const c of after.square.lastTest.checks) await seeText(page, (c.ok ? 'OK' : 'Not OK') + (c.detail ? ' · ' + c.detail : ''))
-    await shot(page, 'billing-test-connection')
-  })
+  await step(
+    'Settings → Billing & integrations: Test connection on the simulator, the switches read only',
+    async () => {
+      await page.goto(`${stack.webUrl}/settings#billing`, { waitUntil: 'load' })
+      await seeText(page, 'How payments run')
+      const b = await api(req, '/settings/billing')
+      eq(b.processing.processor, 'square', 'Square takes card money in this stack')
+      await seeText(page, 'Card payments go through')
+      await seeText(page, /^Square$/)
+      await page.locator('#dc-root button', { hasText: 'Test connection' }).click()
+      await seeText(page, /Square connection/)
+      const after = await until('the test is stored', async () => {
+        const x = await api(req, '/settings/billing')
+        return x.square.lastTest ? x : null
+      })
+      for (const c of after.square.lastTest.checks)
+        await seeText(page, (c.ok ? 'OK' : 'Not OK') + (c.detail ? ' · ' + c.detail : ''))
+      await shot(page, 'billing-test-connection')
+    },
+  )
 
-  await step('Settings → Billing & integrations: the no-show fee on ($100), saved with its version', async () => {
-    await page.locator('#dc-root button[title="Fees on or off"]').click()
-    await page.locator('#dc-root input[title="No-show fee"]').fill('100')
-    await page.locator('#dc-root button', { hasText: 'Save fees' }).click()
-    await seeText(page, 'Saved-card fees saved · on')
-    const f = await api(req, '/settings/card-fees')
-    eq([f.fees.enabled, f.fees.noShowCents, f.active], [true, 10_000, true], 'the fee is on at $100')
-  })
+  await step(
+    'Settings → Billing & integrations: the no-show fee on ($100), saved with its version',
+    async () => {
+      await page.locator('#dc-root button[title="Fees on or off"]').click()
+      await page.locator('#dc-root input[title="No-show fee"]').fill('100')
+      await page.locator('#dc-root button', { hasText: 'Save fees' }).click()
+      await seeText(page, 'Saved-card fees saved · on')
+      const f = await api(req, '/settings/card-fees')
+      eq([f.fees.enabled, f.fees.noShowCents, f.active], [true, 10_000, true], 'the fee is on at $100')
+    },
+  )
 
-  await step('Settings: Sync to Square puts the Gold price on Square; the Memberships grid says "On Square"', async () => {
-    await page.locator('#dc-root button', { hasText: 'Sync to Square' }).click()
-    await seeText(page, /^Synced to Square/)
-    const tiers = await until('the Gold Compact car price synced', async () => {
-      const t = await api(req, '/catalog/tiers')
-      const gold = t.tiers.find((x: any) => x.key === 'gold')
-      return gold?.prices.find((p: any) => p.class === 'compact_car' && p.squareState === 'synced') ? t : null
-    })
-    void tiers
-    await page.locator('#dc-root button', { hasText: /^Memberships$/ }).first().click()
-    await seeText(page, 'On Square')
-    await shot(page, 'memberships-on-square')
-  })
+  await step(
+    'Settings: Sync to Square puts the Gold price on Square; the Memberships grid says "On Square"',
+    async () => {
+      await page.locator('#dc-root button', { hasText: 'Sync to Square' }).click()
+      await seeText(page, /^Synced to Square/)
+      const tiers = await until('the Gold Compact car price synced', async () => {
+        const t = await api(req, '/catalog/tiers')
+        const gold = t.tiers.find((x: any) => x.key === 'gold')
+        return gold?.prices.find((p: any) => p.class === 'compact_car' && p.squareState === 'synced')
+          ? t
+          : null
+      })
+      void tiers
+      await page
+        .locator('#dc-root button', { hasText: /^Memberships$/ })
+        .first()
+        .click()
+      await seeText(page, 'On Square')
+      await shot(page, 'memberships-on-square')
+    },
+  )
 
   await step('a client saves a card on their own card page; the file lists it with its consent', async () => {
     for (const k of ['a', 'b'] as const) {
@@ -357,11 +442,22 @@ try {
       check(r.status === 201, `the card is saved (${r.status} ${JSON.stringify(r.body).slice(0, 160)})`)
     }
     const cards = await api(req, `/customers/${S.a.id}/cards`)
-    eq(cards.cards.map((c: any) => [c.label, c.state]), [['Visa ••5858', 'active']], 'the saved card')
+    eq(
+      cards.cards.map((c: any) => [c.label, c.state]),
+      [['Visa ••5858', 'active']],
+      'the saved card',
+    )
     await openFileOf(page, NAMES.a)
     await seeText(page, 'Cards on file')
     await seeText(page, 'Visa ••5858')
-    await seeText(page, new RegExp('^Consent ' + cards.cards[0].consents[0].version + ' · .* · no-show fee, late-cancel fee and balances · on the client’s link$'))
+    await seeText(
+      page,
+      new RegExp(
+        '^Consent ' +
+          cards.cards[0].consents[0].version +
+          ' · .* · no-show fee, late-cancel fee and balances · on the client’s link$',
+      ),
+    )
     await shot(page, 'file-cards-on-file')
   })
 
@@ -375,7 +471,10 @@ try {
     await page.fill('#dc-root input[placeholder*="Search"]', inv.label)
     await page.locator('#dc-root button', { hasText: inv.label }).first().click()
     await page.waitForFunction((l) => document.querySelector('aside')?.textContent?.includes(l), inv.label)
-    await page.locator('aside button', { hasText: /^Collect / }).first().click()
+    await page
+      .locator('aside button', { hasText: /^Collect / })
+      .first()
+      .click()
     await page.locator('#dc-root button', { hasText: 'Saved card ••5858' }).click()
     const money = '$' + (due / 100).toFixed(2)
     await seeText(page, `${NAMES.a.split(' ')[0]} said OK to charge ${money} to Visa ••5858`)
@@ -404,13 +503,20 @@ try {
       return f.items.find((c: any) => c.purpose === 'no_show_fee' && c.state === 'proposed') ? f : null
     })
     const fee = fees.items[0]
-    const money = '$' + (fee.amountCents % 100 ? (fee.amountCents / 100).toFixed(2) : String(fee.amountCents / 100))
+    const money =
+      '$' + (fee.amountCents % 100 ? (fee.amountCents / 100).toFixed(2) : String(fee.amountCents / 100))
     await seeText(page, `No-show fee · ${money} on Visa ••5858`)
     await seeText(page, 'Proposed by the cancellation rules. Charge it or waive it.')
     await shot(page, 'file-no-show-fee')
-    await page.locator('div[style*="z-index: 60"] button', { hasText: `Charge ${money}` }).first().click()
+    await page
+      .locator('div[style*="z-index: 60"] button', { hasText: `Charge ${money}` })
+      .first()
+      .click()
     await seeText(page, `Charge the No-show fee of ${money} on Visa ••5858 now?`)
-    await page.locator('div[style*="z-index: 60"] button', { hasText: `Charge ${money}` }).last().click()
+    await page
+      .locator('div[style*="z-index: 60"] button', { hasText: `Charge ${money}` })
+      .last()
+      .click()
     await seeText(page, 'No-show fee charged')
     const done = await until('the fee charged', async () => {
       const f = await api(req, `/appointments/${S.b.appt}/fee-charges`)
@@ -420,43 +526,52 @@ try {
     await seeText(page, /^Charged .+/)
   })
 
-  await step('a client joins Gold on their membership page; the Membership tab shows the Square billing block', async () => {
-    const s = await verifiedPage(S.c.id, 'membership', 'gold')
-    const r = await linkApi('POST', '/membership/subscribe', {
-      session: s,
-      key: `e2e-sub-${crypto.randomUUID()}`,
-      body: {
-        email: 'mira.member.e2e@gmail.com',
-        planClass: 'compact_car',
-        sourceId: 'cnon:card-nonce-ok',
-        consentVersion: consents.CURRENT_CONSENT_VERSION,
-        postalCode: '07026',
-      },
-    })
-    check(r.status === 202, `the subscription is asked for (${r.status} ${JSON.stringify(r.body).slice(0, 160)})`)
-    const view = await until(
-      'the membership active, billed by Square',
-      async () => {
-        await sim('/__sim/clock', { advanceMs: 15_000 }).catch(() => null)
-        const m = await api(req, `/customers/${S.c.id}/membership`)
-        return m.membership?.status === 'active' && m.membership.billing?.lastPaid ? m : null
-      },
-      90_000,
-    )
-    S.c.membership = view.membership
-    eq(view.membership.billing.planClassLabel, 'Compact car', 'the plan size')
-    await openFileOf(page, NAMES.c)
-    await fileTab(page, 'Membership')
-    await seeText(page, 'Billed by Square')
-    await seeText(page, 'Active · billed by Square')
-    await seeText(page, view.membership.billing.card.label + ' · expires')
-    await shot(page, 'membership-billing-block')
-  })
+  await step(
+    'a client joins Gold on their membership page; the Membership tab shows the Square billing block',
+    async () => {
+      const s = await verifiedPage(S.c.id, 'membership', 'gold')
+      const r = await linkApi('POST', '/membership/subscribe', {
+        session: s,
+        key: `e2e-sub-${crypto.randomUUID()}`,
+        body: {
+          email: 'mira.member.e2e@gmail.com',
+          planClass: 'compact_car',
+          sourceId: 'cnon:card-nonce-ok',
+          consentVersion: consents.CURRENT_CONSENT_VERSION,
+          postalCode: '07026',
+        },
+      })
+      check(
+        r.status === 202,
+        `the subscription is asked for (${r.status} ${JSON.stringify(r.body).slice(0, 160)})`,
+      )
+      const view = await until(
+        'the membership active, billed by Square',
+        async () => {
+          await sim('/__sim/clock', { advanceMs: 15_000 }).catch(() => null)
+          const m = await api(req, `/customers/${S.c.id}/membership`)
+          return m.membership?.status === 'active' && m.membership.billing?.lastPaid ? m : null
+        },
+        90_000,
+      )
+      S.c.membership = view.membership
+      eq(view.membership.billing.planClassLabel, 'Compact car', 'the plan size')
+      await openFileOf(page, NAMES.c)
+      await fileTab(page, 'Membership')
+      await seeText(page, 'Billed by Square')
+      await seeText(page, 'Active · billed by Square')
+      await seeText(page, view.membership.billing.card.label + ' · expires')
+      await shot(page, 'membership-billing-block')
+    },
+  )
 
   await step('the billing block: Pause asks first, then Square schedules it', async () => {
     await page.locator('div[style*="z-index: 60"] button', { hasText: /^Pause$/ }).click()
     await seeText(page, 'Pause from the next billing date? No charge while paused; perks stop then.')
-    await page.locator('div[style*="z-index: 60"] button', { hasText: /^Pause$/ }).last().click()
+    await page
+      .locator('div[style*="z-index: 60"] button', { hasText: /^Pause$/ })
+      .last()
+      .click()
     await seeText(page, 'Membership will pause')
     const m = await until('the pause scheduled', async () => {
       const v = await api(req, `/customers/${S.c.id}/membership`)

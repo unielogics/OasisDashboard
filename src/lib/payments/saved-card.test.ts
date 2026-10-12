@@ -29,7 +29,11 @@ const proc = (over: Partial<NonNullable<InvoiceProcessing['squareTenders']>> | n
 })
 
 const unpaid = (processing?: InvoiceProcessing): InvoiceDetail => ({
-  ...makeDetail({ label: 'INV-20640', client: 'Maria Alvarez', items: [{ name: 'Signature Hand Wash', priceCents: 4000 }] }),
+  ...makeDetail({
+    label: 'INV-20640',
+    client: 'Maria Alvarez',
+    items: [{ name: 'Signature Hand Wash', priceCents: 4000 }],
+  }),
   ...(processing ? { processing } : {}),
 })
 
@@ -79,8 +83,13 @@ describe('the saved card’s step (DV-901)', () => {
     const c = calc(false)
     expect(c.blocked).toBe(true)
     expect(c.request).toBeNull()
-    expect(c.savedCard).toEqual({ label: 'Visa ••4242', okText: 'Maria said OK to charge $42.80 to Visa ••4242' })
-    expect(c.permText).toBe('Ask Maria first. The card is charged only after they say yes and you confirm here.')
+    expect(c.savedCard).toEqual({
+      label: 'Visa ••4242',
+      okText: 'Maria said OK to charge $42.80 to Visa ••4242',
+    })
+    expect(c.permText).toBe(
+      'Ask Maria first. The card is charged only after they say yes and you confirm here.',
+    )
     expect(c.permOk).toBe(false)
     expect(c.submitLabel).toBe('Charge $42.80 to Visa ••4242')
     expect(c.summary).toEqual([
@@ -108,7 +117,12 @@ describe('the saved card’s step (DV-901)', () => {
       }),
       processing: proc({ savedCard: CARD }),
     }
-    const c = liveSheetCalc({ kind: 'collect', f: liveSheetForm({ method: 'Saved card ••4242', cardOk: true }), d: paid, p: PERMS })
+    const c = liveSheetCalc({
+      kind: 'collect',
+      f: liveSheetForm({ method: 'Saved card ••4242', cardOk: true }),
+      d: paid,
+      p: PERMS,
+    })
     expect(c.blocked).toBe(true)
     expect(c.request).toBeNull()
   })
@@ -128,15 +142,23 @@ describe('the saved card’s step (DV-901)', () => {
     expect(c.request?.kind).toBe('collect')
   })
   it('the words of the answers', () => {
-    expect(savedCardOkText('Maria', 4280, 'Visa ••4242')).toBe('Maria said OK to charge $42.80 to Visa ••4242')
+    expect(savedCardOkText('Maria', 4280, 'Visa ••4242')).toBe(
+      'Maria said OK to charge $42.80 to Visa ••4242',
+    )
     expect(declinedText('Maria', 'The card was declined.')).toBe(
       'Card declined: The card was declined. Ask Maria for another way to pay.',
     )
-    expect(declinedText('Maria', null)).toBe('Card declined: the bank said no. Ask Maria for another way to pay.')
-    expect(WAITING_FOR_SQUARE_TEXT).toMatch(/^Waiting for Square: .* never charged twice\.$/)
-    expect(cardChargeToast({ state: 'charged', amountCents: 4280, card: { id: 'c', label: 'Visa ••4242', brand: null, last4: null } })).toBe(
-      'Charged $42.80 to Visa ••4242',
+    expect(declinedText('Maria', null)).toBe(
+      'Card declined: the bank said no. Ask Maria for another way to pay.',
     )
+    expect(WAITING_FOR_SQUARE_TEXT).toMatch(/^Waiting for Square: .* never charged twice\.$/)
+    expect(
+      cardChargeToast({
+        state: 'charged',
+        amountCents: 4280,
+        card: { id: 'c', label: 'Visa ••4242', brand: null, last4: null },
+      }),
+    ).toBe('Charged $42.80 to Visa ••4242')
     expect(cardChargeToast({ state: 'unknown', amountCents: 4280, card: null })).toBe(
       'Waiting for Square · $42.80 on the saved card',
     )
@@ -145,7 +167,9 @@ describe('the saved card’s step (DV-901)', () => {
 
 describe('Square receipts on the ledger (DV-902)', () => {
   it('only https pages on Square’s receipt hosts are links', () => {
-    expect(safeReceiptUrl('https://squareup.com/receipt/preview/abc')).toBe('https://squareup.com/receipt/preview/abc')
+    expect(safeReceiptUrl('https://squareup.com/receipt/preview/abc')).toBe(
+      'https://squareup.com/receipt/preview/abc',
+    )
     expect(safeReceiptUrl('https://squareupsandbox.com/receipt/preview/abc')).toBe(
       'https://squareupsandbox.com/receipt/preview/abc',
     )
@@ -192,7 +216,13 @@ describe('Square receipts on the ledger (DV-902)', () => {
       makeEvent({ type: 'pay', amountCents: 100 }),
       makeEvent({ type: 'pay', amountCents: 100, receiptNumber: 'A1', receiptUrl: 'https://evil.test/r' }),
       makeEvent({ type: 'pay', amountCents: 100, voided: true, receiptUrl: 'https://squareup.com/r' }),
-      makeEvent({ type: 'refund', amountCents: 100, dest: 'card', receiptNumber: 'A2', receiptUrl: 'https://squareup.com/r' }),
+      makeEvent({
+        type: 'refund',
+        amountCents: 100,
+        dest: 'card',
+        receiptNumber: 'A2',
+        receiptUrl: 'https://squareup.com/r',
+      }),
     ]
     const entries = liveLedgerEntries({ ...d, ledger: cases }, PERMS)
     expect(entries.map((e) => e.view.sqHasReceipt)).toEqual([false, false, false, false])

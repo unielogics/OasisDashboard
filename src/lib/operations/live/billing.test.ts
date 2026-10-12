@@ -2,7 +2,13 @@
 // the words of the client's cards and consents, the fee rows in every state, the deposit line from the server's state, the
 // membership's billing block and which actions fit, and the "Change tier or size" chooser.
 import { describe, expect, it } from 'vitest'
-import type { AppointmentFile, CustomerCards, FeeCharge, MembershipView, TierOption } from '@/data/ports/operations'
+import type {
+  AppointmentFile,
+  CustomerCards,
+  FeeCharge,
+  MembershipView,
+  TierOption,
+} from '@/data/ports/operations'
 import {
   billingBlock,
   billingStatus,
@@ -77,7 +83,14 @@ describe('cards on file (DV-903)', () => {
             state: 'disabled',
             disabledAt: '2026-10-13T14:00:00.000Z',
             purposes: [],
-            consents: [{ ...card().consents[0]!, revokedAt: '2026-10-13T14:00:00.000Z', revokeReason: 'staff', via: 'staff' }],
+            consents: [
+              {
+                ...card().consents[0]!,
+                revokedAt: '2026-10-13T14:00:00.000Z',
+                revokeReason: 'staff',
+                via: 'staff',
+              },
+            ],
           }),
         ],
         charge: true,
@@ -113,7 +126,9 @@ describe('cards on file (DV-903)', () => {
       desc: 'Maria can save a card on a secure page for 24 hours',
     })
     expect(cardLinkToast('Maria', { sent: false, reason: 'opted_out' }).desc).toBe('Maria opted out of SMS')
-    expect(cardLinkToast('Maria', { sent: false, reason: 'no_phone' }).desc).toBe('Maria has no phone on file')
+    expect(cardLinkToast('Maria', { sent: false, reason: 'no_phone' }).desc).toBe(
+      'Maria has no phone on file',
+    )
   })
 })
 
@@ -143,7 +158,8 @@ describe('the visit and its fee (DV-904)', () => {
   it('cancel and no-show only for a booked or confirmed visit; a closed visit says what it is', () => {
     expect(canCloseVisit({ status: 'booked' })).toBe(true)
     expect(canCloseVisit({ status: 'confirmed' })).toBe(true)
-    for (const s of ['arrived', 'cleaning', 'completed', 'canceled', 'no_show'] as const) expect(canCloseVisit({ status: s })).toBe(false)
+    for (const s of ['arrived', 'cleaning', 'completed', 'canceled', 'no_show'] as const)
+      expect(canCloseVisit({ status: s })).toBe(false)
     expect(isClosedVisit({ status: 'no_show' })).toBe(true)
     expect(closedText({ status: 'no_show' })).toBe('Marked as a no-show')
     expect(closedText({ status: 'canceled' })).toBe('Canceled')
@@ -154,7 +170,12 @@ describe('the visit and its fee (DV-904)', () => {
         charge(),
         charge({ id: 'ch-2', state: 'declined', error: 'Insufficient funds.', purpose: 'late_cancel_fee' }),
         charge({ id: 'ch-3', state: 'unknown' }),
-        charge({ id: 'ch-4', state: 'charged', chargedAt: '2026-10-13T15:00:00.000Z', decidedBy: 'Rafael M.' }),
+        charge({
+          id: 'ch-4',
+          state: 'charged',
+          chargedAt: '2026-10-13T15:00:00.000Z',
+          decidedBy: 'Rafael M.',
+        }),
         charge({ id: 'ch-5', state: 'waived', decidedBy: 'Rafael M.', waiveReason: 'First time' }),
         charge({ id: 'ch-6', purpose: 'balance' }),
       ],
@@ -162,9 +183,24 @@ describe('the visit and its fee (DV-904)', () => {
       TODAY,
     )
     expect(rows.map((r) => [r.title, r.line, r.canDecide, r.tone])).toEqual([
-      ['No-show fee · $15 on Visa ••4242', 'Proposed by the cancellation rules. Charge it or waive it.', true, 'amber'],
-      ['Late-cancel fee · $15 on Visa ••4242', 'Declined: Insufficient funds. Charge it again or waive it.', true, 'red'],
-      ['No-show fee · $15 on Visa ••4242', 'Waiting for Square: it is recorded as soon as Square answers, never twice.', false, 'amber'],
+      [
+        'No-show fee · $15 on Visa ••4242',
+        'Proposed by the cancellation rules. Charge it or waive it.',
+        true,
+        'amber',
+      ],
+      [
+        'Late-cancel fee · $15 on Visa ••4242',
+        'Declined: Insufficient funds. Charge it again or waive it.',
+        true,
+        'red',
+      ],
+      [
+        'No-show fee · $15 on Visa ••4242',
+        'Waiting for Square: it is recorded as soon as Square answers, never twice.',
+        false,
+        'amber',
+      ],
       ['No-show fee · $15 on Visa ••4242', 'Charged Oct 13 by Rafael M.', false, 'green'],
       ['No-show fee · $15 on Visa ••4242', 'Waived by Rafael M.: First time', false, 'ink'],
     ])
@@ -172,7 +208,10 @@ describe('the visit and its fee (DV-904)', () => {
     expect(chargeFeeText(rows[0]!)).toBe('Charge the No-show fee of $15 on Visa ••4242 now?')
   })
   it('the toast after a charge: charged, or waiting for Square', () => {
-    expect(feeChargeToast(charge({ state: 'charged' }))).toEqual({ title: 'No-show fee charged', desc: '$15 on Visa ••4242' })
+    expect(feeChargeToast(charge({ state: 'charged' }))).toEqual({
+      title: 'No-show fee charged',
+      desc: '$15 on Visa ••4242',
+    })
     expect(feeChargeToast(charge({ state: 'unknown' })).title).toBe('Waiting for Square')
   })
 })
@@ -198,16 +237,16 @@ const inv = (over: Partial<Inv> & { deposit?: unknown }): Inv =>
   }) as Inv
 const dep = (over: Record<string, unknown>): DepositView =>
   ({
-  state: 'paid',
-  requestedCents: 2500,
-  paidCents: 2500,
-  refundedCents: 0,
-  pendingRefundCents: 0,
-  keptCents: 0,
-  refundFailed: false,
-  refundSending: false,
-  link: null,
-  ...over,
+    state: 'paid',
+    requestedCents: 2500,
+    paidCents: 2500,
+    refundedCents: 0,
+    pendingRefundCents: 0,
+    keptCents: 0,
+    refundFailed: false,
+    refundSending: false,
+    link: null,
+    ...over,
   }) as DepositView
 
 describe('the deposit line from the server (DV-905)', () => {
@@ -228,18 +267,25 @@ describe('the deposit line from the server (DV-905)', () => {
       'Deposit link expired · not paid',
     )
     expect(depositLine(inv({ deposit: dep({}) }))).toEqual({ row: null, paidLabel: 'Deposit paid' })
-    expect(depositLine(inv({ deposit: dep({ refundedCents: 500 }) })).paidLabel).toBe('Deposit paid · $5 refunded')
-    expect(depositLine(inv({ deposit: dep({ state: 'refund_pending', pendingRefundCents: 2500 }) })).row).toEqual({
+    expect(depositLine(inv({ deposit: dep({ refundedCents: 500 }) })).paidLabel).toBe(
+      'Deposit paid · $5 refunded',
+    )
+    expect(
+      depositLine(inv({ deposit: dep({ state: 'refund_pending', pendingRefundCents: 2500 }) })).row,
+    ).toEqual({
       label: 'Deposit refund waiting for approval',
       value: '$25',
     })
-    expect(depositLine(inv({ deposit: dep({ state: 'refunded', refundedCents: 2500, refundSending: true }) })).row).toEqual({
+    expect(
+      depositLine(inv({ deposit: dep({ state: 'refunded', refundedCents: 2500, refundSending: true }) })).row,
+    ).toEqual({
       label: 'Deposit refund on its way to the card',
       value: '$25',
     })
   })
   it('a canceled visit: kept (after a partial refund), a refund failed, a refund waiting, refunded', () => {
-    const c = (d: Record<string, unknown>) => depositLine(inv({ status: 'canceled_kept', deposit: dep(d) })).row
+    const c = (d: Record<string, unknown>) =>
+      depositLine(inv({ status: 'canceled_kept', deposit: dep(d) })).row
     expect(c({ state: 'kept', keptCents: 2500 })).toEqual({ label: 'Deposit kept (canceled)', value: '$25' })
     expect(c({ state: 'kept', keptCents: 1250, refundedCents: 1250 })).toEqual({
       label: 'Deposit kept (canceled) · $12.50 refunded',
@@ -249,7 +295,9 @@ describe('the deposit line from the server (DV-905)', () => {
       label: 'Deposit refund failed · not refunded',
       value: '$25',
     })
-    expect(c({ state: 'refund_pending', pendingRefundCents: 2500 })?.label).toBe('Deposit refund waiting for approval (canceled)')
+    expect(c({ state: 'refund_pending', pendingRefundCents: 2500 })?.label).toBe(
+      'Deposit refund waiting for approval (canceled)',
+    )
     expect(c({ state: 'refunded', refundedCents: 2500 })).toEqual({ label: 'Deposit refunded', value: '$25' })
   })
 })
@@ -270,7 +318,12 @@ const billing = (over: Partial<Billing> = {}): Billing => ({
   pauseAt: null,
   change: null,
   lastInvoice: null,
-  lastPaid: { amountCents: 12900, paidAt: '2026-10-13T14:00:00.000Z', dueDate: '2026-10-13', refundedCents: 0 },
+  lastPaid: {
+    amountCents: 12900,
+    paidAt: '2026-10-13T14:00:00.000Z',
+    dueDate: '2026-10-13',
+    refundedCents: 0,
+  },
   lastFailed: null,
   enrollment: null,
   ...over,
@@ -283,7 +336,15 @@ const member = (b: Billing | null, status = 'active'): MembershipView =>
       customerId: 'c-1',
       status,
       source: 'square',
-      plan: { key: 'gold', name: 'Gold', label: 'Gold', color: '#8A6D3B', bgColor: '#F2E9D6', tint: '#8A6D3B', perks: [] },
+      plan: {
+        key: 'gold',
+        name: 'Gold',
+        label: 'Gold',
+        color: '#8A6D3B',
+        bgColor: '#F2E9D6',
+        tint: '#8A6D3B',
+        perks: [],
+      },
       planClass: 'compact_car',
       planClassLabel: 'Compact car',
       billing: b,
@@ -372,7 +433,9 @@ describe('the billing block (DV-907)', () => {
       ),
       ui,
     )
-    expect(b.notes).toEqual(['New price after the notice: Gold · Compact car · $139/month from the first bill after Nov 12.'])
+    expect(b.notes).toEqual([
+      'New price after the notice: Gold · Compact car · $139/month from the first bill after Nov 12.',
+    ])
     expect(b.buttons.map((x) => x.key)).not.toContain('change')
     expect(b.buttons.map((x) => x.key)).not.toContain('change/undo')
   })
@@ -382,11 +445,24 @@ describe('the billing block (DV-907)', () => {
       nextChargeOn: null,
       pastDueOn: '2026-10-20',
       cancelOn: '2026-11-03',
-      lastFailed: { amountCents: 12900, failedAt: '2026-10-13T14:00:00.000Z', dueDate: '2026-10-13', paid: false, payUrl: null },
+      lastFailed: {
+        amountCents: 12900,
+        failedAt: '2026-10-13T14:00:00.000Z',
+        dueDate: '2026-10-13',
+        paid: false,
+        payUrl: null,
+      },
     })
     const b = billingBlock(member(failed), ui)
-    expect(b.status).toEqual({ label: 'Status', value: 'Payment failed · perks stay on until Oct 20', tone: 'red' })
-    expect(b.lines.find((l) => l.label === 'Failed payment')).toMatchObject({ value: '$129 on Oct 13 · not paid yet', tone: 'red' })
+    expect(b.status).toEqual({
+      label: 'Status',
+      value: 'Payment failed · perks stay on until Oct 20',
+      tone: 'red',
+    })
+    expect(b.lines.find((l) => l.label === 'Failed payment')).toMatchObject({
+      value: '$129 on Oct 13 · not paid yet',
+      tone: 'red',
+    })
     expect(billingStatus(member(failed, 'past_due').membership!, failed, TODAY)).toEqual({
       label: 'Status',
       value: 'Past due · perks paused · canceled Nov 3 unless paid',
@@ -401,21 +477,38 @@ describe('the billing block (DV-907)', () => {
     expect(ended.status.value).toBe('Canceled')
     expect(ended.buttons.map((x) => x.key)).toEqual(['refund-last'])
     const refunded = billingBlock(
-      member(billing({ lastPaid: { amountCents: 12900, paidAt: '2026-10-13T14:00:00.000Z', dueDate: null, refundedCents: 12900 } }), 'canceled'),
+      member(
+        billing({
+          lastPaid: {
+            amountCents: 12900,
+            paidAt: '2026-10-13T14:00:00.000Z',
+            dueDate: null,
+            refundedCents: 12900,
+          },
+        }),
+        'canceled',
+      ),
       ui,
     )
     expect(refunded.buttons).toEqual([])
-    expect(refunded.lines.find((l) => l.label === 'Last payment')!.value).toBe('$129 on Oct 13 · $129 refunded')
+    expect(refunded.lines.find((l) => l.label === 'Last payment')!.value).toBe(
+      '$129 on Oct 13 · $129 refunded',
+    )
   })
   it('no card on file reads in red', () => {
     const b = billingBlock(member(billing({ card: null })), ui)
     expect(b.lines.find((l) => l.label === 'Card')).toMatchObject({ value: 'No card on file', tone: 'red' })
   })
   it('the toasts', () => {
-    expect(billingToast('pause', 'Maria', {})).toEqual({ title: 'Membership will pause', desc: 'From the next billing date' })
+    expect(billingToast('pause', 'Maria', {})).toEqual({
+      title: 'Membership will pause',
+      desc: 'From the next billing date',
+    })
     expect(billingToast('card-link', 'Maria', { sms: 'queued' }).title).toBe('Card link texted')
     expect(billingToast('card-link', 'Maria', { sms: 'skipped' }).title).toBe('Card link not texted')
-    expect(billingToast('refund-last', 'Maria', { refund: { amountCents: 12900, status: 'PENDING' } })).toEqual({
+    expect(
+      billingToast('refund-last', 'Maria', { refund: { amountCents: 12900, status: 'PENDING' } }),
+    ).toEqual({
       title: 'Refund sent to Square',
       desc: '$129 back to the card',
     })
@@ -424,7 +517,12 @@ describe('the billing block (DV-907)', () => {
 
 describe('Change tier or size', () => {
   const tier = (key: string, name: string, prices: Array<[string, number]>, active = true): TierOption =>
-    ({ key, name, active, prices: prices.map(([cls, cents]) => ({ class: cls, monthlyCents: cents })) }) as unknown as TierOption
+    ({
+      key,
+      name,
+      active,
+      prices: prices.map(([cls, cents]) => ({ class: cls, monthlyCents: cents })),
+    }) as unknown as TierOption
   const tiers = [
     tier('gold', 'Gold', [
       ['compact_car', 12900],

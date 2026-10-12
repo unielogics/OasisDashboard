@@ -23,11 +23,19 @@ afterEach(() => vi.useRealTimers())
 const CARD = { cardId: 'card-1', label: 'Visa ••4242', brand: 'VISA', last4: '4242' }
 const withCard = (d: InvoiceDetail, savedCard: typeof CARD | null = CARD): InvoiceDetail => ({
   ...d,
-  processing: { processor: 'square', squarePosAppSwitch: false, squareTenders: { reader: true, link: true, savedCard } },
+  processing: {
+    processor: 'square',
+    squarePosAppSwitch: false,
+    squareTenders: { reader: true, link: true, savedCard },
+  },
 })
 const unpaid = (savedCard: typeof CARD | null = CARD) =>
   withCard(
-    makeDetail({ label: 'INV-20640', client: 'Maria Alvarez', items: [{ name: 'Signature Hand Wash', priceCents: 4000 }] }),
+    makeDetail({
+      label: 'INV-20640',
+      client: 'Maria Alvarez',
+      items: [{ name: 'Signature Hand Wash', priceCents: 4000 }],
+    }),
     savedCard,
   )
 
@@ -86,7 +94,12 @@ describe('Collect: the saved card (DV-901)', () => {
   it('is offered only when the server names a usable card', async () => {
     let l = boot(session('mgmt'), unpaid())
     let v = await openCollect(l)
-    expect(v.sh.payMethods.map((m: any) => m.label)).toEqual(['Square reader', 'Saved card ••4242', 'Cash', 'Payment link'])
+    expect(v.sh.payMethods.map((m: any) => m.label)).toEqual([
+      'Square reader',
+      'Saved card ••4242',
+      'Cash',
+      'Payment link',
+    ])
     l = boot(session('mgmt'), unpaid(null))
     v = await openCollect(l)
     expect(v.sh.payMethods.map((m: any) => m.label)).toEqual(['Square reader', 'Cash', 'Payment link'])
@@ -160,7 +173,10 @@ describe('Collect: the saved card (DV-901)', () => {
     let v = await openCollect(l)
     v.sh.payMethods.find((m: any) => m.label === 'Saved card ••4242').onClick()
     l.vals().sh.scToggle()
-    l.port.next.chargeCard = { charge: charge({ state: 'unknown', squarePaymentId: null, chargedAt: null }), invoice: null }
+    l.port.next.chargeCard = {
+      charge: charge({ state: 'unknown', squarePaymentId: null, chargedAt: null }),
+      invoice: null,
+    }
     l.vals().sh.submit()
     await l.settle()
     v = l.vals()
@@ -181,8 +197,12 @@ describe('Collect: the saved card (DV-901)', () => {
     const v = await openCollect(l)
     v.sh.payMethods.find((m: any) => m.label === 'Saved card ••4242').onClick()
     l.vals().sh.scToggle()
-    l.vals().sh.payMethods.find((m: any) => m.label === 'Cash').onClick()
-    l.vals().sh.payMethods.find((m: any) => m.label === 'Saved card ••4242').onClick()
+    l.vals()
+      .sh.payMethods.find((m: any) => m.label === 'Cash')
+      .onClick()
+    l.vals()
+      .sh.payMethods.find((m: any) => m.label === 'Saved card ••4242')
+      .onClick()
     expect(l.vals().sh.scOk).toBe(false)
   })
 
@@ -224,11 +244,25 @@ describe('Square receipts on the ledger (DV-902)', () => {
 
 describe('the fee of a canceled visit on its invoice (DV-904)', () => {
   const canceled = (): InvoiceDetail => ({
-    ...makeDetail({ label: 'INV-20641', client: 'Maria Alvarez', canceled: true, items: [{ name: 'Signature Hand Wash', priceCents: 4000 }] }),
+    ...makeDetail({
+      label: 'INV-20641',
+      client: 'Maria Alvarez',
+      canceled: true,
+      items: [{ name: 'Signature Hand Wash', priceCents: 4000 }],
+    }),
     appointmentId: 'appt-1',
   })
   const fee = (over: Partial<CardCharge> = {}): CardCharge =>
-    charge({ id: 'fee-1', purpose: 'no_show_fee', state: 'proposed', amountCents: 1500, squarePaymentId: null, chargedAt: null, decidedBy: null, ...over })
+    charge({
+      id: 'fee-1',
+      purpose: 'no_show_fee',
+      state: 'proposed',
+      amountCents: 1500,
+      squarePaymentId: null,
+      chargedAt: null,
+      decidedBy: null,
+      ...over,
+    })
 
   it('a proposed fee shows under the actions; Charge asks first, then charges on the visit', async () => {
     const d = canceled()

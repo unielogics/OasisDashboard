@@ -71,7 +71,10 @@ export interface CardRowVM {
 
 export function cardRows(r: CustomerCards | undefined, tz: string, today: string): CardRowVM[] {
   return (r?.cards ?? []).map((c) => {
-    const exp = c.expMonth && c.expYear ? 'Expires ' + String(c.expMonth).padStart(2, '0') + '/' + String(c.expYear).slice(-2) : ''
+    const exp =
+      c.expMonth && c.expYear
+        ? 'Expires ' + String(c.expMonth).padStart(2, '0') + '/' + String(c.expYear).slice(-2)
+        : ''
     const state =
       c.state === 'active'
         ? STATE_WORDS.active
@@ -106,11 +109,19 @@ export function cardRows(r: CustomerCards | undefined, tz: string, today: string
 export const cardsShown = (r: CustomerCards | undefined): boolean => !!r && (r.cards.length > 0 || r.charge)
 
 export const removeCardText = (first: string, label: string): string =>
-  'Remove ' + label + '? Square disables it and ' + first + '’s permission to charge it ends. It can’t be undone.'
+  'Remove ' +
+  label +
+  '? Square disables it and ' +
+  first +
+  '’s permission to charge it ends. It can’t be undone.'
 
 /** What "Text card link" says after the server answered (`sent: false` names why). */
-export function cardLinkToast(first: string, r: { sent: boolean; reason: string | null }): { title: string; desc: string } {
-  if (r.sent) return { title: 'Card link texted', desc: first + ' can save a card on a secure page for 24 hours' }
+export function cardLinkToast(
+  first: string,
+  r: { sent: boolean; reason: string | null },
+): { title: string; desc: string } {
+  if (r.sent)
+    return { title: 'Card link texted', desc: first + ' can save a card on a secure page for 24 hours' }
   return {
     title: 'Card link not texted',
     desc:
@@ -125,8 +136,10 @@ export function cardLinkToast(first: string, r: { sent: boolean; reason: string 
 // ---- the visit: cancel, no-show and the fee (DV-904) -----------------------------------------------------------------------
 
 /** Booked or confirmed: the server cancels these (a no-show only after the start plus the grace period: its refusal says so). */
-export const canCloseVisit = (f: Pick<AppointmentFile, 'status'>): boolean => f.status === 'booked' || f.status === 'confirmed'
-export const isClosedVisit = (f: Pick<AppointmentFile, 'status'>): boolean => f.status === 'canceled' || f.status === 'no_show'
+export const canCloseVisit = (f: Pick<AppointmentFile, 'status'>): boolean =>
+  f.status === 'booked' || f.status === 'confirmed'
+export const isClosedVisit = (f: Pick<AppointmentFile, 'status'>): boolean =>
+  f.status === 'canceled' || f.status === 'no_show'
 
 export const cancelText = (first: string): string =>
   'Cancel ' + first + '’s visit? ' + first + ' gets a text, and the deposit follows your cancellation rules.'
@@ -157,7 +170,16 @@ export interface FeeRowVM {
 /** A fee as both the Operations and the Payments ports type it (api-spec 30.11 ChargeDto). */
 export type FeeLike = Pick<
   FeeCharge,
-  'id' | 'purpose' | 'state' | 'amountCents' | 'card' | 'decidedBy' | 'decidedAt' | 'chargedAt' | 'error' | 'waiveReason'
+  | 'id'
+  | 'purpose'
+  | 'state'
+  | 'amountCents'
+  | 'card'
+  | 'decidedBy'
+  | 'decidedAt'
+  | 'chargedAt'
+  | 'error'
+  | 'waiveReason'
 >
 
 export function feeRows(items: readonly FeeLike[] | undefined, tz: string, today: string): FeeRowVM[] {
@@ -203,14 +225,21 @@ export function feeRows(items: readonly FeeLike[] | undefined, tz: string, today
     })
 }
 
-export const chargeFeeText = (row: Pick<FeeRowVM, 'title'>): string => 'Charge the ' + row.title.replace(/ · /, ' of ') + ' now?'
+export const chargeFeeText = (row: Pick<FeeRowVM, 'title'>): string =>
+  'Charge the ' + row.title.replace(/ · /, ' of ') + ' now?'
 
 /** The toast after a fee charge the server answered (201 charged, 202 waiting for Square). */
-export function feeChargeToast(c: Pick<FeeCharge, 'state' | 'amountCents' | 'card' | 'purpose'>): { title: string; desc: string } {
+export function feeChargeToast(c: Pick<FeeCharge, 'state' | 'amountCents' | 'card' | 'purpose'>): {
+  title: string
+  desc: string
+} {
   const card = c.card?.label ?? 'the saved card'
   if (c.state === 'charged')
     return { title: PURPOSE_TITLE[c.purpose] + ' charged', desc: opsMoney(c.amountCents) + ' on ' + card }
-  return { title: 'Waiting for Square', desc: opsMoney(c.amountCents) + ' on ' + card + ' · recorded when Square answers' }
+  return {
+    title: 'Waiting for Square',
+    desc: opsMoney(c.amountCents) + ' on ' + card + ' · recorded when Square answers',
+  }
 }
 
 export const feeLineStyle = (tone: FeeRowVM['tone']): Style => ({
@@ -218,7 +247,8 @@ export const feeLineStyle = (tone: FeeRowVM['tone']): Style => ({
   fontWeight: 700,
   marginTop: '3px',
   lineHeight: '1.45',
-  color: tone === 'red' ? '#C2410C' : tone === 'amber' ? '#8A5A06' : tone === 'green' ? '#0E9E6E' : 'var(--ink2)',
+  color:
+    tone === 'red' ? '#C2410C' : tone === 'amber' ? '#8A5A06' : tone === 'green' ? '#0E9E6E' : 'var(--ink2)',
 })
 
 // ---- the Membership tab's billing block (DV-907) --------------------------------------------------------------------------
@@ -230,14 +260,7 @@ export interface BillingLine {
 }
 
 export type BillingActionKey =
-  | 'pause'
-  | 'resume'
-  | 'cancel'
-  | 'cancel/undo'
-  | 'change'
-  | 'change/undo'
-  | 'card-link'
-  | 'refund-last'
+  'pause' | 'resume' | 'cancel' | 'cancel/undo' | 'change' | 'change/undo' | 'card-link' | 'refund-last'
 
 export interface BillingButton {
   key: BillingActionKey
@@ -274,14 +297,19 @@ export function billingStatus(m: Member, b: MembershipBilling, today: string): B
     return {
       label: 'Status',
       value: b.enrollment?.failure
-        ? 'Not started: ' + (b.enrollment.failure === 'first_payment_failed' ? 'the first payment failed' : 'joining did not finish')
+        ? 'Not started: ' +
+          (b.enrollment.failure === 'first_payment_failed'
+            ? 'the first payment failed'
+            : 'joining did not finish')
         : 'Joining · waiting for the first payment',
       tone: 'amber',
     }
   if (m.status === 'past_due' || (b.status === 'failed' && b.pastDueOn && b.pastDueOn <= today))
     return {
       label: 'Status',
-      value: 'Past due · perks paused' + (b.cancelOn ? ' · canceled ' + dayText(b.cancelOn, today) + ' unless paid' : ''),
+      value:
+        'Past due · perks paused' +
+        (b.cancelOn ? ' · canceled ' + dayText(b.cancelOn, today) + ' unless paid' : ''),
       tone: 'red',
     }
   if (b.status === 'failed')
@@ -290,7 +318,8 @@ export function billingStatus(m: Member, b: MembershipBilling, today: string): B
       value: 'Payment failed · perks stay on' + (b.pastDueOn ? ' until ' + dayText(b.pastDueOn, today) : ''),
       tone: 'red',
     }
-  if (m.status === 'paused' || b.squareStatus === 'PAUSED') return { label: 'Status', value: 'Paused', tone: 'amber' }
+  if (m.status === 'paused' || b.squareStatus === 'PAUSED')
+    return { label: 'Status', value: 'Paused', tone: 'amber' }
   return { label: 'Status', value: 'Active · billed by Square', tone: 'green' }
 }
 
@@ -306,12 +335,16 @@ export function billingBlock(
   const notes: string[] = []
   lines.push({
     label: 'Plan',
-    value: [m.plan.name, b.planClassLabel ?? m.planClassLabel, monthly(b.monthlyCents)].filter(Boolean).join(' · '),
+    value: [m.plan.name, b.planClassLabel ?? m.planClassLabel, monthly(b.monthlyCents)]
+      .filter(Boolean)
+      .join(' · '),
     tone: 'ink',
   })
   lines.push({
     label: 'Next charge',
-    value: b.nextChargeOn ? dayText(b.nextChargeOn, today) + (b.monthlyCents !== null ? ' · ' + opsMoney(b.monthlyCents) : '') : 'None scheduled',
+    value: b.nextChargeOn
+      ? dayText(b.nextChargeOn, today) + (b.monthlyCents !== null ? ' · ' + opsMoney(b.monthlyCents) : '')
+      : 'None scheduled',
     tone: 'ink',
   })
   lines.push({
@@ -321,7 +354,9 @@ export function billingBlock(
         (b.card.expMonth && b.card.expYear
           ? ' · expires ' + String(b.card.expMonth).padStart(2, '0') + '/' + String(b.card.expYear).slice(-2)
           : '') +
-        (b.card.state !== 'active' ? ' · ' + (STATE_WORDS[b.card.state as SavedCard['state']] ?? b.card.state).toLowerCase() : '')
+        (b.card.state !== 'active'
+          ? ' · ' + (STATE_WORDS[b.card.state as SavedCard['state']] ?? b.card.state).toLowerCase()
+          : '')
       : 'No card on file',
     tone: b.card && b.card.state === 'active' ? 'ink' : 'red',
   })
@@ -346,10 +381,19 @@ export function billingBlock(
       tone: b.lastFailed.paid ? 'ink' : 'red',
     })
   // what Square has scheduled at the next billing date
-  if (b.cancelAt) notes.push('Ends on ' + dayText(b.cancelAt, today) + ': canceled at the end of the paid month. Perks stay on until then.')
+  if (b.cancelAt)
+    notes.push(
+      'Ends on ' +
+        dayText(b.cancelAt, today) +
+        ': canceled at the end of the paid month. Perks stay on until then.',
+    )
   if (b.pauseAt) notes.push('Pauses on ' + dayText(b.pauseAt, today) + ', the next billing date.')
   if (b.change) {
-    const what = [b.change.planName ?? b.change.planKey, b.change.planClassLabel ?? b.change.planClass, monthly(b.change.monthlyCents)].join(' · ')
+    const what = [
+      b.change.planName ?? b.change.planKey,
+      b.change.planClassLabel ?? b.change.planClass,
+      monthly(b.change.monthlyCents),
+    ].join(' · ')
     const when = b.change.effectiveDate
       ? dayText(b.change.effectiveDate, today)
       : b.change.swapAfter
@@ -380,11 +424,14 @@ export function billingBlock(
       buttons.push({
         key: 'cancel',
         label: 'Cancel at period end',
-        confirm: 'Cancel at the end of the paid month? Perks stay on until then and no more charges are made.',
+        confirm:
+          'Cancel at the end of the paid month? Perks stay on until then and no more charges are made.',
         danger: true,
       })
-    if (b.change?.kind === 'change') buttons.push({ key: 'change/undo', label: 'Undo change', confirm: null, danger: false })
-    else if (!b.change) buttons.push({ key: 'change', label: 'Change tier or size', confirm: null, danger: false })
+    if (b.change?.kind === 'change')
+      buttons.push({ key: 'change/undo', label: 'Undo change', confirm: null, danger: false })
+    else if (!b.change)
+      buttons.push({ key: 'change', label: 'Change tier or size', confirm: null, danger: false })
     buttons.push({ key: 'card-link', label: 'Text card link', confirm: null, danger: false })
   }
   const refundable = b.lastPaid && b.lastPaid.refundedCents < b.lastPaid.amountCents
@@ -465,9 +512,20 @@ export function changeChoice(
   const ready = !!tier && !!price && !same
   return {
     tiers: sold.map((t) => ({ key: t.key, label: t.name, on: t.key === tierKey })),
-    sizes: priced.map((p) => ({ key: p.class, label: labelOf(p.class), price: monthly(p.monthlyCents), on: p.class === sizeKey })),
+    sizes: priced.map((p) => ({
+      key: p.class,
+      label: labelOf(p.class),
+      price: monthly(p.monthlyCents),
+      on: p.class === sizeKey,
+    })),
     summary: ready
-      ? 'Change to ' + tier!.name + ' · ' + labelOf(sizeKey) + ' · ' + monthly(price!.monthlyCents) + ' from the next billing date?'
+      ? 'Change to ' +
+        tier!.name +
+        ' · ' +
+        labelOf(sizeKey) +
+        ' · ' +
+        monthly(price!.monthlyCents) +
+        ' from the next billing date?'
       : same
         ? 'That is the plan it has now. Pick another tier or size.'
         : tier && !price
@@ -525,5 +583,6 @@ export const toneStyle = (tone: BillingLine['tone']): Style => ({
   fontSize: '14px',
   fontWeight: 700,
   marginTop: '2px',
-  color: tone === 'red' ? '#C2410C' : tone === 'amber' ? '#8A5A06' : tone === 'green' ? '#0E9E6E' : 'var(--ink)',
+  color:
+    tone === 'red' ? '#C2410C' : tone === 'amber' ? '#8A5A06' : tone === 'green' ? '#0E9E6E' : 'var(--ink)',
 })

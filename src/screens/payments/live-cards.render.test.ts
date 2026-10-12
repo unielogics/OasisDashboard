@@ -22,7 +22,8 @@ beforeAll(async () => {
   const out = compileScreens(['payments'], { root, variant: 'live', tplIds: false, allowComplexExpr: false })
   const dir = path.join(tmp, 'gen')
   fs.mkdirSync(dir, { recursive: true })
-  for (const [name, buf] of Object.entries(out.perScreen.payments!)) fs.writeFileSync(path.join(dir, name), text(buf))
+  for (const [name, buf] of Object.entries(out.perScreen.payments!))
+    fs.writeFileSync(path.join(dir, name), text(buf))
   render = (await import(/* @vite-ignore */ path.join(dir, 'payments.tsx'))).default
 })
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
@@ -36,7 +37,11 @@ afterEach(() => vi.useRealTimers())
 const CARD = { cardId: 'card-1', label: 'Visa ••4242', brand: 'VISA', last4: '4242' }
 const sq = (d: InvoiceDetail, savedCard: typeof CARD | null): InvoiceDetail => ({
   ...d,
-  processing: { processor: 'square', squarePosAppSwitch: false, squareTenders: { reader: true, link: true, savedCard } },
+  processing: {
+    processor: 'square',
+    squarePosAppSwitch: false,
+    squareTenders: { reader: true, link: true, savedCard },
+  },
 })
 
 async function boot(d: InvoiceDetail): Promise<Live> {
@@ -52,12 +57,21 @@ async function boot(d: InvoiceDetail): Promise<Live> {
 }
 const html = (l: Live) => renderToStaticMarkup(render(l.vals(), { name: 'payments' }))
 const unpaid = (card: typeof CARD | null) =>
-  sq(makeDetail({ label: 'INV-20640', client: 'Maria Alvarez', items: [{ name: 'Signature Hand Wash', priceCents: 4000 }] }), card)
+  sq(
+    makeDetail({
+      label: 'INV-20640',
+      client: 'Maria Alvarez',
+      items: [{ name: 'Signature Hand Wash', priceCents: 4000 }],
+    }),
+    card,
+  )
 
 describe('the live Payments template: saved card and receipts', () => {
   it('without a usable card: no Saved card tender and no OK box', async () => {
     const l = await boot(unpaid(null))
-    l.vals().d.actions.find((a: any) => a.label.startsWith('Collect')).onClick()
+    l.vals()
+      .d.actions.find((a: any) => a.label.startsWith('Collect'))
+      .onClick()
     const page = html(l)
     expect(page).toContain('Square reader')
     expect(page).not.toContain('Saved card')
@@ -66,22 +80,37 @@ describe('the live Payments template: saved card and receipts', () => {
 
   it('the saved card’s step: the OK box with the amount, a decline in red, waiting for Square', async () => {
     const l = await boot(unpaid(CARD))
-    l.vals().d.actions.find((a: any) => a.label.startsWith('Collect')).onClick()
-    l.vals().sh.payMethods.find((m: any) => m.label === 'Saved card ••4242').onClick()
+    l.vals()
+      .d.actions.find((a: any) => a.label.startsWith('Collect'))
+      .onClick()
+    l.vals()
+      .sh.payMethods.find((m: any) => m.label === 'Saved card ••4242')
+      .onClick()
     let page = html(l)
     expect(page).toContain('Saved card ••4242')
     expect(page).toContain('Maria said OK to charge $42.80 to Visa ••4242')
     expect(page).toContain('Charge $42.80 to Visa ••4242')
     expect(page).toContain('Ask Maria first.')
     l.vals().sh.scToggle()
-    l.port.next.chargeCard = new ApiError({ status: 422, code: 'CARD_DECLINED', title: 'Card declined', detail: 'Insufficient funds.' })
+    l.port.next.chargeCard = new ApiError({
+      status: 422,
+      code: 'CARD_DECLINED',
+      title: 'Card declined',
+      detail: 'Insufficient funds.',
+    })
     l.vals().sh.submit()
     await l.settle()
     page = html(l)
     expect(page).toContain('Card declined: Insufficient funds. Ask Maria for another way to pay.')
     l.vals().sh.scToggle()
     l.port.next.chargeCard = {
-      charge: { id: 'ch-1', purpose: 'balance', state: 'unknown', amountCents: 4280, card: { id: 'card-1', label: 'Visa ••4242', brand: null, last4: null } },
+      charge: {
+        id: 'ch-1',
+        purpose: 'balance',
+        state: 'unknown',
+        amountCents: 4280,
+        card: { id: 'card-1', label: 'Visa ••4242', brand: null, last4: null },
+      },
       invoice: null,
     }
     l.vals().sh.submit()

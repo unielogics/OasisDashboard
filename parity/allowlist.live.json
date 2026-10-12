@@ -204,7 +204,7 @@
       "id": "L-payments-16",
       "screen": "payments",
       "kind": "wiring",
-      "reason": "DV-215/DV-802: the sheet's view model carries the payment-link URL field and its error (needsUrl, urlRaw, setUrl, urlError, hasUrlError) and the Square link with Copy (hasSentLink, sentLink, copyLink); only the Collect sheet's Payment link mode renders them.",
+      "reason": "DV-215/DV-802/DV-901: the sheet's view model carries the payment-link URL field and its error (needsUrl, urlRaw, setUrl, urlError, hasUrlError), the Square link with Copy (hasSentLink, sentLink, copyLink) and the saved card's step (sc*: the client's OK box, the decline and waiting lines); only the Collect sheet's Payment link mode, or its Saved card tender, renders them.",
       "scope": {
         "checks": ["vals"]
       },
@@ -220,7 +220,8 @@
           "sh.hasUrlError",
           "sh.hasSentLink",
           "sh.sentLink",
-          "sh.copyLink"
+          "sh.copyLink",
+          "sh.sc*"
         ]
       }
     },
@@ -1630,6 +1631,41 @@
       },
       "matcher": {
         "rect": { "x": 960, "y": 90, "w": 520, "h": 910 }
+      }
+    },
+    {
+      "id": "L-operations-75",
+      "screen": "operations",
+      "kind": "element-added",
+      "reason": "DV-904: the Overview of an open visit ends with the Visit card (Cancel visit, No-show), a third row of the Overview grid under the notes; the grid grows by that row.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["open-file", "tab-overview"],
+        "checks": ["dom", "style"]
+      },
+      "matcher": {
+        "loc": [
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/div[7]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/div[7]/**",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/#text[6]",
+          "div[0]/div[0]/div[0]/div[9]/div[1]/div[3]/div[3]/div[1]/#text[8]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]>div[3]",
+          "root>div[0]>div[0]>div[0]>div[2]>div[0]>div[1]>div[1]>div[0]>div[3]>**"
+        ]
+      }
+    },
+    {
+      "id": "L-operations-76",
+      "screen": "operations",
+      "kind": "region-mask",
+      "reason": "DV-904: pixels of the Visit card under the notes of an open visit's Overview, see L-operations-75.",
+      "scope": {
+        "scenarios": ["appointment-file"],
+        "steps": ["open-file", "tab-overview"]
+      },
+      "matcher": {
+        "rect": { "x": 384, "y": 600, "w": 896, "h": 110 }
       }
     }
   ]

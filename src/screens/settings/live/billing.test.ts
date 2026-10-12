@@ -23,7 +23,8 @@ beforeAll(async () => {
   const out = compileScreens(['settings'], { root, variant: 'live', tplIds: false, allowComplexExpr: false })
   const dir = path.join(tmp, 'gen')
   fs.mkdirSync(dir, { recursive: true })
-  for (const [name, buf] of Object.entries(out.perScreen.settings!)) fs.writeFileSync(path.join(dir, name), text(buf))
+  for (const [name, buf] of Object.entries(out.perScreen.settings!))
+    fs.writeFileSync(path.join(dir, name), text(buf))
   render = (await import(/* @vite-ignore */ path.join(dir, 'settings.tsx'))).default
 })
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
@@ -52,13 +53,21 @@ describe('Settings → Billing & integrations (DV-908)', () => {
     const t = makeExtrasLogic('super')
     call(t.logic, 'live.goPrices')
     const tabs = vals(t.logic).live.pricingTabs.tabs
-    expect(tabs.map((x: any) => x.label)).toEqual(['Prices by size', 'Memberships', 'Vehicle sizes', 'Billing & integrations'])
+    expect(tabs.map((x: any) => x.label)).toEqual([
+      'Prices by size',
+      'Memberships',
+      'Vehicle sizes',
+      'Billing & integrations',
+    ])
     tabs[3].onClick()
     const b = await openBilling(t.logic)
     expect(vals(t.logic).secTitle).toBe('Billing & integrations')
     expect(b.sqHeadline).toBe('Square simulator (nothing reaches Square)')
     expect(b.sqLastTest).toBe('Never tested')
-    expect(b.switches[0]).toMatchObject({ label: 'Card payments go through', value: 'Squarespace (Square not switched on yet)' })
+    expect(b.switches[0]).toMatchObject({
+      label: 'Card payments go through',
+      value: 'Squarespace (Square not switched on yet)',
+    })
     expect(b.bookingFee).toBe('$25 per online booking by a guest, toward the visit (set in Prices by size).')
     expect(b.consentVersion).toBe('Version v1 · the box starts unticked')
     expect(b.grace).toBe('7')
@@ -84,7 +93,9 @@ describe('Settings → Billing & integrations (DV-908)', () => {
     const t = makeExtrasLogic('mgmt')
     t.logic.setState({ section: 'billing' })
     await vi.waitFor(() => expect(vals(t.logic).live.secLocked).toBe(true))
-    expect(vals(t.logic).live.lockedBody).toBe('Ask an administrator to give your role the “Billing & integrations” permission.')
+    expect(vals(t.logic).live.lockedBody).toBe(
+      'Ask an administrator to give your role the “Billing & integrations” permission.',
+    )
     expect(writes(t.calls, 'billing')).toHaveLength(0)
   })
 
@@ -121,12 +132,19 @@ describe('Settings → Billing & integrations (DV-908)', () => {
     call(t.logic, 'live.bill.feeToggle')
     expect(vals(t.logic).live.bill.feeDirty).toBe(true)
     call(t.logic, 'live.bill.feeSave')
-    await vi.waitFor(() => expect(vals(t.logic).live.bill.feeError).toBe('Set at least one fee before turning fees on.'))
+    await vi.waitFor(() =>
+      expect(vals(t.logic).live.bill.feeError).toBe('Set at least one fee before turning fees on.'),
+    )
     expect(writes(t.calls, 'saveCardFees')).toHaveLength(0)
     call(t.logic, 'live.bill.setNoShow', '15')
     call(t.logic, 'live.bill.feeSave')
     await vi.waitFor(() => expect(writes(t.calls, 'saveCardFees')).toHaveLength(1))
-    expect(writes(t.calls, 'saveCardFees')[0]![1]).toEqual({ enabled: true, noShowCents: 1500, lateCancelCents: 0, version: 0 })
+    expect(writes(t.calls, 'saveCardFees')[0]![1]).toEqual({
+      enabled: true,
+      noShowCents: 1500,
+      lateCancelCents: 0,
+      version: 0,
+    })
     await vi.waitFor(() => expect(vals(t.logic).live.bill.feeDirty).toBe(false))
   })
 
@@ -135,7 +153,11 @@ describe('Settings → Billing & integrations (DV-908)', () => {
     await openBilling(t.logic)
     call(t.logic, 'live.bill.setGrace', '30')
     call(t.logic, 'live.bill.policySave')
-    await vi.waitFor(() => expect(vals(t.logic).live.bill.policyError).toBe('The cancel day must come after the last day of perks.'))
+    await vi.waitFor(() =>
+      expect(vals(t.logic).live.bill.policyError).toBe(
+        'The cancel day must come after the last day of perks.',
+      ),
+    )
     call(t.logic, 'live.bill.setCancel', '45')
     expect(vals(t.logic).live.bill.policyText).toContain('keeps the perks 30 days')
     call(t.logic, 'live.bill.policySave')
@@ -144,7 +166,9 @@ describe('Settings → Billing & integrations (DV-908)', () => {
     t.fail.set('savePriceNotice', stale())
     call(t.logic, 'live.bill.setNotice', '14')
     call(t.logic, 'live.bill.noticeSave')
-    await vi.waitFor(() => expect(vals(t.logic).live.bill.noticeError).toMatch(/^Someone else saved a change meanwhile/))
+    await vi.waitFor(() =>
+      expect(vals(t.logic).live.bill.noticeError).toMatch(/^Someone else saved a change meanwhile/),
+    )
     expect(vals(t.logic).live.bill.noticeDays).toBe('14')
   })
 
@@ -183,7 +207,9 @@ describe('Memberships: Move members and each price’s Square state (DV-909)', (
     call(t.logic, 'live.mem.t.moveStart')
     m = vals(t.logic).live.mem
     expect(m.t.moveOpen).toBe(true)
-    expect(m.t.moveText).toMatch(/^Hi Maria, your Oasis Auto Spa .+ membership will be \$\d+\/month from your first bill after \w{3}, \w{3} \d{1,2}\. Questions\? Just reply here\.$/)
+    expect(m.t.moveText).toMatch(
+      /^Hi Maria, your Oasis Auto Spa .+ membership will be \$\d+\/month from your first bill after \w{3}, \w{3} \d{1,2}\. Questions\? Just reply here\.$/,
+    )
     expect(m.t.moveWhen).toMatch(/^Moves at the first bill after \w{3}, \w{3} \d{1,2}$/)
     const page = html(t.logic)
     expect(page).toContain('The text they get')
@@ -191,7 +217,11 @@ describe('Memberships: Move members and each price’s Square state (DV-909)', (
     call(t.logic, 'live.mem.t.moveConfirm')
     await vi.waitFor(() => expect(writes(t.calls, 'moveMembers')).toHaveLength(1))
     expect(writes(t.calls, 'moveMembers')[0]!.slice(1, 3)).toEqual([expect.any(String), { notice: 30 }])
-    await vi.waitFor(() => expect(t.flashes.some((f) => f.startsWith('Moving 2 members · new price from their first bill after'))).toBe(true))
+    await vi.waitFor(() =>
+      expect(
+        t.flashes.some((f) => f.startsWith('Moving 2 members · new price from their first bill after')),
+      ).toBe(true),
+    )
     expect(vals(t.logic).live.mem.t.moveOpen).toBe(false)
   })
 

@@ -12,12 +12,21 @@ export type Line = { label: string; value: string; tone: 'ink' | 'green' | 'ambe
 const onOff = (b: boolean): string => (b ? 'On' : 'Off')
 
 /** The Square row in plain words: where it points, whether it is set up, what is missing, and the warnings. */
-export function squareStatus(v: BillingRes['square']): { headline: string; tone: Line['tone']; missing: string[]; warnings: string[] } {
+export function squareStatus(v: BillingRes['square']): {
+  headline: string
+  tone: Line['tone']
+  missing: string[]
+  warnings: string[]
+} {
   const st = v.status
   const env = typeof st.details.environment === 'string' ? st.details.environment : null
-  const where = st.live ? 'Connected to Square' + (env ? ' (' + env + ')' : '') : 'Square simulator (nothing reaches Square)'
-  if (st.live && st.configured) return { headline: where + ' · set up', tone: 'green', missing: [], warnings: st.warnings }
-  if (st.live) return { headline: where + ' · not set up yet', tone: 'red', missing: st.missing, warnings: st.warnings }
+  const where = st.live
+    ? 'Connected to Square' + (env ? ' (' + env + ')' : '')
+    : 'Square simulator (nothing reaches Square)'
+  if (st.live && st.configured)
+    return { headline: where + ' · set up', tone: 'green', missing: [], warnings: st.warnings }
+  if (st.live)
+    return { headline: where + ' · not set up yet', tone: 'red', missing: st.missing, warnings: st.warnings }
   return { headline: where, tone: 'ink', missing: [], warnings: st.warnings }
 }
 
@@ -45,7 +54,9 @@ export function lastTestText(t: BillingRes['square']['lastTest'], when: string):
 
 /** The toast after Test connection. */
 export const testToast = (r: Pick<SquareTestRes, 'ok' | 'checks'>): string =>
-  r.ok ? 'Square connection OK' : 'Square connection: ' + r.checks.filter((c) => !c.ok).length + ' check(s) failed'
+  r.ok
+    ? 'Square connection OK'
+    : 'Square connection: ' + r.checks.filter((c) => !c.ok).length + ' check(s) failed'
 
 /** The server's switches, read only (they are changed at deploy time, never here). */
 export function processingLines(p: BillingRes['processing']): Line[] {
@@ -57,20 +68,32 @@ export function processingLines(p: BillingRes['processing']): Line[] {
     },
     {
       label: 'Square',
-      value: p.squareProvider === 'sim' ? 'Simulator' : p.squareEnvironment === 'production' ? 'Production' : 'Sandbox (test)',
+      value:
+        p.squareProvider === 'sim'
+          ? 'Simulator'
+          : p.squareEnvironment === 'production'
+            ? 'Production'
+            : 'Sandbox (test)',
       tone: 'ink',
     },
     {
       label: 'Square writes',
-      value: p.writesEnabled ? 'On' : 'Off · watch only: payments are seen and matched, nothing is made at Square',
+      value: p.writesEnabled
+        ? 'On'
+        : 'Off · watch only: payments are seen and matched, nothing is made at Square',
       tone: p.writesEnabled ? 'green' : 'amber',
     },
     { label: 'Memberships on Square', value: onOff(p.membershipsEnabled), tone: 'ink' },
-    { label: 'Saved cards and fees', value: p.cardsOn ? 'On' : 'Off until Square takes card payments', tone: 'ink' },
+    {
+      label: 'Saved cards and fees',
+      value: p.cardsOn ? 'On' : 'Off until Square takes card payments',
+      tone: 'ink',
+    },
     { label: 'Personal pay, card and membership pages', value: onOff(p.publicLinksEnabled), tone: 'ink' },
     {
       label: 'Counter payments recorded',
-      value: p.posAutomatch === 'amount' ? 'On strong evidence, or on an amount alone' : 'Only on strong evidence',
+      value:
+        p.posAutomatch === 'amount' ? 'On strong evidence, or on an amount alone' : 'Only on strong evidence',
       tone: 'ink',
     },
     { label: '“Open Square POS” button', value: onOff(p.posAppSwitch), tone: 'ink' },
@@ -83,7 +106,8 @@ const PURPOSE_WORDS: Record<string, string> = {
   late_cancel_fee: 'late-cancel fees',
   balance: 'balances',
 }
-export const consentPurposes = (p: readonly string[]): string => p.map((x) => PURPOSE_WORDS[x] ?? x).join(', ')
+export const consentPurposes = (p: readonly string[]): string =>
+  p.map((x) => PURPOSE_WORDS[x] ?? x).join(', ')
 
 // ---- drafts -----------------------------------------------------------------------------------------------------------
 
@@ -106,18 +130,25 @@ export const feesDraft = (f: BillingRes['cardFees']['fees']): FeesDraft => ({
   noShow: dollars(f.noShowCents),
   lateCancel: dollars(f.lateCancelCents),
 })
-export function feesBody(d: FeesDraft):
+export function feesBody(
+  d: FeesDraft,
+):
   | { ok: true; value: { enabled: boolean; noShowCents: number; lateCancelCents: number } }
   | { ok: false; message: string } {
   const ns = parseDollars(d.noShow)
   const lc = parseDollars(d.lateCancel)
-  if (ns === null || ns > 100_000) return { ok: false, message: 'The no-show fee is whole dollars, $0 to $1,000.' }
-  if (lc === null || lc > 100_000) return { ok: false, message: 'The late-cancel fee is whole dollars, $0 to $1,000.' }
-  if (d.enabled && ns === 0 && lc === 0) return { ok: false, message: 'Set at least one fee before turning fees on.' }
+  if (ns === null || ns > 100_000)
+    return { ok: false, message: 'The no-show fee is whole dollars, $0 to $1,000.' }
+  if (lc === null || lc > 100_000)
+    return { ok: false, message: 'The late-cancel fee is whole dollars, $0 to $1,000.' }
+  if (d.enabled && ns === 0 && lc === 0)
+    return { ok: false, message: 'Set at least one fee before turning fees on.' }
   return { ok: true, value: { enabled: d.enabled, noShowCents: ns, lateCancelCents: lc } }
 }
 export const sameFees = (a: FeesDraft, b: FeesDraft): boolean =>
-  a.enabled === b.enabled && a.noShow.trim() === b.noShow.trim() && a.lateCancel.trim() === b.lateCancel.trim()
+  a.enabled === b.enabled &&
+  a.noShow.trim() === b.noShow.trim() &&
+  a.lateCancel.trim() === b.lateCancel.trim()
 
 export interface PolicyDraft {
   grace: string
@@ -128,15 +159,19 @@ export const policyDraft = (p: BillingRes['renewalPolicy']): PolicyDraft => ({
   cancel: String(p.cancelDays),
 })
 const wholeDays = (raw: string): number | null => (/^\d{1,3}$/.test(raw.trim()) ? Number(raw.trim()) : null)
-export function policyBody(d: PolicyDraft): { ok: true; value: { graceDays: number; cancelDays: number } } | { ok: false; message: string } {
+export function policyBody(
+  d: PolicyDraft,
+): { ok: true; value: { graceDays: number; cancelDays: number } } | { ok: false; message: string } {
   const g = wholeDays(d.grace)
   const c = wholeDays(d.cancel)
   if (g === null || g > 60) return { ok: false, message: 'Perks stay on for 0 to 60 days.' }
-  if (c === null || c < 1 || c > 90) return { ok: false, message: 'The membership is canceled after 1 to 90 days.' }
+  if (c === null || c < 1 || c > 90)
+    return { ok: false, message: 'The membership is canceled after 1 to 90 days.' }
   if (c <= g) return { ok: false, message: 'The cancel day must come after the last day of perks.' }
   return { ok: true, value: { graceDays: g, cancelDays: c } }
 }
-export const samePolicy = (a: PolicyDraft, b: PolicyDraft): boolean => a.grace.trim() === b.grace.trim() && a.cancel.trim() === b.cancel.trim()
+export const samePolicy = (a: PolicyDraft, b: PolicyDraft): boolean =>
+  a.grace.trim() === b.grace.trim() && a.cancel.trim() === b.cancel.trim()
 
 /** What the renewal policy means for the client, in the order it happens. */
 export function policyText(d: PolicyDraft): string {
@@ -160,7 +195,8 @@ export function noticeBody(raw: string): { ok: true; value: number } | { ok: fal
 
 /** The toast of "Sync to Square". */
 export function syncToast(r: CatalogSyncRes): string {
-  if (r.status === 'skipped') return 'Not synced: ' + (r.reason ?? 'Square writes or memberships on Square are off')
+  if (r.status === 'skipped')
+    return 'Not synced: ' + (r.reason ?? 'Square writes or memberships on Square are off')
   const made = r.plansCreated + r.variationsCreated
   const parts = [
     made ? made + ' made' : null,
@@ -186,7 +222,12 @@ export function noticeDate(today: string, days: number): string {
  * What "Move members" tells the members (the backend's `membership_price_change` text, with a sample name and the tier's
  * lowest current price; each member gets the price at their own size) and when the move happens.
  */
-export function moveMembersPreview(o: { tierName: string; fromCents: number | null; days: number; today: string }): {
+export function moveMembersPreview(o: {
+  tierName: string
+  fromCents: number | null
+  days: number
+  today: string
+}): {
   when: string
   text: string
   explain: string
@@ -216,7 +257,11 @@ export function moveMembersPreview(o: { tierName: string; fromCents: number | nu
 }
 
 export function moveToast(r: { moving: number; skipped: number }, when: string): string {
-  if (r.moving === 0) return 'No member is on an older price' + (r.skipped ? ' · ' + r.skipped + ' left alone (a change is already scheduled)' : '')
+  if (r.moving === 0)
+    return (
+      'No member is on an older price' +
+      (r.skipped ? ' · ' + r.skipped + ' left alone (a change is already scheduled)' : '')
+    )
   return (
     'Moving ' +
     r.moving +
@@ -228,7 +273,10 @@ export function moveToast(r: { moving: number; skipped: number }, when: string):
 }
 
 /** A tier price's Square state, with the last sync problem when there is one (DV-909). */
-export function priceSquareText(state: string | undefined, error: string | null | undefined): { text: string; tone: Line['tone'] } {
+export function priceSquareText(
+  state: string | undefined,
+  error: string | null | undefined,
+): { text: string; tone: Line['tone'] } {
   if (state === 'synced') return { text: 'On Square', tone: 'green' }
   if (state === 'failed') return { text: 'Square sync failed', tone: 'red' }
   if (state === 'pending' && error) return { text: 'Square lost it · making it again', tone: 'amber' }

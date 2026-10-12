@@ -58,10 +58,16 @@ let render: (vals: any, ctx: { name: string }) => any
 const tmp = path.join(root, 'tools/dc-compile/tests/.tmp-snippets/operations-live-billing')
 const text = (v: string | Buffer | undefined): string => (Buffer.isBuffer(v) ? v.toString('utf8') : (v ?? ''))
 beforeAll(async () => {
-  const out = compileScreens(['operations'], { root, variant: 'live', tplIds: false, allowComplexExpr: false })
+  const out = compileScreens(['operations'], {
+    root,
+    variant: 'live',
+    tplIds: false,
+    allowComplexExpr: false,
+  })
   const dir = path.join(tmp, 'gen')
   fs.mkdirSync(dir, { recursive: true })
-  for (const [name, buf] of Object.entries(out.perScreen.operations!)) fs.writeFileSync(path.join(dir, name), text(buf))
+  for (const [name, buf] of Object.entries(out.perScreen.operations!))
+    fs.writeFileSync(path.join(dir, name), text(buf))
   render = (await import(/* @vite-ignore */ path.join(dir, 'operations.tsx'))).default
 })
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
@@ -141,7 +147,9 @@ describe('cards on file (DV-903)', () => {
     v = l.vals()
     expect(v.sel.cdRows[0].confirming).toBe(true)
     page = html(l)
-    expect(page).toContain('Remove Visa ••4242? Square disables it and Marcus’s permission to charge it ends.')
+    expect(page).toContain(
+      'Remove Visa ••4242? Square disables it and Marcus’s permission to charge it ends.',
+    )
     expect(calls(l, 'removeCard')).toHaveLength(0)
     v.sel.cdRows[0].confirm()
     await flushed(l)
@@ -215,7 +223,9 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
     v.sel.vsCancel()
     v = l.vals()
     expect(v.sel.vsCancelling).toBe(true)
-    expect(v.sel.vsCancelText).toBe('Cancel Marcus’s visit? Marcus gets a text, and the deposit follows your cancellation rules.')
+    expect(v.sel.vsCancelText).toBe(
+      'Cancel Marcus’s visit? Marcus gets a text, and the deposit follows your cancellation rules.',
+    )
     v.sel.vsConfirmCancel()
     await flushed(l)
     expect(calls(l, 'cancel')).toHaveLength(0)
@@ -235,7 +245,9 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
     const f = FILES.late as any
     const v = await openFile(l, f.id)
     v.sel.vsNoShow()
-    expect(l.vals().sel.vsNoShowText).toBe('Mark Marcus as a no-show? No text is sent, and the deposit follows your no-show rules.')
+    expect(l.vals().sel.vsNoShowText).toBe(
+      'Mark Marcus as a no-show? No text is sent, and the deposit follows your no-show rules.',
+    )
     l.vals().sel.vsConfirmNoShow()
     await flushed(l)
     expect(calls(l, 'noShow')[0]![1]).toBe(f.id)
@@ -301,7 +313,9 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
     port.feesOf.set(f.id, FEES('unknown'))
     await l.qc.invalidateQueries({ queryKey: ['ops', 'fees'] })
     v = await again(l)
-    expect(v.sel.feeRows[0].line).toBe('Waiting for Square: it is recorded as soon as Square answers, never twice.')
+    expect(v.sel.feeRows[0].line).toBe(
+      'Waiting for Square: it is recorded as soon as Square answers, never twice.',
+    )
     expect(v.sel.feeRows[0].canDecide).toBe(false)
   })
 
@@ -339,9 +353,18 @@ describe('the deposit line and the processor for every role (DV-905)', () => {
         keptCents: 0,
         refundFailed: false,
         refundSending: false,
-        link: { state: 'active', sentAt: '2026-06-13T13:00:00.000Z', expiresAt: null, createdAt: '2026-06-13T13:00:00.000Z' },
+        link: {
+          state: 'active',
+          sentAt: '2026-06-13T13:00:00.000Z',
+          expiresAt: null,
+          createdAt: '2026-06-13T13:00:00.000Z',
+        },
       },
-      processing: { processor: 'square', squarePosAppSwitch: false, squareTenders: { reader: true, link: true, savedCard: null } },
+      processing: {
+        processor: 'square',
+        squarePosAppSwitch: false,
+        squareTenders: { reader: true, link: true, savedCard: null },
+      },
     }
     port.files.set(f.id, f)
     const l = await boot(port, { role: 'support' } as any)
@@ -370,7 +393,12 @@ const billingOf = (over: Record<string, unknown> = {}) => ({
   pauseAt: null,
   change: null,
   lastInvoice: null,
-  lastPaid: { amountCents: 12900, paidAt: '2026-06-12T14:00:00.000Z', dueDate: '2026-06-12', refundedCents: 0 },
+  lastPaid: {
+    amountCents: 12900,
+    paidAt: '2026-06-12T14:00:00.000Z',
+    dueDate: '2026-06-12',
+    refundedCents: 0,
+  },
   lastFailed: null,
   enrollment: null,
   ...over,
@@ -415,7 +443,9 @@ describe('the Membership tab’s billing block (DV-907)', () => {
     v.sel.blButtons[0].onClick()
     v = l.vals()
     expect(v.sel.blConfirming).toBe(true)
-    expect(v.sel.blConfirmText).toBe('Pause from the next billing date? No charge while paused; perks stop then.')
+    expect(v.sel.blConfirmText).toBe(
+      'Pause from the next billing date? No charge while paused; perks stop then.',
+    )
     page = html(l)
     expect(page).toContain('Pause from the next billing date?')
     expect(calls(l, 'billing')).toHaveLength(0)
@@ -445,7 +475,9 @@ describe('the Membership tab’s billing block (DV-907)', () => {
     v = l.vals()
     v.sel.blButtons.find((b: any) => b.label === 'Refund last payment').onClick()
     v = l.vals()
-    expect(v.sel.blConfirmText).toBe('Refund $129 of Jun 12 to the card through Square? The membership itself does not change.')
+    expect(v.sel.blConfirmText).toBe(
+      'Refund $129 of Jun 12 to the card through Square? The membership itself does not change.',
+    )
     v.sel.blConfirm()
     await flushed(l)
     expect(calls(l, 'refundLast')[0]![1]).toBe(mem.membership.id)
@@ -459,7 +491,15 @@ describe('the Membership tab’s billing block (DV-907)', () => {
     mem.membership.plan.key = 'gold'
     port.tierList = {
       tiers: [
-        { key: 'gold', name: 'Gold', active: true, prices: [{ class: 'compact_car', monthlyCents: 12900 }, { class: 'large_suv', monthlyCents: 14900 }] },
+        {
+          key: 'gold',
+          name: 'Gold',
+          active: true,
+          prices: [
+            { class: 'compact_car', monthlyCents: 12900 },
+            { class: 'large_suv', monthlyCents: 14900 },
+          ],
+        },
         { key: 'vip', name: 'VIP', active: true, prices: [{ class: 'large_suv', monthlyCents: 21900 }] },
       ],
     } as unknown as TierList
@@ -469,7 +509,10 @@ describe('the Membership tab’s billing block (DV-907)', () => {
     v = await again(l)
     expect(v.sel.blChangeOpen).toBe(true)
     expect(v.sel.blTiers.map((t: any) => t.label)).toEqual(['Gold', 'VIP'])
-    expect(v.sel.blSizes.map((t: any) => t.label)).toEqual(['Compact car · $129/month', 'Large SUV · $149/month'])
+    expect(v.sel.blSizes.map((t: any) => t.label)).toEqual([
+      'Compact car · $129/month',
+      'Large SUV · $149/month',
+    ])
     v.sel.blTiers[1].onClick()
     v = l.vals()
     expect(v.sel.blChangeSummary).toBe('VIP has no price at Compact car. Pick a size with a price.')
@@ -483,7 +526,10 @@ describe('the Membership tab’s billing block (DV-907)', () => {
     expect(page).toContain('Change to VIP · Large SUV · $219/month')
     v.sel.blChangeConfirm()
     await flushed(l)
-    expect(calls(l, 'changeBilling')[0]!.slice(1, 3)).toEqual([mem.membership.id, { planKey: 'vip', planClass: 'large_suv' }])
+    expect(calls(l, 'changeBilling')[0]!.slice(1, 3)).toEqual([
+      mem.membership.id,
+      { planKey: 'vip', planClass: 'large_suv' },
+    ])
     expect(l.vals().toastTitle).toBe('Change scheduled')
     expect(l.vals().sel.blChangeOpen).toBe(false)
   })
