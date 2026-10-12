@@ -150,7 +150,7 @@ describe('invoice lines with sizes and coverage (DV-801)', () => {
     }
     const lines = lineViews(d)
     expect(lines[0]!.label).toBe('Signature Hand Wash · Large SUV')
-    expect(lines[1]!.label).toBe('Membership · Covered $40.00 · $20.00 size difference due')
+    expect(lines[1]!.label).toBe('Covered $40 · $20 size difference due')
     expect(lines[1]!.value).toBe('−$40.00')
   })
   it('a line priced before sizes and a plain discount read as before', () => {

@@ -147,3 +147,36 @@ reload; it fails on a page error, an API 5xx or an unexpected 4xx. Screenshots g
 - The list is not virtualised: 105 rows today, up to 20,000 (the CSV ceiling) in the worst case. Review B54 asks for
   infinite scroll or virtualisation when real volumes arrive.
 - Void (`POST /invoices/:id/void`) and tip are in the port but have no button (the designs have none).
+
+## Sizes, coverage and Square (Q2c; ADR 0170 wave Q2a, ADR 0171 wave Q2b; DV-801..DV-806)
+
+Everything below appears only when the server sends it; with `PAYMENT_PROCESSOR=squarespace` (the default) and invoices
+priced before sizes the screen is the one above. Pure builders: `src/lib/payments/square.ts` (tenders, ledger states, the
+queue's words and apply targets), `src/lib/sizes.ts` (size, member % off and coverage words, shared with Operations).
+
+| Where | Value | Source and rule |
+| --- | --- | --- |
+| invoice lines | `d.lines[].label` | an item's `classLabel` and `discountBp` (`Signature Hand Wash · Large SUV · 10% member price`); an adjustment's `coverage` (`Covered $40 · $20 size difference due`) |
+| Collect sheet | `sh.payMethods` | `processing.processor`: `Square reader` / `Cash` / `Payment link` with Square; no URL box; the reader sends `{method: card}` (the staff entry Square confirms through the counter matcher, rule R3); the link sends `{method: payment_link}` and, when the answer carries a plain Square link (personal links off), the sheet keeps it with `Copy link` (`sh.hasSentLink`, `sh.sentLink`, `sh.copyLink`) |
+| ledger meta | `d.ledger[].meta` | `processor`, `processorState`: `Awaiting Square`, `Square`, `Refund sent to Square`, `Refunded by Square`, `Refund failed · not refunded` (amount dimmed). A staff card entry carries no processor: it belongs to the invoice's; a refund without one is finished by hand where the money came in |
+| ledger buttons | `d.ledger[].sqMatch*`, `sqCanMove`, `sqMove*` | a waiting Square reader entry: `Match a Square payment` opens the queue on its amount (no hand confirm); a confirmed Square payment: `Wrong invoice? Move it` → invoice number → `GET /payments/invoices?q=INV-…` (30 days) → `POST /payments/square/:paymentId/reassign` (`pay.void`) |
+| banner and sheet | `live.sqHasBanner`, `live.sqBanner`, `live.sqReview`, `live.sqOpen`, `live.sqItems[]`, `live.sqFailed[]`, `live.sqInFlight` | `GET /payments/square/unmatched` (key `qk.payments('square','unmatched')`, 30 s, refetched with the family); `GET /payments/reconciliation` while the sheet is open (its `square` section) |
+
+Commands (all with an Idempotency-Key per action, through `command()` with `key: qk.payments()`):
+
+| Action | Request | Permission | Toast |
+| --- | --- | --- | --- |
+| Apply (a candidate or the invoice open on screen) | `POST /payments/square/:paymentId/apply {invoiceId, confirmEventId?}` | `pay.collect` | `Recorded on INV-20640 · $13.37` / `Square reader payment confirmed · $42.80` |
+| Set aside (after a reason) | `POST /payments/square/:paymentId/ignore {reason}` | `pay.collect` | `Set aside · $13.37` (`Pick a reason first` without one) |
+| Move | `POST /payments/square/:paymentId/reassign {toInvoiceId}` | `pay.void` | `Moved to INV-20641 · $42.80` (the moved-to invoice is selected) |
+
+The cents twin (`cents.ts`) leaves a refund whose `processorState` is `failed` out of `refunded` and `refOrig`, like the
+backend's `calc.ts` and `invoice_calc_of` (ADR 0171 D4); `cents.test.ts` holds the backend's golden vectors and the e2e
+compares the twin with the server's `calc` on every invoice it reads (it now passes `processorState`).
+
+Not shown because the backend does not send it yet (see the package report): the Square receipt number on a ledger entry
+(the queue shows it), and the tier colours of the board cards' member badges (Operations).
+
+Tests: `src/lib/payments/square.test.ts`, `src/screens/payments/live-square.test.ts` (view model, commands, permissions),
+`src/screens/payments/live-square.render.test.ts` (the live template). End to end: `pnpm e2e:visits`
+(docs/screens-operations-live.md, "Sizes, coverage and Square").

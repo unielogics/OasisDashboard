@@ -270,3 +270,54 @@ a stranger's is in the quarantine). The dashboard opens Messages for both kinds 
 - The five-package limit of the New Appointment sheet is the design's (review B30 asks for more).
 - `cancel` and `no-show` have endpoints and tests, no control.
 - A maintenance bay reads `Out of service`; nothing in the design shows one.
+
+## Sizes, coverage and Square (Q2c; ADR 0170 wave Q2a, ADR 0171 wave Q2b; DV-807..DV-813)
+
+Pure builders: `src/lib/operations/live/sizes.ts` (size chips, the price preview, the file's size, badge, car and coverage
+words, the deposit of a canceled visit, the household, the processor words), `src/lib/operations/live/newAppt.ts` (the
+booking and quote requests). A visit booked before sizes (`priceBasis` `legacy`, or absent from an older server) shows
+none of it, so the seeded design day and the parity runs read as before.
+
+| Where | Value | Source and rule |
+| --- | --- | --- |
+| New Appointment, under the vehicle boxes | `nf.hasSizes`, `nf.sizes[]`, `nf.sizeNote` | `GET /catalog/vehicle-classes` (the sizes that are on, smallest first; read quietly, 10 min), then `Not sure`; a picked customer's car presets its size on file and is booked by id (`vehicleId`); typing another car drops the id |
+| New Appointment, under the packages | `nf.hasQuote`, `nf.quoteTitle`, `nf.quoteLines[]`, `nf.quoteTotal`, `nf.quoteNote` | `POST /appointments/quote {serviceId, customerId?, vehicleId?, vehicleClass?}` (`sched.edit`; key `qk.ops('quote', …)`, 30 s; nothing is written) |
+| booking | `POST /appointments` | adds `vehicleClass` and, for a picked customer's car, `vehicleId` |
+| file Overview, vehicle card | `sel.sizeShow`, `sizeText`, `sizeBadge*`, `sizeToggle`, `sizeChips`, `carText`, `carToggle`, `carChips` | the file's `vehicleClass`, `vehicleClassLabel`, `needsSizeConfirm`, `needsPriceConfirm`, `priceBasis`, `vehicle.vehicleClass`/`vehicleClassSource`; `Change size` → `PUT /appointments/:id/vehicle-class {vehicleClass, version}` (`sched.edit`), the car alone → `PATCH /customers/:id/vehicles/:vehicleId {vehicleClass}` (`cli.edit`) |
+| file header | `sel.sizeBadge` | `Confirm size` / `Confirm price` after the status badge |
+| file Overview, appointment card | `sel.covShow`, `sel.covLines[]` | the invoice summary's `coverage[]` |
+| Payments tab | `sel.payRows`, `payTenders`, `payLink*` | items' `classLabel`/`discountBp`, a row per coverage line, the deposit of a canceled visit (`canceled_kept` / `canceled_refunded`); the processor from `GET /invoices/:id` (`processing`) while the tab is open and the role has `pay.reports`: `Square reader`, `Awaiting Square`, the link without a URL box |
+| Membership tab | `sel.hh*` | `GET /customers/:id/membership`: `planClassLabel`, `household[]`, `sharedFrom`; `Add` → `POST /memberships/:id/household {customerId}`, `Remove` → `DELETE /memberships/:id/household/:customerId` (`cli.member`) |
+| member badges | `sel.memberStyle`, cards' `memberStyle` | the file membership's `color`/`bgColor`; the card's when the server sends them; `memberMeta` otherwise |
+
+Commands (`OpsCommands`): `setVisitSize`, `setVehicleSize`, `addHousehold`, `removeHousehold` (permission first, an
+Idempotency-Key per action, the server's toast or `Car size saved`, `Added to the membership`, `Removed from the
+membership`); `collect` says `Square reader payment recorded · Waiting for Square to confirm` with Square.
+
+### Running the end to end (`pnpm e2e:visits`)
+
+A stack on the Q2 backend with Square taking card money through the backend's HTTP simulator and the worker running the
+jobs (the webhook key is random per run and never printed; `sim-square-access-token` is the simulator's public token):
+
+```bash
+K=$(node -e "console.log(require('crypto').randomBytes(24).toString('hex'))")
+(cd $BE && pnpm exec tsx scripts/sim-square.ts --port 4593 --seed none \
+   --webhook-url http://127.0.0.1:4081/hooks/square --webhook-key "$K" &)
+export PAYMENT_PROCESSOR=square SQUARE_PROVIDER=live SQUARE_API_BASE=http://127.0.0.1:4593 \
+  SQUARE_ACCESS_TOKEN=sim-square-access-token SQUARE_LOCATION_ID=LSIMOASIS0001 SQUARE_APPLICATION_ID=sim-app \
+  SQUARE_WEBHOOK_SIGNATURE_KEY="$K" SQUARE_WEBHOOK_URL=http://127.0.0.1:4081/hooks/square \
+  SQUARE_MATCH_DELAY_SECONDS=0 SQUARE_WRITES_ENABLED=true
+pnpm live:up --name qvis --api-port 4081 --web-port 3281 --profile design,website-catalog,pricing-defaults --jobs \
+  --freeze 2026-10-13T10:30:00-04:00 --backend $BE
+SQUARE_SIM_URL=http://127.0.0.1:4593 pnpm e2e:visits --name qvis
+pnpm live:down --name qvis --drop
+```
+
+The run (9 steps) books a guest's Large SUV from the sheet (the preview equals `POST /appointments/quote`), changes the size
+in the file (the invoice line moves to the Compact car price, the car keeps the size), books a Gold member (Compact car
+plan) with a Large SUV (the preview shows `Included · $20 size difference due`), completes it (the file and Payments show
+`Covered $40 · $20 size difference due`), charges the difference on the Square reader (`Awaiting Square`) and lets a
+simulated POS payment of that amount confirm it (rule R3), applies a POS payment nobody could match from the queue to the
+invoice open on screen, sees a POS payment with the invoice number in its note match itself (R1), and texts a Square
+payment link that shows with `Copy link`. The simulator's clock is moved to 20 minutes before the frozen instant so the
+counter payments are never later than the stack's clock. Screenshots: `parity-reports/e2e-visits/`.

@@ -55,9 +55,12 @@ export function squareCollectText(method: 'card' | 'cash' | 'payment_link', firs
 export const itemLabel = (i: InvoiceDetail['items'][number]): string =>
   lineLabel(i.name, i.classLabel, i.discountBp)
 
-/** An adjustment's label: a membership's coverage reads "Membership · Covered $40 · $20 size difference due". */
+/**
+ * An adjustment's label: a membership's coverage reads "Covered $40 · $20 size difference due" (whole dollars without
+ * cents, short enough for the breakdown's one line; the value column carries the exact cents).
+ */
 export function adjustmentLabel(a: InvoiceDetail['adjustments'][number]): string {
-  if (a.coverage) return 'Membership · ' + coverageText(a.coverage, money)
+  if (a.coverage) return coverageText(a.coverage)
   return (a.amountCents < 0 ? 'Discount · ' : 'Surcharge · ') + (a.reason ?? '')
 }
 
