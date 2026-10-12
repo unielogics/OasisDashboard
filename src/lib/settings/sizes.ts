@@ -115,7 +115,11 @@ export interface CellDraft {
   to: string
 }
 
-/** One service's row of the grid as typed, by size key (only the sizes on screen). */
+/**
+ * One service's row of the grid as typed, by size key. It covers every size, on or off (the grid shows only the sizes
+ * that are on): a size turned on while the row is being edited then shows the price it kept, and a size turned off
+ * keeps its edit (DV-323).
+ */
 export type RowDraft = Record<string, CellDraft>
 
 /** The row's boxes from the server's cells, for the given sizes (whole dollars). */
@@ -139,26 +143,34 @@ export interface SentCell {
 }
 
 /**
- * The cells of one row that changed against the server's copy (`base`), as PUT /catalog/prices takes them, or the
- * first thing the server would refuse. A cell left as the server sent it is not sent (the server keeps it, cents and
- * all); an emptied cell clears the price ("not set").
+ * The cells of one row that changed against the server's copy (`base`, made from `row`), as PUT /catalog/prices takes
+ * them, or the first thing the server would refuse. A cell left as the server sent it is not sent (the server keeps it,
+ * cents and all), nor is a size the draft has no box for (a draft made before that size existed); an emptied cell
+ * clears the price ("not set"). In a range cell where only one box changed, the other box keeps its stored cents rather
+ * than its rounded whole dollars, unless those cents would fall below the typed price only by rounding.
  */
 export function changedCells(
   d: RowDraft,
   base: RowDraft,
   sizes: readonly VehicleClassItem[],
   where: string,
+  row?: PriceRowItem,
 ): Checked<SentCell[]> {
   const out: SentCell[] = []
   for (const s of sizes) {
-    const c = d[s.key] ?? { from: '', to: '' }
+    const c = d[s.key]
+    if (c === undefined) continue
     const b = base[s.key] ?? { from: '', to: '' }
-    if (c.from.trim() === b.from.trim() && c.to.trim() === b.to.trim()) continue
+    const fromSame = c.from.trim() === b.from.trim()
+    const toSame = c.to.trim() === b.to.trim()
+    if (fromSame && toSame) continue
     const at = where + ' · ' + s.label
-    const from = parseWhole(c.from)
-    const to = parseWhole(c.to)
+    const stored = row?.cells.find((x) => x.class === s.key)
+    const from = fromSame && stored ? stored.cents : parseWhole(c.from)
+    let to = toSame && stored ? stored.maxCents : parseWhole(c.to)
     if (from === undefined || to === undefined)
       return { ok: false, field: s.key, message: `${at}: enter whole dollars, like 40.` }
+    if (toSame && from !== null && to !== null && to < from) to = parseWhole(c.to) ?? null
     if (from === null && to !== null)
       return { ok: false, field: s.key, message: `${at}: set the price before the “up to” price.` }
     if ((from ?? 0) > SIZE_LIMITS.maxPriceCents || (to ?? 0) > SIZE_LIMITS.maxPriceCents)
@@ -169,6 +181,28 @@ export function changedCells(
   }
   return { ok: true, value: out }
 }
+
+const boxText = (v: unknown): string =>
+  typeof v === 'string'
+    ? v.trim()
+    : v && typeof v === 'object'
+      ? Object.values(v as Record<string, unknown>)
+          .map((x) => (typeof x === 'string' ? x.trim() : ''))
+          .join('|')
+      : ''
+
+/** The sizes that are off where the draft differs from the server's copy (an edit kept while the size is hidden). */
+export function offSizeChanges(
+  d: Record<string, unknown>,
+  base: Record<string, unknown>,
+  sizes: readonly VehicleClassItem[],
+): string[] {
+  return sizes.filter((s) => !s.active && s.key in d && boxText(d[s.key]) !== boxText(base[s.key])).map((s) => s.label)
+}
+
+/** "also changed: Truck (off)": said on a row whose unsaved edit sits at a size that is off (Save sends it). */
+export const offChangesText = (labels: readonly string[]): string =>
+  labels.length ? 'also changed: ' + labels.map((l) => l + ' (off)').join(', ') : ''
 
 /** How many boxes of a row are empty (not set) among the sizes on screen. */
 export const emptyCells = (d: RowDraft, sizes: readonly VehicleClassItem[]): number =>

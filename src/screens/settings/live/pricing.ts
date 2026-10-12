@@ -20,6 +20,8 @@ import {
   feeDraft,
   isRangeRow,
   notSetText,
+  offChangesText,
+  offSizeChanges,
   rowDraft,
   sizeInUseMessage,
   sizeKeyFromLabel,
@@ -266,8 +268,9 @@ export class PricingSections {
     return out
   }
 
-  private base(row: PriceRowItem | undefined, active: VehicleClassItem[]): RowDraft {
-    return rowDraft(row, active)
+  /** The server's copy of a row over every size, on or off (a draft keeps the prices of hidden sizes; DV-323). */
+  private base(row: PriceRowItem | undefined, all: VehicleClassItem[]): RowDraft {
+    return rowDraft(row, all)
   }
 
   pricesVals(c: CatalogRes | undefined): Vals {
@@ -283,7 +286,8 @@ export class PricingSections {
       fee: {},
     }
     if (!c) return empty
-    const active = this.sizes(c).filter((s) => s.active)
+    const all = this.sizes(c)
+    const active = all.filter((s) => s.active)
     const prices = c.prices as PriceRowItem[]
     let missing = 0
     let dirtyRows = 0
@@ -294,16 +298,17 @@ export class PricingSections {
       rows: g.services.map((s) => {
         const row = prices.find((r) => r.serviceId === s.id)
         const version = row?.version ?? s.version
-        const base = this.base(row, active)
+        const base = this.base(row, all)
         const entry = this.rows.get(s.id, base, version)
-        const d = entry?.value ?? base
+        // a draft made before a size existed has no box for it: that size shows the server's copy
+        const d = { ...base, ...(entry?.value ?? {}) }
         if (entry) dirtyRows++
         if (!s.quoteOnly) missing += emptyCells(d, active)
         const range = isRangeRow(s.category, row)
         const name = s.publicName || s.name
         const set = (k: string, field: 'from' | 'to') => (e: InputEvent) => {
           if (!this.ctx.allowed()) return
-          const cur = this.rows.value(s.id, base, version)
+          const cur = { ...base, ...this.rows.value(s.id, base, version) }
           this.rows.set(s.id, base, version, { ...cur, [k]: { ...(cur[k] ?? { from: '', to: '' }), [field]: e.target.value } })
           this.priceError = ''
           this.ctx.changed()
@@ -314,6 +319,8 @@ export class PricingSections {
           subs.push('from ' + wholeMoney(row.fromCents))
         if (range) subs.push('from–to')
         if (entry) subs.push(entry.conflict || conflict === s.id ? 'changed meanwhile' : 'unsaved')
+        const hidden = entry ? offChangesText(offSizeChanges(entry.value, base, all)) : ''
+        if (hidden) subs.push(hidden)
         return {
           name,
           sub: subs.join(' · '),
@@ -340,7 +347,7 @@ export class PricingSections {
     }))
     const busy = this.ctx.busy('prices')
     const dirty = dirtyRows > 0
-    const err = this.priceError || (this.anyConflict(c, active) ? CONFLICT_MESSAGE : '')
+    const err = this.priceError || (this.anyConflict(c, all) ? CONFLICT_MESSAGE : '')
     return {
       note:
         'One regular price per service and size, in whole dollars. Empty (—) means not set: online it shows only the sizes with a price, and a visit at an empty size is booked at the starting price and confirmed at the shop. Member prices are worked out from each tier’s % off (Memberships).',
@@ -367,23 +374,26 @@ export class PricingSections {
     }
   }
 
-  private anyConflict(c: CatalogRes, active: VehicleClassItem[]): boolean {
-    return (c.prices as PriceRowItem[]).some((r) => this.rows.get(r.serviceId, this.base(r, active), r.version)?.conflict)
+  private anyConflict(c: CatalogRes, all: VehicleClassItem[]): boolean {
+    return (c.prices as PriceRowItem[]).some((r) => this.rows.get(r.serviceId, this.base(r, all), r.version)?.conflict)
   }
 
-  /** Every changed row, checked; the first problem (naming the service and size) stops the save before it is sent. */
+  /**
+   * Every changed row, checked; the first problem (naming the service and size) stops the save before it is sent. A
+   * change at a size turned off meanwhile is sent too (the row says so); a size the draft never had is left alone.
+   */
   private async savePrices(c: CatalogRes): Promise<void> {
     if (!this.ctx.allowed()) return
-    const active = this.sizes(c).filter((s) => s.active)
+    const all = this.sizes(c)
     const prices = c.prices as PriceRowItem[]
     const services = [...(c.packages as CatalogItem[]), ...(c.addons as CatalogItem[])]
     const rows: { serviceId: string; version: number; cells: SentCell[] }[] = []
     for (const s of services) {
       const row = prices.find((r) => r.serviceId === s.id)
-      const base = this.base(row, active)
+      const base = this.base(row, all)
       const entry = this.rows.get(s.id, base, row?.version ?? s.version)
       if (!entry) continue
-      const cells = changedCells(entry.value, base, active, s.publicName || s.name)
+      const cells = changedCells(entry.value, base, all, s.publicName || s.name, row)
       if (!cells.ok) {
         this.priceError = cells.message
         return this.ctx.changed()

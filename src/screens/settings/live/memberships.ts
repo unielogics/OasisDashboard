@@ -9,7 +9,7 @@ import { swatchStyle } from '@/lib/categories'
 import { CATEGORY_SWATCHES, normalizeColour } from '@/lib/settings/catalog'
 import type { CatalogItem } from '@/lib/settings/catalog'
 import { CONFLICT_MESSAGE, DraftSet, STALE_ACTION_MESSAGE } from '@/lib/settings/drafts'
-import { sortSizes } from '@/lib/settings/sizes'
+import { offChangesText, offSizeChanges, sortSizes } from '@/lib/settings/sizes'
 import type { PriceRowItem, VehicleClassItem } from '@/lib/settings/sizes'
 import { chip, seg, serviceRowStyle, sw } from '@/lib/settings/styles'
 import {
@@ -390,17 +390,22 @@ export class MembershipSections {
   // ---- the monthly price grid -----------------------------------------------------------------------------------------
 
   private gridVals(c: CatalogRes, tiers: TierItem[]): Vals {
-    const active = sortSizes(c.vehicleClasses as VehicleClassItem[]).filter((s) => s.active)
+    // drafts cover every size, on or off; the grid shows the sizes that are on (DV-324, as Prices by size)
+    const all = sortSizes(c.vehicleClasses as VehicleClassItem[])
+    const active = all.filter((s) => s.active)
     let dirtyRows = 0
     const conflict = this.conflictTier
     const rows = tiers.map((t) => {
-      const base = tierPriceDraft(t, active)
+      const base = tierPriceDraft(t, all)
       const entry = this.prices.get(t.key, base, t.priceVersion)
-      const d = entry?.value ?? base
+      // a draft made before a size existed has no box for it: that size shows the server's copy
+      const d = { ...base, ...(entry?.value ?? {}) }
       if (entry) dirtyRows++
       const subs = ['Price version ' + t.priceVersion]
       if (!t.active) subs.push('off')
       if (entry) subs.push(entry.conflict || conflict === t.key ? 'changed meanwhile' : 'unsaved')
+      const hidden = entry ? offChangesText(offSizeChanges(entry.value, base, all)) : ''
+      if (hidden) subs.push(hidden)
       return {
         name: t.name,
         swatch: swatchStyle(t.colour, 10),
@@ -413,7 +418,7 @@ export class MembershipSections {
             value: d[s.key] ?? '',
             set: (e: InputEvent) => {
               if (!this.ctx.allowed()) return
-              const cur = this.prices.value(t.key, base, t.priceVersion)
+              const cur = { ...base, ...this.prices.value(t.key, base, t.priceVersion) }
               this.prices.set(t.key, base, t.priceVersion, { ...cur, [s.key]: e.target.value })
               this.priceError = ''
               this.ctx.changed()
@@ -427,7 +432,7 @@ export class MembershipSections {
     })
     const busy = this.ctx.busy('tier-prices')
     const dirty = dirtyRows > 0
-    const anyConflict = tiers.some((t) => this.prices.get(t.key, tierPriceDraft(t, active), t.priceVersion)?.conflict)
+    const anyConflict = tiers.some((t) => this.prices.get(t.key, tierPriceDraft(t, all), t.priceVersion)?.conflict)
     const err = this.priceError || (anyConflict ? CONFLICT_MESSAGE : '')
     return {
       note: 'Whole dollars a month per plan size. Changing a price starts a new price version: members keep the price they joined at. Square sync is shown for each price; Square billing comes later.',
@@ -453,13 +458,14 @@ export class MembershipSections {
 
   private async saveGrid(c: CatalogRes, tiers: TierItem[]): Promise<void> {
     if (!this.ctx.allowed()) return
-    const active = sortSizes(c.vehicleClasses as VehicleClassItem[]).filter((s) => s.active)
+    // a change at a size turned off meanwhile is sent too (the row says so); a size the draft never had is left alone
+    const all = sortSizes(c.vehicleClasses as VehicleClassItem[])
     const rows: { tierKey: string; priceVersion: number; cells: { class: string; monthlyCents: number | null }[] }[] = []
     for (const t of tiers) {
-      const base = tierPriceDraft(t, active)
+      const base = tierPriceDraft(t, all)
       const e = this.prices.get(t.key, base, t.priceVersion)
       if (!e) continue
-      const cells = changedTierCells(e.value, base, active, t.name)
+      const cells = changedTierCells(e.value, base, all, t.name)
       if (!cells.ok) {
         this.priceError = cells.message
         return this.ctx.changed()

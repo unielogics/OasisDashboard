@@ -295,6 +295,72 @@ try {
     }
   })
 
+  await step('A size turned on while both grids have unsaved edits: its kept prices show and Save keeps them', async () => {
+    const cat = await api(req, '/catalog')
+    const sig = cat.packages.find((s: any) => s.name === 'Signature Hand Wash')
+    const sigName = sig.publicName || sig.name
+    const cellOf = (r: any, k: string) => r.cells.find((c: any) => c.class === k)?.cents ?? null
+    const row0 = cat.prices.find((r: any) => r.serviceId === sig.id)
+    const gold0 = (await api(req, '/catalog/tiers')).tiers.find((t: any) => t.key === 'gold')
+    const monthlyOf = (t: any, k: string) => t.prices.find((p: any) => p.class === k)?.monthlyCents ?? null
+    const truck0 = (await api(req, '/catalog/vehicle-classes')).vehicleClasses.find((c: any) => c.key === 'truck')
+    const truck = async () => (await api(req, '/catalog/vehicle-classes')).vehicleClasses.find((c: any) => c.key === 'truck')
+    try {
+      // Truck is off and keeps a $70 Signature price and a $199 Gold price
+      if (truck0.active) await write(bg, 'PATCH', '/catalog/vehicle-classes/truck', { active: false, version: truck0.version })
+      const r1 = (await api(req, '/catalog')).prices.find((r: any) => r.serviceId === sig.id)
+      await write(bg, 'PUT', '/catalog/prices', {
+        rows: [{ serviceId: sig.id, version: r1.version, cells: [{ class: 'truck', cents: 7000 }] }],
+      })
+      const g1 = (await api(req, '/catalog/tiers')).tiers.find((t: any) => t.key === 'gold')
+      await write(bg, 'PUT', '/catalog/tier-prices', {
+        rows: [{ tierKey: 'gold', priceVersion: g1.priceVersion, cells: [{ class: 'truck', monthlyCents: 19900 }] }],
+      })
+      await openSettings(page, 'Prices by size')
+      await page.getByTitle(`${sigName} · Large car`, { exact: true }).fill('45')
+      check((await page.getByTitle(`${sigName} · Truck`, { exact: true }).count()) === 0, 'Truck is off: no column')
+      await page.getByRole('button', { name: 'Memberships', exact: true }).click()
+      await page.getByTitle(`${gold0.name} · Compact car`, { exact: true }).fill('139')
+      // someone turns Truck on meanwhile; the event brings it to this page with both drafts open
+      await write(bg, 'PATCH', '/catalog/vehicle-classes/truck', { active: true, version: (await truck()).version })
+      await page.waitForFunction(
+        (title) => (document.querySelector(`input[title="${title}"]`) as HTMLInputElement | null)?.value === '199',
+        `${gold0.name} · Truck`,
+        { timeout: 10_000 },
+      )
+      eq(await page.getByTitle(`${gold0.name} · Compact car`, { exact: true }).inputValue(), '139', 'my monthly edit stays')
+      await page.getByRole('button', { name: 'Save monthly prices', exact: true }).click()
+      await toast(page, /^Monthly prices saved · 1 tier/)
+      await page.getByRole('button', { name: 'Prices by size', exact: true }).click()
+      eq(await page.getByTitle(`${sigName} · Truck`, { exact: true }).inputValue(), '70', 'the kept Truck price shows')
+      eq(await page.getByTitle(`${sigName} · Large car`, { exact: true }).inputValue(), '45', 'my price edit stays')
+      await shot(page, 'prices-size-turned-on')
+      await page.getByRole('button', { name: 'Save prices', exact: true }).click()
+      await toast(page, /^Prices saved · 1 service/)
+      const row = (await api(req, '/catalog')).prices.find((r: any) => r.serviceId === sig.id)
+      eq([cellOf(row, 'large_car'), cellOf(row, 'truck')], [4500, 7000], 'Signature: Large car saved, Truck kept')
+      const gold = (await api(req, '/catalog/tiers')).tiers.find((t: any) => t.key === 'gold')
+      eq([monthlyOf(gold, 'compact_car'), monthlyOf(gold, 'truck')], [13900, 19900], 'Gold: Compact car saved, Truck kept')
+    } finally {
+      const row = (await api(req, '/catalog')).prices.find((r: any) => r.serviceId === sig.id)
+      const back = ['large_car', 'truck']
+        .filter((k) => cellOf(row, k) !== cellOf(row0, k))
+        .map((k) => ({ class: k, cents: cellOf(row0, k) }))
+      if (back.length) await write(bg, 'PUT', '/catalog/prices', { rows: [{ serviceId: sig.id, version: row.version, cells: back }] })
+      const gold = (await api(req, '/catalog/tiers')).tiers.find((t: any) => t.key === 'gold')
+      const gback = ['compact_car', 'truck']
+        .filter((k) => monthlyOf(gold, k) !== monthlyOf(gold0, k))
+        .map((k) => ({ class: k, monthlyCents: monthlyOf(gold0, k) }))
+      if (gback.length)
+        await write(bg, 'PUT', '/catalog/tier-prices', {
+          rows: [{ tierKey: 'gold', priceVersion: gold.priceVersion, cells: gback }],
+        })
+      const t = await truck()
+      if (t.active !== truck0.active)
+        await write(bg, 'PATCH', '/catalog/vehicle-classes/truck', { active: truck0.active, version: t.version })
+    }
+  })
+
   await step('Booking fee: $30 by payment link in the page; the API and the public catalog agree', async () => {
     const before = await api(req, '/catalog/guest-fee')
     try {

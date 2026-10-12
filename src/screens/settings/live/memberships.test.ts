@@ -269,6 +269,53 @@ describe('Settings → Memberships: monthly prices by plan size', () => {
     expect(vals(t.logic).live.mem.list[1].sub).toBe('from $199/mo · on the website · VIP booking')
   })
 
+  it('a draft open while a size is turned on shows the monthly price that size kept; Save does not clear it', async () => {
+    const t = makeExtrasLogic()
+    t.cat.tiers[0].prices.push({
+      class: 'truck',
+      monthlyCents: 19900,
+      priceVersion: 2,
+      effectiveFrom: '2026-10-12T14:00:00.000Z',
+      squareState: 'pending',
+    })
+    await open(t.logic)
+    call(t.logic, 'live.mem.grid.rows.0.cells.0.set', '139')
+    t.logic.setState({ section: 'sizes' })
+    await vi.waitFor(() => expect(vals(t.logic).live.secSizes).toBe(true))
+    call(t.logic, 'live.sizes.rows.4.toggle')
+    await vi.waitFor(() => expect(t.flashes).toContain('Truck is on'))
+    await open(t.logic)
+    await vi.waitFor(() => expect(vals(t.logic).live.mem.grid.heads).toHaveLength(5))
+    const gold = vals(t.logic).live.mem.grid.rows[0]
+    expect(gold.cells.map((c: any) => c.value)).toEqual(['139', '', '', '', '199'])
+    expect(gold.cells[4].style.background).toBe('var(--panel)')
+    expect(gold.sub).toBe('Price version 2 · unsaved')
+    call(t.logic, 'live.mem.grid.save')
+    await vi.waitFor(() => expect(writes(t.calls, 'saveTierPrices')).toHaveLength(1))
+    expect(writes(t.calls, 'saveTierPrices')[0]![1]).toEqual({
+      rows: [{ tierKey: 'gold', priceVersion: 2, cells: [{ class: 'compact_car', monthlyCents: 13900 }] }],
+    })
+    expect(t.cat.tiers[0].prices.find((p: any) => p.class === 'truck').monthlyCents).toBe(19900)
+  })
+
+  it('a size turned off while its monthly price is edited: the edit is kept, the row says so, Save sends it', async () => {
+    const t = makeExtrasLogic()
+    await open(t.logic)
+    call(t.logic, 'live.mem.grid.rows.0.cells.1.set', '149')
+    t.logic.setState({ section: 'sizes' })
+    await vi.waitFor(() => expect(vals(t.logic).live.secSizes).toBe(true))
+    call(t.logic, 'live.sizes.rows.1.toggle')
+    await vi.waitFor(() => expect(t.flashes).toContain('Large car is off · not offered, its prices are kept'))
+    await open(t.logic)
+    await vi.waitFor(() => expect(vals(t.logic).live.mem.grid.heads).toHaveLength(3))
+    expect(vals(t.logic).live.mem.grid.rows[0].sub).toBe('Price version 2 · unsaved · also changed: Large car (off)')
+    call(t.logic, 'live.mem.grid.save')
+    await vi.waitFor(() => expect(writes(t.calls, 'saveTierPrices')).toHaveLength(1))
+    expect(writes(t.calls, 'saveTierPrices')[0]![1]).toEqual({
+      rows: [{ tierKey: 'gold', priceVersion: 2, cells: [{ class: 'large_car', monthlyCents: 14900 }] }],
+    })
+  })
+
   it('a refused cell is named before sending; a 412 names the tier, reads again and keeps the edits', async () => {
     const t = makeExtrasLogic()
     await open(t.logic)

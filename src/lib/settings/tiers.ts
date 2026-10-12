@@ -362,7 +362,7 @@ export function squareStateText(s: SquareState | undefined): string {
 
 // ---- the monthly price grid ------------------------------------------------------------------------------------------
 
-/** One tier's monthly prices as typed, by size key (whole dollars). */
+/** One tier's monthly prices as typed, by size key (whole dollars); it covers every size, on or off (as RowDraft). */
 export type TierPriceDraft = Record<string, string>
 
 export function tierPriceDraft(t: Pick<TierItem, 'prices'>, sizes: readonly VehicleClassItem[]): TierPriceDraft {
@@ -371,7 +371,10 @@ export function tierPriceDraft(t: Pick<TierItem, 'prices'>, sizes: readonly Vehi
   return out
 }
 
-/** The cells of one tier that changed, as PUT /catalog/tier-prices takes them, or the first thing the server would refuse. */
+/**
+ * The cells of one tier that changed, as PUT /catalog/tier-prices takes them, or the first thing the server would refuse.
+ * A size the draft has no box for (a draft made before that size existed) is not sent: its kept price stays.
+ */
 export function changedTierCells(
   d: TierPriceDraft,
   base: TierPriceDraft,
@@ -380,6 +383,7 @@ export function changedTierCells(
 ): Checked<{ class: string; monthlyCents: number | null }[]> {
   const out: { class: string; monthlyCents: number | null }[] = []
   for (const s of sizes) {
+    if (!(s.key in d)) continue
     const v = (d[s.key] ?? '').trim()
     if (v === (base[s.key] ?? '').trim()) continue
     const cents = parseWhole(v)

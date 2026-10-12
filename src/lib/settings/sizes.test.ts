@@ -7,6 +7,8 @@ import {
   fromLine,
   isRangeRow,
   notSetText,
+  offChangesText,
+  offSizeChanges,
   parseWhole,
   rowDraft,
   sizeInUseMessage,
@@ -140,6 +142,55 @@ describe('the price grid', () => {
       ok: true,
       value: [{ class: 'large_suv', cents: 22900, maxCents: 35900 }],
     })
+  })
+
+  it('a size missing from an older draft is not sent (its kept price stays); a change at a size that is off is', () => {
+    // a draft made while Truck did not exist yet (or before the draft covered every size): Truck is not in it
+    const b = rowDraft(base, SIZES)
+    const older: Record<string, { from: string; to: string }> = { ...b, large_car: { from: '45', to: '' } }
+    delete older.truck
+    expect(changedCells(older, b, SIZES, 'Signature')).toEqual({
+      ok: true,
+      value: [{ class: 'large_car', cents: 4500, maxCents: null }],
+    })
+    // Truck turned off after its price was edited: the edit is still sent, and the row says so
+    const off = SIZES.map((s) => (s.key === 'truck' ? { ...s, active: false } : s))
+    const d = { ...b, truck: { from: '70', to: '' } }
+    expect(changedCells(d, b, off, 'Signature')).toEqual({
+      ok: true,
+      value: [{ class: 'truck', cents: 7000, maxCents: null }],
+    })
+    expect(offSizeChanges(d, b, off)).toEqual(['Truck'])
+    expect(offSizeChanges(d, b, SIZES)).toEqual([])
+    // the monthly grid's drafts are plain texts
+    expect(offSizeChanges({ truck: '199 ' }, { truck: '199' }, off)).toEqual([])
+    expect(offSizeChanges({ truck: '209' }, { truck: '199' }, off)).toEqual(['Truck'])
+    expect(offChangesText(['Truck'])).toBe('also changed: Truck (off)')
+    expect(offChangesText(['Compact SUV', 'Truck'])).toBe('also changed: Compact SUV (off), Truck (off)')
+    expect(offChangesText([])).toBe('')
+  })
+
+  it('a range cell with one box changed sends the other box’s stored cents, not its rounded dollars', () => {
+    const tint = row([{ class: 'compact_car', cents: 27550, maxCents: 35950 }])
+    const b = rowDraft(tint, SIZES)
+    expect(b.compact_car).toEqual({ from: '276', to: '360' })
+    const send = (cell: { from: string; to: string }) => changedCells({ ...b, compact_car: cell }, b, SIZES, 'Tint', tint)
+    expect(send({ from: '300', to: '360' })).toEqual({
+      ok: true,
+      value: [{ class: 'compact_car', cents: 30000, maxCents: 35950 }],
+    })
+    expect(send({ from: '276', to: '400' })).toEqual({
+      ok: true,
+      value: [{ class: 'compact_car', cents: 27550, maxCents: 40000 }],
+    })
+    // the stored "up to" ($359.50) would fall below a typed $360 only by rounding: it follows what is shown
+    expect(send({ from: '360', to: '360' })).toEqual({
+      ok: true,
+      value: [{ class: 'compact_car', cents: 36000, maxCents: 36000 }],
+    })
+    expect(send({ from: '361', to: '360' })).toMatchObject({ ok: false, message: 'Tint · Compact car: the “up to” price can’t be below the price.' })
+    // emptied: cleared, whatever was stored
+    expect(send({ from: '', to: '' })).toEqual({ ok: true, value: [{ class: 'compact_car', cents: null, maxCents: null }] })
   })
 
   it('tint rows and rows with a range show from–to boxes', () => {

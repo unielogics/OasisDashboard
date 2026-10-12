@@ -211,6 +211,13 @@ describe('the monthly price grid', () => {
       ok: false,
       message: 'Gold · Truck: enter whole dollars a month, like 129.',
     })
+    // a size missing from an older draft is not sent: its kept monthly price stays
+    const older: Record<string, string> = { ...base, compact_car: '139' }
+    delete older.truck
+    expect(changedTierCells(older, { ...base, truck: '199' }, SIZES, 'Gold')).toEqual({
+      ok: true,
+      value: [{ class: 'compact_car', monthlyCents: 13900 }],
+    })
     expect(staleTierMessage('Gold')).toMatch(/^Someone else changed the Gold prices meanwhile, so nothing was saved/)
   })
 })

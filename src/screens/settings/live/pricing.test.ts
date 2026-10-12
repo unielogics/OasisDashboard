@@ -267,6 +267,59 @@ describe('Settings → Prices by size', () => {
     await vi.waitFor(() => expect(vals(t.logic).live.prices).toMatchObject({ dirty: false, error: '' }))
   })
 
+  it('a draft open while a size is turned on shows the price that size kept; Save does not clear it', async () => {
+    const t = makeExtrasLogic()
+    await open(t.logic, 'prices')
+    call(t.logic, 'live.prices.groups.0.rows.0.cells.1.setFrom', '45')
+    await open(t.logic, 'sizes')
+    call(t.logic, 'live.sizes.rows.4.toggle')
+    await vi.waitFor(() => expect(t.flashes).toContain('Truck is on'))
+    await open(t.logic, 'prices')
+    await vi.waitFor(() => expect(vals(t.logic).live.prices.heads).toHaveLength(5))
+    const sig = vals(t.logic).live.prices.groups[0].rows[0]
+    expect(sig.cells.map((c: any) => c.from)).toEqual(['40', '45', '50', '', '70'])
+    expect(sig.cells[4].style.background).toBe('var(--panel)')
+    expect(sig.sub).toBe('Package · from $40 · unsaved')
+    call(t.logic, 'live.prices.save')
+    await vi.waitFor(() => expect(writes(t.calls, 'savePrices')).toHaveLength(1))
+    expect(writes(t.calls, 'savePrices')[0]![1]).toEqual({
+      rows: [{ serviceId: 'p-sig', version: 3, cells: [{ class: 'large_car', cents: 4500, maxCents: null }] }],
+    })
+    expect(t.cat.prices[0].cells.find((c: any) => c.class === 'truck')).toEqual({ class: 'truck', cents: 7000, maxCents: null })
+  })
+
+  it('a size turned off while its price is edited: the edit is kept, the row says so, Save sends it', async () => {
+    const t = makeExtrasLogic()
+    await open(t.logic, 'prices')
+    call(t.logic, 'live.prices.groups.0.rows.0.cells.2.setFrom', '55')
+    await open(t.logic, 'sizes')
+    call(t.logic, 'live.sizes.rows.2.toggle')
+    await vi.waitFor(() => expect(t.flashes).toContain('Compact SUV is off · not offered, its prices are kept'))
+    await open(t.logic, 'prices')
+    await vi.waitFor(() => expect(vals(t.logic).live.prices.heads).toHaveLength(3))
+    const v = vals(t.logic).live.prices
+    expect(v.groups[0].rows[0].sub).toBe('Package · from $40 · unsaved · also changed: Compact SUV (off)')
+    expect(v).toMatchObject({ dirty: true, dirtyText: '1 service changed' })
+    call(t.logic, 'live.prices.save')
+    await vi.waitFor(() => expect(writes(t.calls, 'savePrices')).toHaveLength(1))
+    expect(writes(t.calls, 'savePrices')[0]![1]).toEqual({
+      rows: [{ serviceId: 'p-sig', version: 3, cells: [{ class: 'compact_suv', cents: 5500, maxCents: null }] }],
+    })
+  })
+
+  it('a tint cell with only its price changed keeps the stored cents of its “up to” price', async () => {
+    const t = makeExtrasLogic()
+    t.cat.prices[2].cells[0].maxCents = 35950
+    await open(t.logic, 'prices')
+    expect(vals(t.logic).live.prices.groups[2].rows[0].cells[0]).toMatchObject({ from: '275', to: '360' })
+    call(t.logic, 'live.prices.groups.2.rows.0.cells.0.setFrom', '300')
+    call(t.logic, 'live.prices.save')
+    await vi.waitFor(() => expect(writes(t.calls, 'savePrices')).toHaveLength(1))
+    expect(writes(t.calls, 'savePrices')[0]![1].rows[0].cells).toEqual([
+      { class: 'compact_car', cents: 30000, maxCents: 35950 },
+    ])
+  })
+
   it('the booking fee: whole dollars and how it is collected, saved with its version', async () => {
     const t = makeExtrasLogic()
     await open(t.logic, 'prices')
