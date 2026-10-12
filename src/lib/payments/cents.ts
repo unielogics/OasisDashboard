@@ -20,6 +20,8 @@ export interface CentsEvent {
   amountCents: number
   status?: 'pending' | 'done' | 'denied'
   dest?: 'card' | 'credit' | 'cash' | null
+  /** A card refund the processor reported failed ('failed') no longer counts as refunded (ADR 0171 D4). */
+  processorState?: 'na' | 'awaiting_processor' | 'confirmed' | 'failed'
 }
 
 export interface CentsInvoice {
@@ -106,8 +108,10 @@ export function calcCents(input: CentsInvoice): CentsCalc {
   const paidOrig = of('pay') - of('void')
   const creditApplied = of('credit_apply')
   const paid = paidOrig + creditApplied
-  const refunded = of('refund', (e) => e.status === 'done')
-  const refOrig = of('refund', (e) => e.status === 'done' && e.dest !== 'credit')
+  // a refund the processor reported failed gave nothing back (ADR 0171 D4; the backend's calc.ts and invoice_calc_of)
+  const counts = (e: CentsEvent): boolean => e.status === 'done' && e.processorState !== 'failed'
+  const refunded = of('refund', counts)
+  const refOrig = of('refund', (e) => counts(e) && e.dest !== 'credit')
   const pending = ev.filter((e) => e.type === 'refund' && e.status === 'pending')
   const pendingAmt = sum(pending.map((e) => e.amountCents))
   const balance = input.canceled ? 0 : Math.max(0, total - paid)

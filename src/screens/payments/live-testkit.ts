@@ -14,6 +14,9 @@ import type {
   PaymentsPort,
   PaymentsSummary,
   ReceiptResult,
+  Reconciliation,
+  SquareDecided,
+  SquarePaymentToMatch,
 } from '@/data/ports/payments'
 import { calcCents } from '@/lib/payments'
 import type { CentsEvent } from '@/lib/payments'
@@ -117,6 +120,7 @@ export function makeDetail(spec: DetailSpec = {}): InvoiceDetail {
     amountCents: e.amountCents,
     status: e.type === 'refund' ? e.status : undefined,
     dest: e.dest,
+    processorState: e.processorState,
   }))
   const calc = calcCents({
     itemPrices: items.map((i) => i.priceCents),
@@ -253,6 +257,10 @@ export interface StubPort extends PaymentsPort {
   rows: InvoiceListRow[]
   /** Resolve pending commands manually. */
   gate: { release: (() => void) | null; hold: boolean }
+  /** What GET /payments/square/unmatched answers. */
+  toMatch: SquarePaymentToMatch[]
+  /** What GET /payments/reconciliation answers. */
+  recon: Reconciliation
 }
 
 export function stubPort(): StubPort {
@@ -294,6 +302,19 @@ export function stubPort(): StubPort {
     voidPayment: (id, eid, o) => cmd<EventResult>('voidPayment', [id, eid], o),
     sendReceipt: (id, o) => cmd<ReceiptResult>('sendReceipt', [id], o),
     confirmProcessor: (eid, o) => cmd<EventResult>('confirmProcessor', [eid], o),
+    toMatch: [],
+    recon: {},
+    async squareToMatch() {
+      calls.push({ op: 'squareToMatch', args: [] })
+      return { items: p.toMatch }
+    },
+    squareApply: (id, input, o) => cmd<SquareDecided>('squareApply', [id, input], o),
+    squareIgnore: (id, input, o) => cmd<SquareDecided>('squareIgnore', [id, input], o),
+    squareReassign: (id, to, o) => cmd<SquareDecided>('squareReassign', [id, to], o),
+    async reconciliation() {
+      calls.push({ op: 'reconciliation', args: [] })
+      return p.recon
+    },
     async exportCsv(q) {
       calls.push({ op: 'exportCsv', args: [q] })
       return { body: new Blob(['Invoice\r\n']), filename: 'oasis-invoices_2026-06-07_2026-06-13.csv' }

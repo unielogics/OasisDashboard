@@ -37,6 +37,17 @@ import type { Bar, Kpi, MethodBar } from './summary'
 import type { InvoiceRowView } from './filters'
 import type { ActionSpec, BigNumber, LedgerView, LineView } from './invoice'
 import type { SheetKind, StyleObject } from './types'
+import {
+  TENDER_SQUARE_READER,
+  adjustmentLabel,
+  canMoveSquarePay,
+  entryProcessor,
+  itemLabel,
+  processorMeta,
+  processorOf,
+  squareCollectText,
+  squareState,
+} from './square'
 
 // ---- permissions as the screen sees them (from the session; the server enforces the same) --------------------------
 
@@ -258,17 +269,17 @@ const line = (label: string, value: string, kind?: LineKind): LineView => ({
   ...lineStyles(kind),
 })
 
-/** The breakdown: items, adjustments, tax (DV-213: the invoice's own rate), tip, total, credit, paid, refunded. */
+/**
+ * The breakdown: items, adjustments, tax (DV-213: the invoice's own rate), tip, total, credit, paid, refunded. Since ADR
+ * 0170 an item names its size and member % off and a membership's coverage reads "Covered $40 · $20 size difference due"
+ * (DV-801); a line priced before sizes reads as it always did.
+ */
 export function lineViews(d: InvoiceDetail): LineView[] {
   const c = d.calc
   return [
-    ...d.items.map((i) => line(i.name, money(i.priceCents))),
+    ...d.items.map((i) => line(itemLabel(i), money(i.priceCents))),
     ...d.adjustments.map((a) =>
-      line(
-        (a.amountCents < 0 ? 'Discount · ' : 'Surcharge · ') + (a.reason ?? ''),
-        money(a.amountCents),
-        a.amountCents < 0 ? 'neg' : null,
-      ),
+      line(adjustmentLabel(a), money(a.amountCents), a.amountCents < 0 ? 'neg' : null),
     ),
     line('Tax (' + taxLabel(d.taxBp) + ')', money(c.tax)),
     ...(c.tip ? [line('Tip', money(c.tip))] : []),
@@ -345,6 +356,12 @@ export interface LiveLedgerEntry {
     awaiting: boolean
     confirmStyle: StyleObject
     confirmNote: string
+    /** DV-804: a staff "Square reader" entry waiting on Square: "Match a Square payment" opens the queue for it. */
+    sqMatch: boolean
+    sqMatchStyle: StyleObject
+    sqMatchNote: string
+    /** DV-804: a Square payment recorded here may be moved to the right invoice (pay.void). */
+    sqCanMove: boolean
   }
   event: LedgerEvent
   canApprove: boolean
@@ -375,8 +392,12 @@ const eventTitle = (e: LedgerEvent): string => {
   }
 }
 
-/** The meta line of an entry: stamp, who, reason, note, expiry, approver. DV-214 appends " · Awaiting Squarespace". */
-export function eventMeta(e: LedgerEvent): string {
+/**
+ * The meta line of an entry: stamp, who, reason, note, expiry, approver. DV-214 appends " · Awaiting Squarespace"; with
+ * Square (DV-803) it names the processor and the refund state ("Awaiting Square", "Refund sent to Square", "Refunded by
+ * Square", "Refund failed · not refunded").
+ */
+export function eventMeta(e: LedgerEvent, d: Pick<InvoiceDetail, 'processing'> = {}): string {
   return [
     e.atLabel,
     e.by ? e.by + (e.byRole ? ' (' + e.byRole + ')' : '') : null,
@@ -386,7 +407,7 @@ export function eventMeta(e: LedgerEvent): string {
     e.approvedBy ? 'Approved by ' + e.approvedBy : null,
     e.deniedBy ? 'Denied by ' + e.deniedBy : null,
     e.voided ? 'Voided' : null,
-    e.awaitingProcessor ? 'Awaiting Squarespace' : null,
+    processorMeta(e, d) || null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -431,7 +452,12 @@ export function liveLedgerEntries(d: InvoiceDetail, p: LivePerms): LiveLedgerEnt
           : e.type === 'credit_issue' || e.type === 'credit_apply'
             ? 'var(--amber)'
             : 'var(--accentInk)'
-    const canConfirm = e.awaitingProcessor && (e.type === 'refund' ? p.refund.has : p.canCollect)
+    const square = entryProcessor(e, d) === 'square'
+    const sq = squareState(e, d)
+    // a Square entry is confirmed by Square itself (the matcher, refund legs), never by hand: the Squarespace button stays
+    // for Squarespace entries; a waiting Square reader entry offers the queue instead
+    const canConfirm = e.awaitingProcessor && !square && (e.type === 'refund' ? p.refund.has : p.canCollect)
+    const failed = sq === 'failed'
     return {
       event: e,
       canApprove: e.canApprove,
@@ -439,15 +465,24 @@ export function liveLedgerEntries(d: InvoiceDetail, p: LivePerms): LiveLedgerEnt
       view: {
         glyph: GLYPH[e.type],
         title: eventTitle(e),
-        meta: eventMeta(e),
+        meta: eventMeta(e, d),
         amt: amountText(e),
-        amtColor: den ? 'var(--ink3)' : col,
+        amtColor: den || failed ? 'var(--ink3)' : col,
         dot: ledgerDotStyle(pend, col),
         pending: pend,
         approveNote: pend ? approveNote(e, p) : '',
         approveStyle: approveButtonStyle(e.canApprove),
-        awaiting: e.awaitingProcessor,
+        awaiting: e.awaitingProcessor && !square,
         confirmStyle: approveButtonStyle(canConfirm),
+        sqMatch: sq === 'awaiting',
+        sqMatchStyle: approveButtonStyle(p.canCollect),
+        sqMatchNote:
+          sq === 'awaiting'
+            ? p.canCollect
+              ? 'Square confirms it when the reader payment comes in. If it waits, pick it from the payments to match.'
+              : 'Needs a role that can collect payments.'
+            : '',
+        sqCanMove: canMoveSquarePay(e),
         confirmNote: e.awaitingProcessor
           ? canConfirm
             ? 'Mark it done once Squarespace shows it.'
@@ -509,8 +544,13 @@ export interface LiveSheetCalc {
 }
 
 const firstName = (client: string): string => client.split(' ')[0]!
+/** "Card on file" (Squarespace) and "Square reader" (Square) are both the card tender. */
 export const methodOfLabel = (label: string): CollectInput['method'] =>
   label === 'Cash' ? 'cash' : label === 'Payment link' ? 'payment_link' : 'card'
+
+/** The tender the Collect sheet opens on: the design's "Card on file", or "Square reader" once Square takes card money. */
+export const defaultTender = (d: Pick<InvoiceDetail, 'processing'> | undefined): string =>
+  processorOf(d) === 'square' ? TENDER_SQUARE_READER : 'Card on file'
 
 /**
  * What the server answers to a refund of `val` cents to `dest`, from the invoice's refundCaps (the refund command's own caps
@@ -675,7 +715,21 @@ export function liveSheetCalc(args: {
       }
   }
 
-  if (sk === 'collect') {
+  if (sk === 'collect' && processorOf(d) === 'square') {
+    // DV-802: Square takes the card money. No URL to paste: the server makes the link for the exact balance.
+    const method = methodOfLabel(f.method)
+    summary = [{ label: 'Balance due', value: money(c.balance), color: 'var(--red)' }]
+    blocked = c.balance <= 0
+    permText = squareCollectText(method, firstName(d.client))
+    permOk = true
+    submitLabel =
+      method === 'payment_link'
+        ? 'Text link · ' + money(c.balance)
+        : method === 'card'
+          ? 'Charge ' + money(c.balance) + ' on the reader'
+          : 'Collect ' + money(c.balance)
+    if (!blocked) request = { kind: 'collect', input: { method } }
+  } else if (sk === 'collect') {
     const method = methodOfLabel(f.method)
     needsUrl = method === 'payment_link'
     const url = f.url.trim()
@@ -729,6 +783,17 @@ export const creditToast = (r: EventResult, client: string): string =>
   money(r.event.amountCents) + ' credit issued to ' + client
 
 export function collectToast(r: CollectResult, client: string): string {
+  if (r.paymentLink && r.paymentLink.provider && r.paymentLink.provider !== 'squarespace') {
+    // DV-802: the client's own pay link (personal) or a Square link for the exact balance
+    const first = client.split(' ')[0]!
+    return r.paymentLink.sms === 'queued'
+      ? 'Pay link texted to ' + first + ' · ' + money(r.paymentLink.expectedCents)
+      : 'Pay link ready · ' +
+          first +
+          (r.paymentLink.sms === 'skipped_opt_out' ? ' opted out of SMS' : ' has no phone on file')
+  }
+  if (r.event && r.event.awaitingProcessor && processorOf(r.invoice) === 'square')
+    return 'Awaiting Square · ' + money(r.event.amountCents) + ' on the reader'
   if (r.paymentLink) {
     return r.paymentLink.sms === 'queued'
       ? 'Payment link sent to ' + client

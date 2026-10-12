@@ -177,6 +177,11 @@ export function createFixtureDataPort(opts: FixtureOptions = {}): DataPort {
       voidPayment: async () => unavailable('payments.voidPayment'),
       sendReceipt: async () => unavailable('payments.sendReceipt'),
       confirmProcessor: async () => unavailable('payments.confirmProcessor'),
+      squareToMatch: async () => unavailable('payments.squareToMatch'),
+      squareApply: async () => unavailable('payments.squareApply'),
+      squareIgnore: async () => unavailable('payments.squareIgnore'),
+      squareReassign: async () => unavailable('payments.squareReassign'),
+      reconciliation: async () => unavailable('payments.reconciliation'),
       exportCsv: async () => unavailable('payments.exportCsv'),
     },
     settings: new Proxy({} as SettingsApi, {

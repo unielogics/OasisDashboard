@@ -932,6 +932,7 @@ async function phaseRead(browser: Browser): Promise<void> {
         amountCents: e.amountCents,
         status: e.type === 'refund' ? e.status : undefined,
         dest: e.dest,
+        processorState: e.processorState,
       })),
       taxBp: d.taxBp,
       tipCents: d.tipCents,

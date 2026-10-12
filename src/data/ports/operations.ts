@@ -79,6 +79,17 @@ export type PresignRes = Ok<Op<'/api/v1/appointments/{id}/photos/presign', 'post
 export type PerkRes = Ok<Op<'/api/v1/appointments/{id}/membership-perks/apply', 'post'>>
 export type ApptStatus = AppointmentCore['status']
 
+// ---- vehicle sizes, prices and households (ADR 0170, wave Q2) ---------------------------------------------------------
+
+export type QuoteReq = Req<Op<'/api/v1/appointments/quote', 'post'>>
+export type QuoteRes = Ok<Op<'/api/v1/appointments/quote', 'post'>>
+export type QuoteLine = QuoteRes['lines'][number]
+export type VisitSizeRes = Ok<Op<'/api/v1/appointments/{id}/vehicle-class', 'put'>>
+export type VehicleSizeRes = Ok<Op<'/api/v1/customers/{id}/vehicles/{vehicleId}', 'patch'>>
+export type HouseholdRes = Ok<Op<'/api/v1/memberships/{id}/household', 'post'>>
+export type VehicleClasses = Ok<Op<'/api/v1/catalog/vehicle-classes', 'get'>>
+export type VehicleClass = VehicleClasses['vehicleClasses'][number]
+
 type Opts = Pick<RequestOptions, 'idempotencyKey' | 'signal'>
 
 export interface OperationsPort {
@@ -95,6 +106,10 @@ export interface OperationsPort {
   templates(): Promise<Templates>
   /** GET /customers/:id/identity (cli.view): the PIN status and the number's 30-day trust, masked. */
   identity(customerId: string): Promise<ClientIdentity>
+  /** GET /catalog/vehicle-classes (any signed-in user): the sizes in size order, turned-off ones included. */
+  vehicleClasses(): Promise<VehicleClasses>
+  /** POST /appointments/quote (sched.edit): the booking sheet's price preview; nothing is written. */
+  quote(input: QuoteReq, o?: Pick<Opts, 'signal'>): Promise<QuoteRes>
   // lifecycle
   advance(id: string, expectedStatus: ApptStatus, o?: Opts): Promise<CommandRes>
   arrive(id: string, o?: Opts): Promise<CommandRes>
@@ -119,6 +134,19 @@ export interface OperationsPort {
   checklistItem(id: string, itemId: string, done: boolean, o?: Opts): Promise<ChecklistItemRes>
   checklistBulk(id: string, itemIds: string[], done: boolean, o?: Opts): Promise<ChecklistBulkRes>
   applyPerk(id: string, o?: Opts): Promise<PerkRes>
+  /** PUT /appointments/:id/vehicle-class (sched.edit): the size at the shop; the visit is priced again. */
+  setVisitSize(id: string, vehicleClass: string, version: number, o?: Opts): Promise<VisitSizeRes>
+  /** PATCH /customers/:id/vehicles/:vehicleId (cli.edit): the size on file of a client's car. */
+  setVehicleSize(
+    customerId: string,
+    vehicleId: string,
+    vehicleClass: string | null,
+    o?: Opts,
+  ): Promise<VehicleSizeRes>
+  /** POST /memberships/:id/household (cli.member): a client shares the membership. */
+  addHousehold(membershipId: string, customerId: string, o?: Opts): Promise<HouseholdRes>
+  /** DELETE /memberships/:id/household/:customerId (cli.member): the sharing ends. */
+  removeHousehold(membershipId: string, customerId: string, o?: Opts): Promise<HouseholdRes>
   // messages
   sendMessage(id: string, input: SendMessageReq, o?: Opts): Promise<SendMessageRes>
   markRead(customerId: string, o?: Opts): Promise<{ marked: number }>
@@ -177,6 +205,8 @@ export function createLiveOperationsPort(
     catalog: () => c.get('/services'),
     templates: () => c.get('/messages/templates'),
     identity: (id) => c.get(`/customers/${enc(id)}/identity`),
+    vehicleClasses: () => c.get('/catalog/vehicle-classes'),
+    quote: (input, o) => post('/appointments/quote', input, o),
     advance: (id, expectedStatus, o) => post(`${a(id)}/advance`, { expectedStatus }, o),
     arrive: (id, o) => post(`${a(id)}/arrive`, { source: 'manual' }, o),
     assignBay: (id, bayId, o) => post(`${a(id)}/assign-bay`, { bayId }, o),
@@ -194,6 +224,13 @@ export function createLiveOperationsPort(
     checklistItem: (id, itemId, done, o) => c.put(`${a(id)}/checklist/items/${enc(itemId)}`, { done }, o),
     checklistBulk: (id, itemIds, done, o) => post(`${a(id)}/checklist/bulk`, { itemIds, done }, o),
     applyPerk: (id, o) => post(`${a(id)}/membership-perks/apply`, {}, o),
+    setVisitSize: (id, vehicleClass, version, o) => c.put(`${a(id)}/vehicle-class`, { vehicleClass, version }, o),
+    setVehicleSize: (customerId, vehicleId, vehicleClass, o) =>
+      c.patch(`/customers/${enc(customerId)}/vehicles/${enc(vehicleId)}`, { vehicleClass }, o),
+    addHousehold: (membershipId, customerId, o) =>
+      post(`/memberships/${enc(membershipId)}/household`, { customerId }, o),
+    removeHousehold: (membershipId, customerId, o) =>
+      c.delete(`/memberships/${enc(membershipId)}/household/${enc(customerId)}`, o),
     sendMessage: (id, input, o) => post(`${a(id)}/messages`, input, o),
     markRead: (customerId, o) => post(`/customers/${enc(customerId)}/messages/read`, {}, o),
     clearPin: (customerId, o) => post(`/customers/${enc(customerId)}/identity/pin/clear`, undefined, o),

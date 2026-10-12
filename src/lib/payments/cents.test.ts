@@ -215,3 +215,42 @@ describe('display and parsing', () => {
     expect(taxLabel(625)).toBe('6.25%')
   })
 })
+
+// ADR 0171 D4: a card refund Square reported FAILED or REJECTED gave nothing back, so it no longer counts as refunded. The
+// same golden vectors as the backend's test/square/core-pure.test.ts ("calc with a failed card refund"), so the twins agree.
+describe('a failed card refund is not refunded (ADR 0171 D4; backend golden)', () => {
+  const base = { itemPrices: [10_000], taxBp: 700, tipCents: 0, canceled: false }
+  const payE: CentsEvent = { type: 'pay', amountCents: 10_700 }
+  const refundE = (amountCents: number, processorState: CentsEvent['processorState']): CentsEvent => ({
+    type: 'refund',
+    amountCents,
+    status: 'done',
+    dest: 'card',
+    processorState,
+  })
+  it('refundable, net, status and the original-tender cap come back', () => {
+    const done = calcCents({ ...base, events: [payE, refundE(4000, 'confirmed')] })
+    const waiting = calcCents({ ...base, events: [payE, refundE(4000, 'awaiting_processor')] })
+    const failed = calcCents({ ...base, events: [payE, refundE(4000, 'failed')] })
+    const none = calcCents({ ...base, events: [payE] })
+    expect(done).toMatchObject({ refunded: 4000, refOrig: 4000, refundable: 6700, status: 'partially_refunded' })
+    expect(waiting).toEqual(done)
+    expect(failed).toEqual(none)
+    expect(failed).toMatchObject({
+      refunded: 0,
+      refOrig: 0,
+      refundable: 10_700,
+      toOrigMax: 10_700,
+      net: 10_000,
+      status: 'paid',
+    })
+  })
+  it('canceled and fully refunded, but the refund failed: the deposit is kept, not refunded', () => {
+    const canceled = calcCents({ ...base, canceled: true, events: [payE, refundE(10_700, 'failed')] })
+    expect(canceled.status).toBe('canceled_kept')
+  })
+  it('an event without a processor state (cash, store credit, older data) counts as before', () => {
+    const r = calcCents({ ...base, events: [payE, { type: 'refund', amountCents: 500, status: 'done', dest: 'cash' }] })
+    expect(r.refunded).toBe(500)
+  })
+})

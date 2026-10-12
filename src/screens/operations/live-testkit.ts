@@ -25,7 +25,13 @@ import type {
   OperationsPort,
   OpsSnapshot,
   PerkRes,
+  QuoteReq,
+  QuoteRes,
+  HouseholdRes,
   SendMessageRes,
+  VehicleClasses,
+  VehicleSizeRes,
+  VisitSizeRes,
   ServiceCatalog,
   Templates,
   Thread,
@@ -95,6 +101,56 @@ export interface StubPort extends OperationsPort {
   slots: Availability
   /** The answer of book(). */
   booked: BookingRes
+  /** The shop's vehicle sizes (GET /catalog/vehicle-classes). */
+  sizes: VehicleClasses
+  /** The answer of quote(); by default built from the request by QUOTE_OF. */
+  quoteOf: (req: QuoteReq) => QuoteRes
+}
+
+/** The five default sizes (ADR 0170 seed), all on. */
+export const SIZES: VehicleClasses = {
+  vehicleClasses: [
+    ['compact_car', 'Compact car'],
+    ['large_car', 'Large car'],
+    ['compact_suv', 'Compact SUV'],
+    ['large_suv', 'Large SUV'],
+    ['truck', 'Truck'],
+  ].map(([key, label], i) => ({ key: key!, label: label!, sort: i + 1, active: true, version: 1 })),
+}
+
+/** A guest quote: $40 at the smallest size, $10 more per size step; an unknown size is priced at the smallest. */
+export function guestQuote(req: QuoteReq): QuoteRes {
+  const idx = SIZES.vehicleClasses.findIndex((c) => c.key === req.vehicleClass)
+  const list = 4000 + Math.max(0, idx) * 1000
+  const known = idx >= 0
+  return {
+    pricing: {
+      vehicleClass: known ? req.vehicleClass! : null,
+      vehicleClassLabel: known ? SIZES.vehicleClasses[idx]!.label : null,
+      basis: known ? 'class' : 'unknown_class',
+      needsSizeConfirm: !known,
+      needsPriceConfirm: false,
+      member: false,
+      confirmAtShop: !known,
+      totals: { listCents: list, discountCents: 0, coveredCents: 0, dueCents: list },
+    },
+    member: null,
+    lines: [
+      {
+        serviceId: req.serviceId,
+        name: 'Signature Hand Wash',
+        kind: 'package',
+        listCents: list,
+        listMaxCents: null,
+        chargeCents: list,
+        memberDiscountCents: 0,
+        discountBp: 0,
+        basis: known ? 'class' : 'unknown_class',
+        coverage: null,
+        dueCents: list,
+      },
+    ],
+  }
 }
 
 const toastOf = (title: string, detail: string) => ({ title, detail })
@@ -261,6 +317,26 @@ export function stubPort(): StubPort {
     completePhoto: step('completePhoto', () => ({ photo: { id: 'ph1' } })),
     deletePhoto: step('deletePhoto', () => ({})),
     uploadToSlot: step('uploadToSlot', () => undefined),
+    sizes: clone(SIZES),
+    quoteOf: guestQuote,
+    vehicleClasses: step('vehicleClasses', () => clone(port.sizes)),
+    quote: step('quote', (req: QuoteReq) => port.quoteOf(req)),
+    setVisitSize: step(
+      'setVisitSize',
+      (_id: string, vehicleClass: string) =>
+        ({
+          appointment: core('booked'),
+          toast: toastOf('Size set', SIZES.vehicleClasses.find((c) => c.key === vehicleClass)?.label ?? ''),
+          warnings: [],
+        }) as unknown as VisitSizeRes,
+    ),
+    setVehicleSize: step(
+      'setVehicleSize',
+      (_c: string, vehicleId: string, vehicleClass: string | null) =>
+        ({ vehicle: { id: vehicleId, vehicleClass, vehicleClassSource: 'staff' } }) as unknown as VehicleSizeRes,
+    ),
+    addHousehold: step('addHousehold', () => ({ membership: {} }) as unknown as HouseholdRes),
+    removeHousehold: step('removeHousehold', () => ({ membership: {} }) as unknown as HouseholdRes),
   }
   return port
 }
@@ -295,6 +371,11 @@ export function stubPayments(): StubPayments {
     })),
     voidPayment: step('voidPayment', () => ({ event: { id: 'ev-void' }, invoice: {} })),
     confirmProcessor: step('confirmProcessor', () => ({ event: { id: 'ev1' }, invoice: {} })),
+    squareToMatch: step('squareToMatch', () => ({ items: [] })),
+    squareApply: step('squareApply', () => ({})),
+    squareIgnore: step('squareIgnore', () => ({})),
+    squareReassign: step('squareReassign', () => ({})),
+    reconciliation: step('reconciliation', () => ({})),
   }
   return p as unknown as StubPayments
 }

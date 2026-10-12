@@ -172,15 +172,22 @@ export interface LedgerEvent {
   at: string
   atLabel: string
   resolvedAt: string | null
-  source: 'oasis' | 'squarespace' | 'system' | 'seed'
+  source: 'oasis' | 'squarespace' | 'square' | 'system' | 'seed'
   processorState: ProcessorState
   awaitingProcessor: boolean
+  /** The Square payment or refund id of a Square entry; the Squarespace transaction of a Squarespace one. */
   processorRef: string | null
   sqspOrderId: string | null
+  /** Who took (or is to take) the card money: squarespace, square, or null (cash, credit, nothing yet). ADR 0171; absent from an older server. */
+  processor?: Processor | null
+  /** The Square order of a Square payment (a link's order, a POS order). */
+  processorOrderId?: string | null
   needsReview: boolean
   canApprove: boolean
   approveBlock: 'permission' | 'limit' | 'self' | null
 }
+
+export type Processor = 'squarespace' | 'square'
 
 export interface InvoiceItem {
   id: string
@@ -189,6 +196,23 @@ export interface InvoiceItem {
   name: string
   priceCents: number
   refunded: boolean
+  /** The regular price at the visit's size (ADR 0170); null on a line priced before sizes. Absent from an older server. */
+  listCents?: number | null
+  /** The member % off applied, in basis points (null before sizes). */
+  discountBp?: number | null
+  /** list - price: the member % off in cents. */
+  memberDiscountCents?: number
+  /** The size the line is priced at ("Large SUV"); null when unknown or not priced by size. */
+  classLabel?: string | null
+}
+
+/** A membership's coverage of one line (ADR 0170): "Covered $40 · $20 size difference due". */
+export interface CoverageLine {
+  serviceName: string
+  coveredCents: number
+  lineCents: number
+  differenceCents: number
+  planClassLabel: string | null
 }
 
 export interface InvoiceDetail {
@@ -212,6 +236,11 @@ export interface InvoiceDetail {
   tipCents: number
   paymentLinkUrl: string | null
   awaitingProcessorCount: number
+  /**
+   * Who takes new card money (PAYMENT_PROCESSOR, ADR 0171) and whether "Open Square POS" is on. Absent from an older
+   * server: today's Squarespace screen.
+   */
+  processing?: { processor: Processor; squarePosAppSwitch: boolean }
   version: number
   items: InvoiceItem[]
   adjustments: Array<{
@@ -220,6 +249,8 @@ export interface InvoiceDetail {
     reason: string | null
     note: string | null
     amountCents: number
+    /** The membership's coverage of a line; null for any other adjustment (ADR 0170). Absent from an older server. */
+    coverage?: CoverageLine | null
   }>
   calc: InvoiceCalc
   /**
@@ -246,10 +277,13 @@ export type DeliveryState = 'queued' | 'skipped_opt_out' | 'no_contact' | string
 
 export interface PaymentLinkInfo {
   id: string
-  url: string
+  /** null for the client's personal pay link (never shown: it is a secret texted to the client). */
+  url: string | null
   expectedCents: number
   purpose: 'balance' | 'deposit'
   sms: DeliveryState
+  /** squarespace, square, or personal (the client's own pay page); absent from an older server. */
+  provider?: string
 }
 
 export interface EventResult {
@@ -274,7 +308,10 @@ export interface ReceiptResult {
 
 export interface CollectInput {
   method: 'card' | 'cash' | 'payment_link'
-  /** payment_link: the Squarespace checkout or invoice URL (else the one already attached). */
+  /**
+   * payment_link before the Square cutover: the Squarespace checkout or invoice URL (else the one already attached). The
+   * server ignores it once Square is the processor (it makes the link itself).
+   */
   url?: string
 }
 export interface RefundInput {
@@ -301,6 +338,77 @@ export interface CreditInput {
   expiry: 'none' | 'd30' | 'd90' | 'No expiry' | '30 days' | '90 days'
 }
 
+// ---- Square (ADR 0171, api-spec 30.7) ------------------------------------------------------------------------------
+
+export interface SquareCandidate {
+  invoiceId: string
+  invoiceNo: number
+  client: string
+  balanceCents: number
+  /** The staff card entry of the same amount on that invoice: applying confirms it. */
+  awaitingEventId: string | null
+  score: number
+  why: string[]
+}
+
+/** One Square payment waiting for a person (GET /payments/square/unmatched, the reconciliation's square section). */
+export interface SquarePaymentToMatch {
+  paymentId: string
+  /** pending: the matcher has not decided yet (counter payments wait a little). */
+  matchState: 'pending' | 'unmatched'
+  classification: string | null
+  /** The sale, tip excluded. */
+  amountCents: number
+  tipCents: number
+  totalCents: number
+  refundedCents: number
+  /** "Visa ••4242", "Cash", "Square". */
+  method: string
+  sourceType: string | null
+  brand: string | null
+  last4: string | null
+  note: string | null
+  receiptNumber: string | null
+  product: string | null
+  createdAt: string
+  ageMinutes: number
+  /** Best first (at most 5). */
+  candidates: SquareCandidate[]
+}
+
+export type SquareIgnoreReason = 'not_oasis_sale' | 'duplicate' | 'test' | 'other'
+
+export interface SquareDecided {
+  paymentId: string
+  matchState: 'matched' | 'ignored'
+  invoiceId: string | null
+  eventId: string | null
+  invoice: InvoiceDetail | null
+}
+
+export interface SquareFailedRefund {
+  eventId: string
+  invoiceId: string
+  label: string
+  client: string
+  amountCents: number
+  occurredAt: string
+  /** What Square did give back (still counted as refunded, as its own refund row). */
+  refundedCents: number
+  /** What did not go back to the card and is not on its way: give it back another way. */
+  uncoveredCents: number
+  errors: string[]
+}
+
+/** GET /payments/reconciliation: only the parts the screen shows (the Square section). */
+export interface Reconciliation {
+  square?: {
+    paymentsToMatch: SquarePaymentToMatch[]
+    failedRefunds: SquareFailedRefund[]
+    refundsInFlight: number
+  }
+}
+
 export interface CsvDownload {
   body: Blob
   /** `oasis-invoices_{from}_{to}.csv`, as the server names it. */
@@ -323,6 +431,24 @@ export interface PaymentsPort {
   voidPayment(id: string, eventId: string, o?: CommandOptions): Promise<EventResult>
   sendReceipt(id: string, o?: CommandOptions): Promise<ReceiptResult>
   confirmProcessor(eventId: string, o?: CommandOptions): Promise<EventResult>
+  /** GET /payments/square/unmatched (pay.reports): the Square payments a person has to match, oldest first. */
+  squareToMatch(): Promise<{ items: SquarePaymentToMatch[] }>
+  /** POST /payments/square/:paymentId/apply (pay.collect): record it on an invoice, or confirm a staff card entry there. */
+  squareApply(
+    paymentId: string,
+    input: { invoiceId: string; confirmEventId?: string | null },
+    o?: CommandOptions,
+  ): Promise<SquareDecided>
+  /** POST /payments/square/:paymentId/ignore (pay.collect): set it aside; nothing is written to the ledger. */
+  squareIgnore(
+    paymentId: string,
+    input: { reason: SquareIgnoreReason; note?: string | null },
+    o?: CommandOptions,
+  ): Promise<SquareDecided>
+  /** POST /payments/square/:paymentId/reassign (pay.void): move a matched payment to the right invoice. */
+  squareReassign(paymentId: string, toInvoiceId: string, o?: CommandOptions): Promise<SquareDecided>
+  /** GET /payments/reconciliation (pay.reports): the screen reads its Square section. */
+  reconciliation(): Promise<Reconciliation>
   /** GET /payments/export.csv with the active range, filter and search. */
   exportCsv(q: InvoiceQuery): Promise<CsvDownload>
 }
@@ -370,6 +496,12 @@ export function createLivePaymentsPort(c: ApiClient): PaymentsPort {
     voidPayment: (id, eventId, o) => c.post(`/invoices/${enc(id)}/void`, { eventId }, o),
     sendReceipt: (id, o) => c.post(`/invoices/${enc(id)}/receipt`, {}, o),
     confirmProcessor: (eventId, o) => c.post(`/ledger-events/${enc(eventId)}/confirm-processor`, {}, o),
+    squareToMatch: () => c.get('/payments/square/unmatched'),
+    squareApply: (paymentId, input, o) => c.post(`/payments/square/${enc(paymentId)}/apply`, input, o),
+    squareIgnore: (paymentId, input, o) => c.post(`/payments/square/${enc(paymentId)}/ignore`, input, o),
+    squareReassign: (paymentId, toInvoiceId, o) =>
+      c.post(`/payments/square/${enc(paymentId)}/reassign`, { toInvoiceId }, o),
+    reconciliation: () => c.get('/payments/reconciliation'),
     async exportCsv(q) {
       const query = {
         range: q.range,
