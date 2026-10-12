@@ -56,12 +56,23 @@ export type CatalogCategory = CatalogRes['categories'][number]
 export type CategoryCreateReq = Req<operations['createCatalogCategory']>
 export type CategoryPatchReq = Req<operations['updateCatalogCategory']>
 export type CategoryRes = Ok<operations['updateCatalogCategory']>
-export type TintMatrix = CatalogRes['tintMatrix']
-export type TintMatrixReq = Req<operations['putCatalogTintMatrix']>
-export type GuestMarkupRes = Ok<operations['putCatalogGuestMarkup']>
-export type CatalogPlan = CatalogRes['plans'][number]
-export type PlanReq = Req<operations['putCatalogPlan']>
-export type PlanRes = Ok<operations['putCatalogPlan']>
+// Vehicle sizes, prices by size, membership tiers and the booking fee (ADR 0170; api-spec 15.9, 15.10). The pre-size
+// writes (tint matrix, guest markup, plans) answer 410 since then and are not called.
+export type VehicleClass = CatalogRes['vehicleClasses'][number]
+export type VehicleClassCreateReq = Req<operations['createVehicleClass']>
+export type VehicleClassPatchReq = Req<operations['updateVehicleClass']>
+export type VehicleClassRes = Ok<operations['updateVehicleClass']>
+export type PriceRow = CatalogRes['prices'][number]
+export type PricesReq = Req<operations['putCatalogPrices']>
+export type PricesRes = Ok<operations['putCatalogPrices']>
+export type Tier = CatalogRes['tiers'][number]
+export type TierCreateReq = Req<operations['createCatalogTier']>
+export type TierReq = Req<operations['putCatalogTier']>
+export type TierRes = Ok<operations['putCatalogTier']>
+export type TierPricesReq = Req<operations['putCatalogTierPrices']>
+export type TierPricesRes = Ok<operations['putCatalogTierPrices']>
+export type GuestFee = CatalogRes['guestFee']
+export type GuestFeeReq = Req<operations['putCatalogGuestFee']>
 export type RemindersRes = Ok<operations['getSettingsReminders']>
 export type RemindersReq = Req<operations['putSettingsReminders']>
 export type RemindersSaveRes = Ok<operations['putSettingsReminders']>
@@ -132,9 +143,15 @@ export interface SettingsApi {
   createCategory(body: CategoryCreateReq, o?: Opts): Promise<CatalogCategory>
   updateCategory(key: string, body: CategoryPatchReq, o?: Opts): Promise<CategoryRes>
   deleteCategory(key: string, version: number | undefined, o?: Opts): Promise<unknown>
-  saveTintMatrix(body: TintMatrixReq, o?: Opts): Promise<TintMatrix>
-  saveGuestMarkup(body: { pct: number; version?: number }, o?: Opts): Promise<GuestMarkupRes>
-  savePlan(key: string, body: PlanReq, o?: Opts): Promise<PlanRes>
+  createVehicleClass(body: VehicleClassCreateReq, o?: Opts): Promise<VehicleClass>
+  updateVehicleClass(key: string, body: VehicleClassPatchReq, o?: Opts): Promise<VehicleClassRes>
+  deleteVehicleClass(key: string, version: number | undefined, o?: Opts): Promise<unknown>
+  savePrices(body: PricesReq, o?: Opts): Promise<PricesRes>
+  createTier(body: TierCreateReq, o?: Opts): Promise<Tier>
+  saveTier(key: string, body: TierReq, o?: Opts): Promise<TierRes>
+  deleteTier(key: string, version: number | undefined, o?: Opts): Promise<unknown>
+  saveTierPrices(body: TierPricesReq, o?: Opts): Promise<TierPricesRes>
+  saveGuestFee(body: GuestFeeReq, o?: Opts): Promise<GuestFee>
   reminders(): Promise<RemindersRes>
   saveReminders(body: RemindersReq, o?: Opts): Promise<RemindersSaveRes>
   previewReminders(body: RemindersPreviewReq, o?: Pick<Opts, 'signal'>): Promise<RemindersPreviewRes>
@@ -186,9 +203,17 @@ export function createSettingsApi(c: ApiClient): SettingsApi {
     updateCategory: (key, body, o) => c.patch(`/catalog/categories/${enc(key)}`, body, o),
     deleteCategory: (key, version, o) =>
       c.delete(`/catalog/categories/${enc(key)}`, version === undefined ? o : { ...o, ifMatch: version }),
-    saveTintMatrix: (body, o) => c.put('/catalog/tint-matrix', body, o),
-    saveGuestMarkup: (body, o) => c.put('/catalog/guest-markup', body, o),
-    savePlan: (key, body, o) => c.put(`/catalog/plans/${enc(key)}`, body, o),
+    createVehicleClass: (body, o) => c.post('/catalog/vehicle-classes', body, o),
+    updateVehicleClass: (key, body, o) => c.patch(`/catalog/vehicle-classes/${enc(key)}`, body, o),
+    deleteVehicleClass: (key, version, o) =>
+      c.delete(`/catalog/vehicle-classes/${enc(key)}`, version === undefined ? o : { ...o, ifMatch: version }),
+    savePrices: (body, o) => c.put('/catalog/prices', body, o),
+    createTier: (body, o) => c.post('/catalog/tiers', body, o),
+    saveTier: (key, body, o) => c.put(`/catalog/tiers/${enc(key)}`, body, o),
+    deleteTier: (key, version, o) =>
+      c.delete(`/catalog/tiers/${enc(key)}`, version === undefined ? o : { ...o, ifMatch: version }),
+    saveTierPrices: (body, o) => c.put('/catalog/tier-prices', body, o),
+    saveGuestFee: (body, o) => c.put('/catalog/guest-fee', body, o),
     reminders: () => c.get('/settings/reminders'),
     saveReminders: (body, o) => c.put('/settings/reminders', body, o),
     previewReminders: (body, o) => c.post('/settings/reminders/preview', body, { ...o, retries: 0 }),

@@ -21,6 +21,10 @@ export type SectionKey =
   | 'catalog'
   | 'categories'
   | 'reminders'
+  // live variant only (ADR 0170): vehicle sizes, prices by size, membership tiers
+  | 'sizes'
+  | 'prices'
+  | 'memberships'
 
 /** One weekday of the opening hours (the state array is indexed by weekday, 0 = Sunday). */
 export interface HoursDay {

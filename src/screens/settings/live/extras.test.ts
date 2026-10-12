@@ -86,40 +86,54 @@ describe('Settings extras: navigation and loading', () => {
 })
 
 describe('Settings extras: Catalog', () => {
-  it('lists packages and add-ons with their category, price and state; the first one is open', async () => {
+  it('lists packages and add-ons with their category and starting price by size; the first one is open', async () => {
     const t = makeExtrasLogic()
     const live = await open(t.logic, 'catalog')
-    expect(live.cat.note).toMatch(/Change prices only here/)
+    expect(live.cat.note).toMatch(/Prices are set per vehicle size in Prices by size/)
     expect(live.cat.list.map((x: any) => x.name)).toEqual([
       'Signature Hand Wash',
       'Exterior Hand Wash',
       'Carbon window tint',
       'Rim powder coating',
     ])
-    expect(live.cat.list[0].sub).toBe('Wash · $45')
-    expect(live.cat.list[3].sub).toBe('Quote · quote only')
+    expect(live.cat.list.map((x: any) => x.sub)).toEqual([
+      'Wash · from $40 · 2 sizes not set',
+      'Wash · No prices yet · books at $38',
+      'Tint · from $275 · 3 sizes not set',
+      'Quote · quote only',
+    ])
     expect(live.cat.svc).toMatchObject({
       title: 'Signature Hand Wash',
-      meta: 'Booking charges $54 · 45 min',
-      member: '45',
-      guest: '',
-      guestHint: 'Empty: guests pay $54 (member price + 20%).',
+      meta: 'from $40 · 2 sizes not set · 45 min',
       dirty: false,
     })
+    // the pre-size price boxes are gone (ADR 0170): no member, guest or VIP fields
+    for (const k of ['member', 'guest', 'guestHint', 'vipOpts', 'vipNote']) expect(live.cat.svc).not.toHaveProperty(k)
+    for (const k of ['markup', 'plans', 'tint']) expect(live.cat).not.toHaveProperty(k)
     expect(live.cat.svc.catOpts.map((o: any) => o.label)).toEqual(['Wash', 'Add-ons', 'Tint', 'Detail', 'Quote'])
     call(t.logic, 'live.cat.kindAddon')
-    expect(vals(t.logic).live.cat.svc.title).toBe('Hand wax')
-    expect(vals(t.logic).live.cat.svc.vipOpts[0].style.background).toBe('var(--accent)')
+    expect(vals(t.logic).live.cat.svc).toMatchObject({ title: 'Hand wax', meta: 'from $30 · 3 sizes not set · 30 min' })
   })
 
-  it('edits stay a draft until Save; the PUT carries cents, the version and every field; the toast names it', async () => {
+  it('Edit prices opens Prices by size with that service’s row outlined', async () => {
     const t = makeExtrasLogic()
     await open(t.logic, 'catalog')
-    call(t.logic, 'live.cat.svc.setMember', '47.50')
-    call(t.logic, 'live.cat.svc.setGuest', '57')
+    call(t.logic, 'live.cat.svc.editPrices')
+    await vi.waitFor(() => expect(vals(t.logic).live.secPrices).toBe(true))
+    expect(vals(t.logic).secTitle).toBe('Prices by size')
+    const rows = vals(t.logic).live.prices.groups[0].rows
+    expect(rows[0].name).toBe('Signature Hand Wash')
+    expect(rows[0].style.background).toBe('var(--accentSoft)')
+    expect(rows[1].style.background).toBe('transparent')
+    // the nav button opens it without an outline
+    call(t.logic, 'live.goPrices')
+    expect(vals(t.logic).live.prices.groups[0].rows[0].style.background).toBe('transparent')
+  })
+
+  it('edits stay a draft until Save; the PUT carries the website fields and the version, no price; the toast names it', async () => {
+    const t = makeExtrasLogic()
+    await open(t.logic, 'catalog')
     call(t.logic, 'live.cat.svc.setDescription', 'Hand wash, wheels and a quick interior.')
-    call(t.logic, 'live.cat.svc.vipOpts.1.onClick')
-    call(t.logic, 'live.cat.svc.setVipNote', '2× a month')
     call(t.logic, 'live.cat.svc.toggles.0.toggle')
     call(t.logic, 'live.cat.svc.sortInc')
     expect(vals(t.logic).live.cat.svc.dirty).toBe(true)
@@ -133,10 +147,6 @@ describe('Settings extras: Catalog', () => {
       category: 'wash',
       publicName: 'Signature Hand Wash',
       description: 'Hand wash, wheels and a quick interior.',
-      memberPriceCents: 4750,
-      guestPriceCents: 5700,
-      vipInclusion: 'allowance',
-      vipNote: '2× a month',
       quoteOnly: false,
       visibleOnline: false,
       sort: 11,
@@ -145,14 +155,14 @@ describe('Settings extras: Catalog', () => {
     expect(opts.idempotencyKey).toBeTruthy()
     await vi.waitFor(() => expect(t.flashes).toContain('Saved Signature Hand Wash'))
     await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.dirty).toBe(false))
-    expect(vals(t.logic).live.cat.svc.member).toBe('47.50')
+    expect(vals(t.logic).live.cat.svc.description).toBe('Hand wash, wheels and a quick interior.')
   })
 
   it('Discard drops the draft; an edit back to the saved value is not dirty', async () => {
     const t = makeExtrasLogic()
     await open(t.logic, 'catalog')
-    call(t.logic, 'live.cat.svc.setMember', '50')
-    call(t.logic, 'live.cat.svc.setMember', '45')
+    call(t.logic, 'live.cat.svc.setPublicName', 'Signature')
+    call(t.logic, 'live.cat.svc.setPublicName', 'Signature Hand Wash')
     expect(vals(t.logic).live.cat.svc.dirty).toBe(false)
     call(t.logic, 'live.cat.svc.setPublicName', 'Signature')
     call(t.logic, 'live.cat.svc.discard')
@@ -162,11 +172,11 @@ describe('Settings extras: Catalog', () => {
   it('what the server would refuse is said before sending; the server’s own refusal shows under the form', async () => {
     const t = makeExtrasLogic()
     await open(t.logic, 'catalog')
-    call(t.logic, 'live.cat.svc.setGuest', '40')
+    call(t.logic, 'live.cat.svc.setPublicName', 'x'.repeat(81))
     call(t.logic, 'live.cat.svc.save')
-    expect(vals(t.logic).live.cat.svc.error).toBe('The guest price can’t be lower than the member price.')
+    expect(vals(t.logic).live.cat.svc.error).toBe('The website name is at most 80 characters.')
     expect(writes(t.calls, 'saveCatalogService')).toHaveLength(0)
-    call(t.logic, 'live.cat.svc.setGuest', '60')
+    call(t.logic, 'live.cat.svc.setPublicName', 'Signature')
     t.fail.set('saveCatalogService', validation('There is no category "x".', 'body.category'))
     call(t.logic, 'live.cat.svc.save')
     await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.error).toBe('There is no category "x".'))
@@ -174,88 +184,16 @@ describe('Settings extras: Catalog', () => {
     t.fail.set('saveCatalogService', stale())
     call(t.logic, 'live.cat.svc.save')
     await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.error).toMatch(/^Someone else saved a change meanwhile/))
-    expect(vals(t.logic).live.cat.svc.guest).toBe('60')
+    expect(vals(t.logic).live.cat.svc.publicName).toBe('Signature')
   })
 
   it('without “Services, pricing & checklists” an edit is refused with the toast and nothing is sent', async () => {
     const t = makeExtrasLogic('support')
     await open(t.logic, 'catalog')
-    call(t.logic, 'live.cat.svc.setMember', '1')
+    call(t.logic, 'live.cat.svc.setPublicName', 'x')
     expect(t.flashes).toContain('Your role can’t edit packages and checklists')
-    expect(vals(t.logic).live.cat.svc.member).toBe('45')
-    call(t.logic, 'live.cat.markup.inc')
-    call(t.logic, 'live.cat.plans.0.setMonthly', '1')
+    expect(vals(t.logic).live.cat.svc.publicName).toBe('Signature Hand Wash')
     expect(t.calls.filter((c) => /^save|^create|^update|^delete/.test(c[0] as string))).toEqual([])
-  })
-
-  it('guest markup: steps of 5, saved with its version', async () => {
-    const t = makeExtrasLogic()
-    await open(t.logic, 'catalog')
-    expect(vals(t.logic).live.cat.markup).toMatchObject({ val: '20%', dirty: false })
-    expect(vals(t.logic).live.cat.markup.feeLine).toBe('Online booking fee for guests: $25 (members pay none).')
-    call(t.logic, 'live.cat.markup.inc')
-    expect(vals(t.logic).live.cat.markup).toMatchObject({ val: '25%', dirty: true })
-    call(t.logic, 'live.cat.markup.save')
-    await vi.waitFor(() => expect(writes(t.calls, 'saveGuestMarkup')).toHaveLength(1))
-    expect(writes(t.calls, 'saveGuestMarkup')[0]![1]).toEqual({ pct: 25, version: 2 })
-    await vi.waitFor(() => expect(t.flashes).toContain('Guest prices saved · member price + 25%'))
-  })
-
-  it('plans: label, monthly price, perks one per line and the checkout link (squarespace.com only)', async () => {
-    const t = makeExtrasLogic()
-    await open(t.logic, 'catalog')
-    const p = vals(t.logic).live.cat.plans
-    expect(p.map((x: any) => x.title)).toEqual(['Gold', 'VIP'])
-    expect(p[0].sub).toBe('Premium plan · the website’s Gold plan')
-    call(t.logic, 'live.cat.plans.0.setUrl', 'https://evil.example/checkout')
-    call(t.logic, 'live.cat.plans.0.save')
-    expect(vals(t.logic).live.cat.plans[0].error).toBe('The checkout link must be on squarespace.com.')
-    expect(writes(t.calls, 'savePlan')).toHaveLength(0)
-    call(t.logic, 'live.cat.plans.0.setUrl', 'https://oasis.squarespace.com/checkout/gold')
-    call(t.logic, 'live.cat.plans.0.setPerks', '4 hand washes a month\n\nFree tire shine')
-    call(t.logic, 'live.cat.plans.0.setMonthly', '109')
-    call(t.logic, 'live.cat.plans.0.save')
-    await vi.waitFor(() => expect(writes(t.calls, 'savePlan')).toHaveLength(1))
-    expect(writes(t.calls, 'savePlan')[0]!.slice(1, 3)).toEqual([
-      'premium',
-      {
-        publicLabel: 'Gold',
-        monthlyPriceCents: 10900,
-        perks: ['4 hand washes a month', 'Free tire shine'],
-        checkoutUrl: 'https://oasis.squarespace.com/checkout/gold',
-        version: 1,
-      },
-    ])
-    await vi.waitFor(() => expect(t.flashes).toContain('Saved the Gold plan'))
-  })
-
-  it('tint table: every vehicle × film row; a filled row is sent whole, an empty one left out', async () => {
-    const t = makeExtrasLogic()
-    await open(t.logic, 'catalog')
-    const tint = vals(t.logic).live.cat.tint
-    expect(tint.has).toBe(true)
-    expect(tint.rows.map((r: any) => r.label)).toEqual(['Sedan / coupe · Carbon', 'SUV / crossover · Carbon'])
-    expect(tint.films[0].label).toBe('Carbon: 5%, 20%, 35% shade')
-    call(t.logic, 'live.cat.tint.rows.1.setMemberMin', '259')
-    call(t.logic, 'live.cat.tint.save')
-    expect(vals(t.logic).live.cat.tint.error).toMatch(/fill all four/)
-    call(t.logic, 'live.cat.tint.rows.1.setMemberMax', '329')
-    call(t.logic, 'live.cat.tint.rows.1.setGuestMin', '309')
-    call(t.logic, 'live.cat.tint.rows.1.setGuestMax', '395')
-    call(t.logic, 'live.cat.tint.save')
-    await vi.waitFor(() => expect(writes(t.calls, 'saveTintMatrix')).toHaveLength(1))
-    const body = writes(t.calls, 'saveTintMatrix')[0]![1] as any
-    expect(body.version).toBe(4)
-    expect(body.prices).toHaveLength(2)
-    expect(body.prices[1]).toEqual({
-      vehicle: 'suv_crossover',
-      film: 'carbon',
-      memberMinCents: 25900,
-      memberMaxCents: 32900,
-      guestMinCents: 30900,
-      guestMaxCents: 39500,
-    })
-    await vi.waitFor(() => expect(vals(t.logic).live.cat.tint.dirty).toBe(false))
   })
 })
 
@@ -469,12 +407,11 @@ describe('Settings extras: Reminders & texts', () => {
 })
 
 describe('Settings extras: Packages & checklists', () => {
-  it('says where prices are edited and opens Catalog', async () => {
+  it('says where prices are edited and opens Prices by size', async () => {
     const t = makeExtrasLogic()
     const v = vals(t.logic)
-    expect(v.live.svcPriceNote).toMatch(/^Prices are set in Catalog/)
-    expect(v.live.svcPriceNote).toMatch(/A service without a member price keeps charging its last price\.$/)
-    v.live.goCatalog()
-    expect(t.logic.state.section).toBe('catalog')
+    expect(v.live.svcPriceNote).toMatch(/^Prices are set by vehicle size in Prices by size/)
+    v.live.goPrices()
+    expect(t.logic.state.section).toBe('prices')
   })
 })

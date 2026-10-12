@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Shared by the Catalog / Categories / Reminders tests: the shapes GET /catalog and GET /settings/reminders answer
-// (backend api-spec 15.6a and 15.8, the website-catalog seed's content), a fake of their endpoints that keeps state and
-// records every call, and the Settings view model wired to it. Not shipped.
+// Shared by the Catalog / Categories / Reminders / Vehicle sizes / Prices by size / Memberships tests: the shapes GET
+// /catalog and GET /settings/reminders answer (backend api-spec 15.6a, 15.8, 15.9 and 15.10, the website-catalog and
+// pricing-defaults seeds' content), a fake of their endpoints that keeps state and records every call (with the server's
+// version rules), and the Settings view model wired to it. Not shipped.
 import { ApiError } from '@/data/http/problem'
 import { createSettingsLogic } from '../Logic'
 import { SettingsExtras } from './extras'
@@ -93,6 +94,112 @@ export function catalogFixture(): any {
         effective: { memberPriceCents: 2500, guestPriceCents: 3000, tintFilm: null },
       }),
     ],
+    vehicleClasses: [
+      { key: 'compact_car', label: 'Compact car', sort: 10, active: true, version: 1 },
+      { key: 'large_car', label: 'Large car', sort: 20, active: true, version: 1 },
+      { key: 'compact_suv', label: 'Compact SUV', sort: 30, active: true, version: 1 },
+      { key: 'large_suv', label: 'Large SUV', sort: 40, active: true, version: 1 },
+      { key: 'truck', label: 'Truck', sort: 50, active: false, version: 2 },
+    ],
+    prices: [
+      {
+        serviceId: 'p-sig',
+        version: 3,
+        cells: [
+          { class: 'compact_car', cents: 4000, maxCents: null },
+          { class: 'compact_suv', cents: 5000, maxCents: null },
+          { class: 'truck', cents: 7000, maxCents: null },
+        ],
+        fromCents: 4000,
+        missing: 2,
+      },
+      { serviceId: 'p-ext', version: 1, cells: [], fromCents: 3800, missing: 4 },
+      {
+        serviceId: 'p-carbon',
+        version: 1,
+        cells: [{ class: 'compact_car', cents: 27500, maxCents: 35900 }],
+        fromCents: 27500,
+        missing: 3,
+      },
+      { serviceId: 'p-rim', version: 1, cells: [], fromCents: 0, missing: 0 },
+      { serviceId: 'a-wax', version: 1, cells: [{ class: 'compact_car', cents: 3000, maxCents: null }], fromCents: 3000, missing: 3 },
+    ],
+    missingPrices: 12,
+    tiers: [
+      {
+        key: 'gold',
+        name: 'Gold',
+        colour: '#8A6D3B',
+        bgColour: '#F1EDE7',
+        sort: 30,
+        active: true,
+        public: true,
+        vipBooking: false,
+        memberDiscountBp: 0,
+        maxVehicles: null,
+        perks: ['4 hand washes a month', 'Member prices on everything'],
+        checkoutUrl: null,
+        legacyKey: 'premium',
+        priceVersion: 2,
+        version: 3,
+        squarePlanId: null,
+        inclusions: [
+          {
+            id: 'inc-gold-wash',
+            label: 'Hand washes',
+            mode: 'per_cycle',
+            perCycle: 4,
+            autoApply: true,
+            active: true,
+            serviceIds: ['p-sig', 'p-ext'],
+          },
+        ],
+        prices: [
+          {
+            class: 'compact_car',
+            monthlyCents: 12900,
+            priceVersion: 2,
+            effectiveFrom: '2026-10-12T14:00:00.000Z',
+            squareState: 'pending',
+          },
+        ],
+        fromMonthlyCents: 12900,
+        sold: false,
+      },
+      {
+        key: 'vip',
+        name: 'VIP',
+        colour: '#1F2937',
+        bgColour: '#DDDEE0',
+        sort: 40,
+        active: true,
+        public: true,
+        vipBooking: true,
+        memberDiscountBp: 1000,
+        maxVehicles: 2,
+        perks: ['Everything in Gold'],
+        checkoutUrl: 'https://oasis.squarespace.com/checkout/vip',
+        legacyKey: 'executive',
+        priceVersion: 1,
+        version: 2,
+        squarePlanId: null,
+        inclusions: [
+          {
+            id: 'inc-vip-wax',
+            label: 'Hand wax',
+            mode: 'every_visit',
+            perCycle: null,
+            autoApply: true,
+            active: true,
+            serviceIds: ['a-wax'],
+          },
+        ],
+        prices: [],
+        fromMonthlyCents: null,
+        sold: true,
+      },
+    ],
+    guestFee: { cents: 2500, collect: 'counter', version: 0 },
     tintMatrix: {
       vehicleTypes: [
         { key: 'sedan_coupe', label: 'Sedan / coupe' },
@@ -248,23 +355,106 @@ export function extendApi(f: ReturnType<typeof setup>) {
     cat.categories = cat.categories.filter((x: any) => x.key !== key)
     return { key, removed: true }
   })
-  api.saveTintMatrix = step('saveTintMatrix', (body: any) => {
-    fresh(cat.tintMatrix.version, body.version)
-    const m = omitVersion(body)
-    cat.tintMatrix = { ...m, version: cat.tintMatrix.version + 1 }
-    return clone(cat.tintMatrix)
+  // vehicle sizes, prices by size, tiers, tier prices, the booking fee (api-spec 15.9, 15.10)
+  api.createVehicleClass = step('createVehicleClass', (body: any) => {
+    const c = { active: true, version: 1, ...body }
+    cat.vehicleClasses.push(c)
+    return clone(c)
   })
-  api.saveGuestMarkup = step('saveGuestMarkup', (body: any) => {
-    fresh(cat.guestMarkup.version, body.version)
-    cat.guestMarkup = { pct: body.pct, version: cat.guestMarkup.version + 1 }
-    return clone(cat.guestMarkup)
+  api.updateVehicleClass = step('updateVehicleClass', (key: string, body: any) => {
+    const c = cat.vehicleClasses.find((x: any) => x.key === key)
+    if (body.version !== undefined) fresh(c.version, body.version)
+    Object.assign(c, omitVersion(body), { version: c.version + 1 })
+    return { ...clone(c), changed: true }
   })
-  api.savePlan = step('savePlan', (key: string, body: any) => {
-    const p = cat.plans.find((x: any) => x.key === key)
-    fresh(p.version, body.version)
+  api.deleteVehicleClass = step('deleteVehicleClass', (key: string, version: number) => {
+    fresh(cat.vehicleClasses.find((x: any) => x.key === key).version, version)
+    const used = cat.prices.filter((r: any) => r.cells.some((c: any) => c.class === key)).length
+    if (used) throw inUse('CLASS_IN_USE', { key, prices: used })
+    cat.vehicleClasses = cat.vehicleClasses.filter((x: any) => x.key !== key)
+    return { key, removed: true }
+  })
+  api.savePrices = step('savePrices', (body: any) => {
+    // all or nothing: every row's version is checked before anything is written
+    body.rows.forEach((r: any, i: number) => {
+      const row = cat.prices.find((x: any) => x.serviceId === r.serviceId)
+      if (row.version !== r.version) throw stale({ row: i, serviceId: r.serviceId, currentVersion: row.version })
+    })
+    const order = (k: string) => cat.vehicleClasses.findIndex((c: any) => c.key === k)
+    const out = body.rows.map((r: any) => {
+      const row = cat.prices.find((x: any) => x.serviceId === r.serviceId)
+      for (const c of r.cells) {
+        row.cells = row.cells.filter((x: any) => x.class !== c.class)
+        if (c.cents !== null) row.cells.push({ class: c.class, cents: c.cents, maxCents: c.maxCents ?? null })
+      }
+      row.cells.sort((a: any, b: any) => order(a.class) - order(b.class))
+      const on = row.cells.filter((x: any) => cat.vehicleClasses.find((v: any) => v.key === x.class)?.active)
+      row.fromCents = on.length ? Math.min(...on.map((x: any) => x.cents)) : row.fromCents
+      row.version += 1
+      for (const s of [...cat.packages, ...cat.addons]) if (s.id === r.serviceId) s.version = row.version
+      return { ...clone(row), changed: true }
+    })
+    return { rows: out, missingPrices: 11 }
+  })
+  api.createTier = step('createTier', (body: any) => {
+    const t = {
+      ...body,
+      bgColour: '#EEEEEE',
+      legacyKey: null,
+      priceVersion: 1,
+      version: 1,
+      squarePlanId: null,
+      inclusions: [],
+      prices: [],
+      fromMonthlyCents: null,
+      sold: false,
+    }
+    cat.tiers.push(t)
+    return clone(t)
+  })
+  api.saveTier = step('saveTier', (key: string, body: any) => {
+    const t = cat.tiers.find((x: any) => x.key === key)
+    fresh(t.version, body.version)
     const fields = omitVersion(body)
-    Object.assign(p, fields, { version: p.version + 1 })
-    return { ...clone(p), changed: true }
+    fields.inclusions = fields.inclusions.map((i: any, n: number) => ({ id: i.id ?? `inc-new-${n}`, active: true, ...i }))
+    Object.assign(t, fields, { version: t.version + 1 })
+    return { ...clone(t), changed: true }
+  })
+  api.deleteTier = step('deleteTier', (key: string, version: number) => {
+    const t = cat.tiers.find((x: any) => x.key === key)
+    fresh(t.version, version)
+    if (t.sold) throw inUse('TIER_IN_USE', { key })
+    cat.tiers = cat.tiers.filter((x: any) => x.key !== key)
+    return { key, removed: true }
+  })
+  api.saveTierPrices = step('saveTierPrices', (body: any) => {
+    body.rows.forEach((r: any, i: number) => {
+      const t = cat.tiers.find((x: any) => x.key === r.tierKey)
+      if (t.priceVersion !== r.priceVersion) throw stale({ row: i, tierKey: r.tierKey, currentVersion: t.priceVersion })
+    })
+    for (const r of body.rows) {
+      const t = cat.tiers.find((x: any) => x.key === r.tierKey)
+      for (const c of r.cells) {
+        t.priceVersion += 1
+        t.prices = t.prices.filter((p: any) => p.class !== c.class)
+        if (c.monthlyCents !== null)
+          t.prices.push({
+            class: c.class,
+            monthlyCents: c.monthlyCents,
+            priceVersion: t.priceVersion,
+            effectiveFrom: '2026-10-12T15:00:00.000Z',
+            squareState: 'pending',
+          })
+      }
+      t.fromMonthlyCents = t.prices.length ? Math.min(...t.prices.map((p: any) => p.monthlyCents)) : null
+    }
+    return { tiers: clone(cat.tiers), changed: body.rows.map((r: any) => r.tierKey) }
+  })
+  api.saveGuestFee = step('saveGuestFee', (body: any) => {
+    fresh(cat.guestFee.version, body.version)
+    cat.guestFee = { cents: body.cents, collect: body.collect, version: cat.guestFee.version + 1 }
+    cat.guestBookingFeeCents = body.cents
+    return clone(cat.guestFee)
   })
   api.reminders = step('reminders', () => clone(rem))
   api.saveReminders = step('saveReminders', (body: any) => {
@@ -281,8 +471,12 @@ export function extendApi(f: ReturnType<typeof setup>) {
 export const validation = (detail: string, path = 'body.x'): ApiError =>
   new ApiError({ status: 422, title: 'Invalid', detail, code: 'VALIDATION', errors: [{ path, message: detail }] } as any)
 
-export const stale = (): ApiError =>
-  new ApiError({ status: 412, title: 'Changed', detail: 'Version conflict', code: 'VERSION_CONFLICT' } as any)
+export const stale = (meta?: Record<string, unknown>): ApiError =>
+  new ApiError({ status: 412, title: 'Changed', detail: 'Version conflict', code: 'VERSION_CONFLICT', meta } as any)
+
+/** A 409 "in use" with the counts the server sends (CLASS_IN_USE, TIER_IN_USE). */
+export const inUse = (code: string, meta: Record<string, unknown>): ApiError =>
+  new ApiError({ status: 409, title: 'In use', detail: 'Still in use. Turn it off instead', code, meta } as any)
 
 /** The Settings view model with LiveData and the extras over the fakes; `toasts` collects both success and error toasts. */
 export function makeExtrasLogic(role: 'mgmt' | 'crew' | 'super' | 'support' = 'mgmt') {

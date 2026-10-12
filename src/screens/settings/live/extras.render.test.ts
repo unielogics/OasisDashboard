@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// The LIVE Settings template (compiled with the live patches) rendered with the view model's real values in the three
-// sections the design does not have: the nav buttons, the Packages note, each section's content and the Save bar of the
-// reminders are in the DOM, and every root and handler the template binds exists.
+// The LIVE Settings template (compiled with the live patches) rendered with the view model's real values in the six
+// sections the design does not have (Catalog, Categories, Reminders & texts; Vehicle sizes, Prices by size, Memberships):
+// the nav buttons, the Packages note, each section's content and the Save bars are in the DOM, and every root and
+// handler the template binds exists.
 import fs from 'node:fs'
 import path from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -58,10 +59,19 @@ function liveHandlersExist(vals: any, prefix: string): void {
   }
 }
 
-async function shown(section: 'catalog' | 'categories' | 'reminders') {
+const FLAG = {
+  catalog: 'secCatalog',
+  categories: 'secCategories',
+  reminders: 'secReminders',
+  sizes: 'secSizes',
+  prices: 'secPrices',
+  memberships: 'secMemberships',
+} as const
+
+async function shown(section: keyof typeof FLAG) {
   const t = makeExtrasLogic()
   t.logic.setState({ section })
-  const flag = section === 'catalog' ? 'secCatalog' : section === 'categories' ? 'secCategories' : 'secReminders'
+  const flag = FLAG[section]
   await vi.waitFor(() => expect(t.logic.renderVals().live[flag]).toBe(true))
   if (section === 'reminders') await vi.waitFor(() => expect(t.logic.renderVals().live.rem.texts.length).toBe(3))
   return t
@@ -76,37 +86,114 @@ describe('Settings live template: Catalog, Categories, Reminders & texts', () =>
     expect(html).toContain('>Catalog</span>')
     expect(html).toContain('>Categories</span>')
     expect(html).toContain('>Reminders &amp; texts</span>')
-    expect(html).toContain('Prices are set in Catalog')
-    expect(html).toContain('Open Catalog')
-    // the nav order: Packages, then Catalog and Categories; Arrival, then Reminders
+    expect(html).toContain('>Vehicle sizes</span>')
+    expect(html).toContain('>Prices by size</span>')
+    expect(html).toContain('>Memberships</span>')
+    expect(html).toContain('Prices are set by vehicle size in Prices by size')
+    expect(html).toContain('Open Prices by size')
+    // the nav order: Packages, then Catalog, Categories, Vehicle sizes, Prices by size, Memberships; Arrival, then Reminders
     expect(html.indexOf('Packages &amp; checklists')).toBeLessThan(html.indexOf('>Catalog</span>'))
+    expect(html.indexOf('>Categories</span>')).toBeLessThan(html.indexOf('>Vehicle sizes</span>'))
+    expect(html.indexOf('>Vehicle sizes</span>')).toBeLessThan(html.indexOf('>Prices by size</span>'))
+    expect(html.indexOf('>Prices by size</span>')).toBeLessThan(html.indexOf('>Memberships</span>'))
     expect(html.indexOf('Arrival &amp; check-in')).toBeLessThan(html.indexOf('>Reminders &amp; texts</span>'))
     for (const r of bindings.roots) expect(t.logic.renderVals(), r).toHaveProperty(r)
   })
 
-  it('Catalog renders the list, the form, guest prices, the plans and the tint table', async () => {
+  it('Catalog renders the list with starting prices and the website form with Edit prices; no pre-size price boxes', async () => {
     const t = await shown('catalog')
     const v = t.logic.renderVals()
     const html = renderToStaticMarkup(render(v, { name: 'settings' }))
     for (const s of [
-      'Change prices only here',
+      'Prices are set per vehicle size in Prices by size',
       'Signature Hand Wash',
-      'Booking charges $54 · 45 min',
+      'Wash · from $40 · 2 sizes not set',
+      'Prices by vehicle size',
+      'from $40 · 2 sizes not set · 45 min',
+      'Edit prices',
       'Name on the website',
-      'Member price ($)',
-      'Empty: guests pay $54 (member price + 20%).',
-      'VIP members',
       'Shown on the website',
       'Order on the website',
-      'Guest prices',
-      'Online booking fee for guests: $25',
-      'Squarespace checkout link',
-      'Window tint prices',
-      'SUV / crossover · Carbon',
     ])
       expect(html, s).toContain(s)
+    for (const s of ['Member price ($)', 'Guest price', 'VIP members', 'Guest prices', 'Window tint prices', 'Squarespace'])
+      expect(html, s).not.toContain(s)
     expect(html).not.toContain('Weekly schedule')
     liveHandlersExist(v, 'live.cat')
+  })
+
+  it('Vehicle sizes renders each size with its use, the switches and the add button', async () => {
+    const t = await shown('sizes')
+    const v = t.logic.renderVals()
+    const html = renderToStaticMarkup(render(v, { name: 'settings' }))
+    for (const s of [
+      'Smallest first',
+      'value="Compact car"',
+      'value="Truck"',
+      'Key compact_car · 3 services priced',
+      'off: not offered, its prices are kept',
+      '+ Add size',
+    ])
+      expect(html, s).toContain(s)
+    liveHandlersExist(v, 'live.sizes')
+  })
+
+  it('Prices by size renders the grid by category and size, the banner, tint from–to, the fee; once edited, the Save bar', async () => {
+    const t = await shown('prices')
+    let v = t.logic.renderVals()
+    let html = renderToStaticMarkup(render(v, { name: 'settings' }))
+    for (const s of [
+      'One regular price per service and size',
+      '12 prices not set',
+      'Compact car',
+      'Large SUV',
+      'Signature Hand Wash',
+      'Package · from $40',
+      'value="40"',
+      'placeholder="—"',
+      'title="Carbon window tint · Compact car (up to)"',
+      'value="359"',
+      'Booking fee for guests',
+      'At the counter',
+      'By payment link',
+    ])
+      expect(html, s).toContain(s)
+    expect(html).not.toContain('>Truck<')
+    expect(html).not.toContain('Save prices')
+    liveHandlersExist(v, 'live.prices')
+    v.live.prices.groups[0].rows[0].cells[1].setFrom({ target: { value: '45' } })
+    v = t.logic.renderVals()
+    html = renderToStaticMarkup(render(v, { name: 'settings' }))
+    expect(html).toContain('1 service changed')
+    expect(html).toContain('Save prices')
+  })
+
+  it('Memberships renders the tiers, the editor with inclusions and the monthly grid with the Square state', async () => {
+    const t = await shown('memberships')
+    const v = t.logic.renderVals()
+    const html = renderToStaticMarkup(render(v, { name: 'settings' }))
+    for (const s of [
+      'a car up to the plan size is covered in full',
+      'from $129/mo · on the website',
+      'Key gold · was premium · not sold yet · Square: not synced yet',
+      'Member % off',
+      'Cars on one membership',
+      'VIP booking',
+      'What it includes',
+      'value="Hand washes"',
+      'Per month',
+      'Every wash',
+      'Apply by itself',
+      '+ Add inclusion',
+      '+ Add tier',
+      'Monthly price by plan size',
+      'Price version 2',
+      'value="129"',
+      'Not synced yet',
+      'Save tier',
+    ])
+      expect(html, s).toContain(s)
+    liveHandlersExist(v, 'live.mem')
   })
 
   it('Categories renders each row with its swatches and the add button', async () => {

@@ -1,5 +1,6 @@
-// Settings → Catalog, Categories and Reminders & texts: three sections the design does not have (live variant only,
-// ADR 0160 plan A, I, K; DEVIATIONS DV-317..DV-321). They live beside the design's view model rather than in it: the
+// Settings → Catalog, Categories and Reminders & texts (live variant only, ADR 0160 plan A, I, K; DEVIATIONS
+// DV-317..DV-321), and Vehicle sizes, Prices by size and Memberships (ADR 0170; DV-322..DV-326, their own files
+// live/pricing.ts and live/memberships.ts): sections the design does not have. They live beside the design's view model rather than in it: the
 // SettingsLogic state stays the design's (the differential test compares it key by key with the original class), and
 // these sections keep their own drafts here and give the template everything under `live.*`.
 //
@@ -34,32 +35,16 @@ import type { CategoryInfo } from '@/lib/categories'
 import {
   CATEGORY_SWATCHES,
   categoryProblem,
-  guestHint,
   keyFromLabel,
-  money,
   normalizeColour,
-  planBody,
-  planDraft,
   serviceBody,
   serviceDraft,
-  serviceMeta,
-  tintBody,
-  tintDraft,
-  tintKey,
 } from '@/lib/settings/catalog'
-import type {
-  CatalogCategoryItem,
-  CatalogItem,
-  CatalogPlanItem,
-  PlanDraft,
-  ServiceDraft,
-  TintCellDraft,
-  TintDraft,
-  TintMatrixView,
-  VipInclusion,
-} from '@/lib/settings/catalog'
-import { CONFLICT_MESSAGE, DraftSet, STALE_ACTION_MESSAGE, STALE_DRAFT_MESSAGE } from '@/lib/settings/drafts'
+import type { CatalogCategoryItem, CatalogItem, ServiceDraft } from '@/lib/settings/catalog'
+import { DraftSet, STALE_ACTION_MESSAGE, STALE_DRAFT_MESSAGE } from '@/lib/settings/drafts'
 import type { DraftEntry } from '@/lib/settings/drafts'
+import { fromLine, sortSizes } from '@/lib/settings/sizes'
+import type { PriceRowItem, VehicleClassItem } from '@/lib/settings/sizes'
 import {
   MAX_OFFSETS,
   OFFSET_CHOICES,
@@ -79,13 +64,22 @@ import {
 import type { RemindersDraft, RemindersView, StepperKey } from '@/lib/settings/reminders'
 import { chip, navStyle, seg, serviceKindStyle, serviceRowStyle, sw } from '@/lib/settings/styles'
 import type { SectionKey } from '@/lib/settings/types'
+import { MembershipSections } from './memberships'
+import { PricingSections } from './pricing'
+import { formError, saveButtonStyle, swatchButtonStyle } from './ui'
+import type { InputEvent, KeyEvent, RunOptions, RunResult, SectionCtx, Vals } from './ui'
 
-type Vals = Record<string, unknown>
-type InputEvent = { target: { value: string } }
-type KeyEvent = { key: string }
-
-export type ExtraSection = 'catalog' | 'categories' | 'reminders'
-export const EXTRA_SECTIONS: readonly ExtraSection[] = ['catalog', 'categories', 'reminders']
+export type ExtraSection = 'catalog' | 'categories' | 'reminders' | 'sizes' | 'prices' | 'memberships'
+export const EXTRA_SECTIONS: readonly ExtraSection[] = [
+  'catalog',
+  'categories',
+  'reminders',
+  'sizes',
+  'prices',
+  'memberships',
+]
+/** The sections that read GET /catalog. */
+const CATALOG_SECTIONS: readonly SectionKey[] = ['catalog', 'categories', 'sizes', 'prices', 'memberships']
 export const isExtraSection = (s: SectionKey): s is ExtraSection =>
   (EXTRA_SECTIONS as readonly string[]).includes(s)
 
@@ -119,12 +113,6 @@ function inlineMessage(e: ApiError): string {
   return e.errors[0]?.message || e.detail || e.title
 }
 
-/** The form's message: the refusal, or that someone else changed a field this person changed too. */
-function formError(err: string, entry: DraftEntry<unknown> | undefined): string {
-  if (entry?.conflict && (!err || err === STALE_DRAFT_MESSAGE)) return CONFLICT_MESSAGE
-  return err
-}
-
 type CategoryDraft = { label: string; colour: string }
 const sameCategory = (a: CategoryDraft, b: CategoryDraft): boolean =>
   a.label === b.label && normalizeColour(a.colour) === normalizeColour(b.colour)
@@ -154,11 +142,9 @@ export class SettingsExtras {
   private selId: string | null = null
   private readonly svcDrafts = new DraftSet<ServiceDraft>()
   private svcErrors: Record<string, string> = {}
-  private readonly markup = new DraftSet<number>()
-  private readonly plans = new DraftSet<PlanDraft>()
-  private planErrors: Record<string, string> = {}
-  private readonly tint = new DraftSet<TintDraft>()
-  private tintError = ''
+  // vehicle sizes, prices by size and the booking fee; memberships (ADR 0170)
+  private readonly pricing: PricingSections
+  private readonly memberships: MembershipSections
   // categories
   private readonly cats = new DraftSet<CategoryDraft>(sameCategory)
   private catErrors: Record<string, string> = {}
@@ -181,6 +167,18 @@ export class SettingsExtras {
     this.emit = deps.toast ?? ((t) => toasts.emit(t))
     this.store = new QueryStore(deps.qc, deps.schedule ? { schedule: deps.schedule } : {})
     this.debounceMs = deps.previewDebounceMs ?? 300
+    const ctx: SectionCtx = {
+      api: this.api,
+      run: <T>(name: string, request: (idem: string) => Promise<T>, o: RunOptions = {}): Promise<RunResult<T>> =>
+        this.run(name, CATALOG_KEY, request, SERVICES_DENY, o.invalidate ?? [], o.staleMessage, o.explain),
+      allowed: () => this.allowed(SERVICES_DENY),
+      busy: (name) => this.busy.has(name),
+      changed: () => this.changed(),
+      flash: (t) => this.flash(t),
+      go: (k) => this.host?.go(k),
+    }
+    this.pricing = new PricingSections(ctx)
+    this.memberships = new MembershipSections(ctx)
   }
 
   bind(host: ExtrasHost): void {
@@ -278,7 +276,8 @@ export class SettingsExtras {
     deny: PermissionKey,
     invalidate: QueryKey[] = [],
     staleMessage: string = STALE_DRAFT_MESSAGE,
-  ): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+    explain?: (e: ApiError) => string | null,
+  ): Promise<RunResult<T>> {
     if (this.busy.has(name)) return { ok: false, message: '' }
     this.busy.add(name)
     this.changed()
@@ -293,6 +292,8 @@ export class SettingsExtras {
       })
       if (r.ok) return r
       const e = r.error
+      const own = explain?.(e)
+      if (own) return { ok: false, message: own }
       if (e.isValidation || (e.isConflict && e.status === 409))
         return { ok: false, message: inlineMessage(e) }
       // the draft was made on an older copy: command() refetches it and the draft is rebased on the newer one
@@ -316,22 +317,37 @@ export class SettingsExtras {
         catalog: navStyle(sec, 'catalog'),
         categories: navStyle(sec, 'categories'),
         reminders: navStyle(sec, 'reminders'),
+        sizes: navStyle(sec, 'sizes'),
+        prices: navStyle(sec, 'prices'),
+        memberships: navStyle(sec, 'memberships'),
       },
       goCatalog: go('catalog'),
       goCategories: go('categories'),
       goReminders: go('reminders'),
+      goSizes: go('sizes'),
+      goPrices: () => {
+        this.pricing.focus = null
+        this.host?.go('prices')
+      },
+      goMemberships: go('memberships'),
       secCatalog: sec === 'catalog' && open,
       secCategories: sec === 'categories' && open,
       secReminders: sec === 'reminders' && open,
+      secSizes: sec === 'sizes' && open,
+      secPrices: sec === 'prices' && open,
+      secMemberships: sec === 'memberships' && open,
       svcPriceNote:
-        'Prices are set in Catalog: the website, online booking and the text assistant read them from there, and a booking charges the guest price set there. A service without a member price keeps charging its last price.',
+        'Prices are set by vehicle size in Prices by size: the website, online booking and the text assistant read them from there, and a booking charges the starting price until visits are priced by size.',
     }
-    if (sec !== 'catalog' && sec !== 'categories') this.unwatch('catalog')
+    if (!CATALOG_SECTIONS.includes(sec)) this.unwatch('catalog')
     if (sec !== 'reminders') this.unwatch('reminders')
-    const c = sec === 'catalog' || sec === 'categories' ? this.catalog() : undefined
+    const c = CATALOG_SECTIONS.includes(sec) ? this.catalog() : undefined
     out.cat = this.catalogVals(sec === 'catalog' ? c : undefined, dark)
     out.cats = this.categoriesVals(sec === 'categories' ? c : undefined)
     out.rem = this.remindersVals(sec === 'reminders' ? this.reminders() : undefined, sec === 'reminders' && open)
+    out.sizes = this.pricing.sizesVals(sec === 'sizes' ? c : undefined)
+    out.prices = this.pricing.pricesVals(sec === 'prices' ? c : undefined)
+    out.mem = this.memberships.vals(sec === 'memberships' ? c : undefined)
     return out
   }
 
@@ -402,22 +418,18 @@ export class SettingsExtras {
       noItems: true,
       has: false,
       svc: {},
-      markup: {},
-      plans: [],
-      hasPlans: false,
-      tint: { has: false, rows: [], films: [] },
     }
     if (!c) return empty
     const cats = c.categories as CatalogCategoryItem[]
     const info: CategoryInfo[] = cats.map((x) => ({ key: x.key, label: x.label, colour: x.colour }))
-    const markupPct = c.guestMarkup.pct
+    const sizes = sortSizes(c.vehicleClasses as VehicleClassItem[])
+    const prices = c.prices as PriceRowItem[]
+    const line = (s: CatalogItem) =>
+      fromLine(prices.find((r) => r.serviceId === s.id), s.quoteOnly, s.priceCents, sizes)
     const sel = this.selected(c)
     const list = this.items(c).map((s) => {
       const d = this.draftOf(s)
-      const subs = [
-        categoryLabel(s.category, info),
-        s.quoteOnly ? 'quote only' : s.memberPriceCents !== null ? money(s.memberPriceCents) : 'no website price',
-      ]
+      const subs = [categoryLabel(s.category, info), s.quoteOnly ? 'quote only' : line(s)]
       if (!s.visibleOnline) subs.push('hidden')
       if (this.svcEntry(s)) subs.push('unsaved')
       return {
@@ -431,10 +443,9 @@ export class SettingsExtras {
         },
       }
     })
-    const fee = c.guestBookingFeeCents
     return {
       note:
-        'What you set here is what the website, online booking and the text assistant show. Change prices only here: the price in Packages & checklists follows the guest price, and a booking charges it. A service without a member price keeps charging its last price.',
+        'What you set here is what the website, online booking and the text assistant show. Prices are set per vehicle size in Prices by size, and what members get in Memberships.',
       kindPkgStyle: seg(this.kind === 'pkg'),
       kindAddonStyle: seg(this.kind === 'addon'),
       kindPkg: () => {
@@ -450,26 +461,17 @@ export class SettingsExtras {
       list,
       noItems: list.length === 0,
       has: !!sel,
-      svc: sel ? this.serviceVals(sel, cats, markupPct, dark) : {},
-      markup: this.markupVals(c, fee),
-      plans: (c.plans as CatalogPlanItem[]).map((p) => this.planVals(p)),
-      hasPlans: c.plans.length > 0,
-      tint: this.tintVals(c.tintMatrix as TintMatrixView),
+      svc: sel ? this.serviceVals(sel, cats, line(sel), dark) : {},
     }
   }
 
-  private serviceVals(s: CatalogItem, cats: CatalogCategoryItem[], markupPct: number, dark: boolean): Vals {
+  private serviceVals(s: CatalogItem, cats: CatalogCategoryItem[], priceLine: string, dark: boolean): Vals {
     const d = this.draftOf(s)
     const set =
-      (k: 'publicName' | 'description' | 'member' | 'guest' | 'vipNote') =>
+      (k: 'publicName' | 'description') =>
       (e: InputEvent): void =>
         this.editService(s, { [k]: e.target.value } as Partial<ServiceDraft>)
     const shown = cats.filter((x) => x.active || x.key === d.category)
-    const vip: [VipInclusion, string][] = [
-      ['included', 'Included'],
-      ['allowance', 'Allowance'],
-      ['none', 'Not included'],
-    ]
     const toggle = (label: string, sub: string, on: boolean, flip: () => void) => {
       const w = sw(on)
       return { label, sub, track: w.track, knob: w.knob, toggle: flip }
@@ -483,7 +485,11 @@ export class SettingsExtras {
       kindLabel: s.kind === 'package' ? 'Package' : 'Add-on',
       chip: { label: cur?.label ?? categoryLabel(d.category, []), style: categoryChipStyle(cur?.colour ?? '', dark, 'file') },
       title: s.name,
-      meta: serviceMeta(s),
+      meta: priceLine + ' · ' + s.durationMin + ' min',
+      editPrices: () => {
+        this.pricing.focus = s.id
+        this.host?.go('prices')
+      },
       publicName: d.publicName,
       namePlaceholder: s.name,
       setPublicName: set('publicName'),
@@ -494,20 +500,6 @@ export class SettingsExtras {
         style: chip(x.key === d.category),
         onClick: () => this.editService(s, { category: x.key }),
       })),
-      member: d.member,
-      setMember: set('member'),
-      guest: d.guest,
-      setGuest: set('guest'),
-      guestHint: guestHint(d, s, markupPct),
-      vipOpts: vip.map(([k, label]) => ({
-        label,
-        style: seg(d.vipInclusion === k),
-        onClick: () => this.editService(s, { vipInclusion: k }),
-      })),
-      showVipNote: d.vipInclusion !== 'none',
-      vipNote: d.vipNote,
-      setVipNote: set('vipNote'),
-      vipPlaceholder: d.vipInclusion === 'allowance' ? 'e.g. 2× a month' : 'Optional note for VIP members',
       toggles: [
         toggle(
           'Shown on the website',
@@ -535,191 +527,6 @@ export class SettingsExtras {
         this.changed()
       },
     }
-  }
-
-  private markupVals(c: CatalogRes, feeCents: number): Vals {
-    const { pct, version } = c.guestMarkup
-    const entry = this.markup.get('markup', pct, version)
-    const value = entry?.value ?? pct
-    const dirty = !!entry
-    const busy = this.busy.has('markup')
-    const step = (dir: 1 | -1) => () => {
-      if (!this.allowed(SERVICES_DENY)) return
-      this.markup.set('markup', pct, version, Math.min(200, Math.max(0, value + dir * 5)))
-      this.changed()
-    }
-    return {
-      val: value + '%',
-      sub: entry?.conflict
-        ? CONFLICT_MESSAGE
-        : 'A service without its own guest price costs guests the member price plus this.',
-      dec: step(-1),
-      inc: step(1),
-      dirty,
-      saveStyle: saveButtonStyle(dirty && !busy),
-      saveLabel: busy ? 'Saving…' : 'Save',
-      save: () => void this.saveMarkup(c),
-      feeLine: 'Online booking fee for guests: ' + money(feeCents) + ' (members pay none).',
-    }
-  }
-
-  private async saveMarkup(c: CatalogRes): Promise<void> {
-    if (!this.allowed(SERVICES_DENY)) return
-    const e = this.markup.get('markup', c.guestMarkup.pct, c.guestMarkup.version)
-    if (!e) return
-    const r = await this.run(
-      'markup',
-      CATALOG_KEY,
-      (idem) => this.api.saveGuestMarkup({ pct: e.value, version: e.version }, { idempotencyKey: idem }),
-      SERVICES_DENY,
-      [qk.settings('services')],
-    )
-    if (!r.ok) return void (r.message && this.flash(r.message))
-    this.markup.drop('markup')
-    this.flash('Guest prices saved · member price + ' + r.data.pct + '%')
-  }
-
-  private planVals(p: CatalogPlanItem): Vals {
-    const entry = this.plans.get(p.key, planDraft(p), p.version)
-    const d = entry?.value ?? planDraft(p)
-    const edit = (k: keyof PlanDraft) => (e: InputEvent) => {
-      if (!this.allowed(SERVICES_DENY)) return
-      const cur = this.plans.value(p.key, planDraft(p), p.version)
-      this.plans.set(p.key, planDraft(p), p.version, { ...cur, [k]: e.target.value })
-      delete this.planErrors[p.key]
-      this.changed()
-    }
-    const dirty = !!entry
-    const busy = this.busy.has('plan:' + p.key)
-    const err = formError(this.planErrors[p.key] ?? '', entry)
-    const tier = p.websiteTier === 'gold' ? 'Gold' : p.websiteTier === 'vip' ? 'VIP' : null
-    return {
-      title: d.publicLabel.trim() || p.name,
-      sub:
-        p.name +
-        ' plan' +
-        (tier ? ' · the website’s ' + tier + ' plan' : '') +
-        (p.active ? '' : ' · not active'),
-      label: d.publicLabel,
-      setLabel: edit('publicLabel'),
-      labelPlaceholder: p.name,
-      monthly: d.monthly,
-      setMonthly: edit('monthly'),
-      perks: d.perks,
-      setPerks: edit('perks'),
-      url: d.checkoutUrl,
-      setUrl: edit('checkoutUrl'),
-      hasError: !!err,
-      error: err,
-      dirty,
-      saveStyle: saveButtonStyle(dirty && !busy),
-      saveLabel: busy ? 'Saving…' : 'Save plan',
-      save: () => void this.savePlan(p),
-      discard: () => {
-        this.plans.drop(p.key)
-        delete this.planErrors[p.key]
-        this.changed()
-      },
-    }
-  }
-
-  private async savePlan(p: CatalogPlanItem): Promise<void> {
-    if (!this.allowed(SERVICES_DENY)) return
-    const e = this.plans.get(p.key, planDraft(p), p.version)
-    if (!e) return
-    const b = planBody(e.value, e.version)
-    if (!b.ok) {
-      this.planErrors[p.key] = b.message
-      return this.changed()
-    }
-    const r = await this.run(
-      'plan:' + p.key,
-      CATALOG_KEY,
-      (idem) => this.api.savePlan(p.key, b.value, { idempotencyKey: idem }),
-      SERVICES_DENY,
-    )
-    if (!r.ok) {
-      if (r.message) this.planErrors[p.key] = r.message
-      return this.changed()
-    }
-    this.plans.drop(p.key)
-    this.flash('Saved the ' + (r.data.publicLabel || r.data.name) + ' plan')
-  }
-
-  private tintVals(m: TintMatrixView): Vals {
-    if (!m.vehicleTypes.length || !m.films.length) return { has: false, rows: [], films: [] }
-    const base = tintDraft(m)
-    const entry = this.tint.get('tint', base, m.version)
-    const d = entry?.value ?? base
-    const dirty = !!entry
-    const busy = this.busy.has('tint')
-    const rows: Vals[] = []
-    for (const v of m.vehicleTypes)
-      for (const f of m.films) {
-        const k = tintKey(v.key, f.key)
-        const cell = d[k] ?? { memberMin: '', memberMax: '', guestMin: '', guestMax: '' }
-        const set = (field: keyof TintCellDraft) => (e: InputEvent) => {
-          if (!this.allowed(SERVICES_DENY)) return
-          const next = { ...this.tint.value('tint', base, m.version) }
-          next[k] = { ...(next[k] ?? cell), [field]: e.target.value }
-          this.tint.set('tint', base, m.version, next)
-          this.tintError = ''
-          this.changed()
-        }
-        rows.push({
-          label: v.label + ' · ' + f.label,
-          memberMin: cell.memberMin,
-          setMemberMin: set('memberMin'),
-          memberMax: cell.memberMax,
-          setMemberMax: set('memberMax'),
-          guestMin: cell.guestMin,
-          setGuestMin: set('guestMin'),
-          guestMax: cell.guestMax,
-          setGuestMax: set('guestMax'),
-        })
-      }
-    return {
-      has: true,
-      rows,
-      films: m.films.map((f) => ({ label: f.label + ': ' + f.vlt.map((x) => x + '%').join(', ') + ' shade' })),
-      sub: 'Dollars from–to per vehicle type and film. The website and the assistant say “starts at” the lowest. Leave a row empty to not offer it.',
-      hasError: !!formError(this.tintError, entry),
-      error: formError(this.tintError, entry),
-      dirty,
-      saveStyle: saveButtonStyle(dirty && !busy),
-      saveLabel: busy ? 'Saving…' : 'Save tint prices',
-      save: () => void this.saveTint(m),
-      discard: () => {
-        this.tint.drop('tint')
-        this.tintError = ''
-        this.changed()
-      },
-    }
-  }
-
-  private async saveTint(m: TintMatrixView): Promise<void> {
-    if (!this.allowed(SERVICES_DENY)) return
-    const e = this.tint.get('tint', tintDraft(m), m.version)
-    if (!e) return
-    const b = tintBody(e.value, m)
-    if (!b.ok) {
-      this.tintError = b.message
-      return this.changed()
-    }
-    const body = { ...b.value, version: e.version }
-    const r = await this.run(
-      'tint',
-      CATALOG_KEY,
-      (idem) => this.api.saveTintMatrix(body, { idempotencyKey: idem }),
-      SERVICES_DENY,
-      [qk.settings('services')],
-    )
-    if (!r.ok) {
-      if (r.message) this.tintError = r.message
-      return this.changed()
-    }
-    this.tint.drop('tint')
-    this.flash('Tint prices saved')
   }
 
   // ---- Categories -------------------------------------------------------------------------------------------------
@@ -1202,32 +1009,6 @@ export class SettingsExtras {
         this.changed()
       },
     }
-  }
-}
-
-/** The design's accent button; dimmed while there is nothing to save. */
-function saveButtonStyle(on: boolean): Record<string, string | number> {
-  return {
-    height: '44px',
-    padding: '0 18px',
-    borderRadius: '11px',
-    background: on ? 'var(--accent)' : 'var(--panel3)',
-    color: on ? '#fff' : 'var(--ink3)',
-    fontWeight: 800,
-    fontSize: '13px',
-    flex: 'none',
-  }
-}
-
-function swatchButtonStyle(hex: string, on: boolean): Record<string, string | number> {
-  return {
-    width: '28px',
-    height: '28px',
-    borderRadius: '8px',
-    background: hex,
-    border: on ? '2px solid var(--ink)' : '2px solid var(--panel)',
-    boxShadow: on ? '0 0 0 1px var(--panel)' : '0 0 0 1px var(--line)',
-    flex: 'none',
   }
 }
 

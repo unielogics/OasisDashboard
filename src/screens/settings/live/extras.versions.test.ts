@@ -26,10 +26,17 @@ const call = (logic: any, path: string, value = ''): void => {
   expect(typeof fn, `no handler at ${path}`).toBe('function')
   fn({ target: { value }, key: '' })
 }
-const open = async (logic: any, section: 'catalog' | 'categories' | 'reminders'): Promise<void> => {
+const FLAG = {
+  catalog: 'secCatalog',
+  categories: 'secCategories',
+  reminders: 'secReminders',
+  sizes: 'secSizes',
+  prices: 'secPrices',
+  memberships: 'secMemberships',
+} as const
+const open = async (logic: any, section: keyof typeof FLAG): Promise<void> => {
   logic.setState({ section })
-  const key = section === 'catalog' ? 'secCatalog' : section === 'categories' ? 'secCategories' : 'secReminders'
-  await vi.waitFor(() => expect(vals(logic).live[key]).toBe(true))
+  await vi.waitFor(() => expect(vals(logic).live[FLAG[section]]).toBe(true))
 }
 const writes = (calls: any[][], name: string) => calls.filter((c) => c[0] === name)
 /** What the event stream does when someone else saves: the section's query is invalidated and read again. */
@@ -78,29 +85,29 @@ describe('Settings extras: someone else saves meanwhile', () => {
     expect(body).toMatchObject({ version: 17, reminders: { reviewRequest: true }, statusTexts: { pickedUp: false } })
   })
 
-  it('catalog: a fresh description from someone else shows while the price is being edited, and both are saved', async () => {
+  it('catalog: a fresh description from someone else shows while the name is being edited, and both are saved', async () => {
     const t = makeExtrasLogic()
     await open(t.logic, 'catalog')
-    call(t.logic, 'live.cat.svc.setMember', '46')
+    call(t.logic, 'live.cat.svc.setPublicName', 'Signature')
     const sig = t.cat.packages[0]
     sig.description = 'Hand wash, wheels and interior.'
     sig.version = 4
     await pushed(t, 'catalog')
     await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.description).toBe('Hand wash, wheels and interior.'))
-    expect(vals(t.logic).live.cat.svc).toMatchObject({ member: '46', dirty: true, error: '' })
+    expect(vals(t.logic).live.cat.svc).toMatchObject({ publicName: 'Signature', dirty: true, error: '' })
     call(t.logic, 'live.cat.svc.save')
     await vi.waitFor(() => expect(writes(t.calls, 'saveCatalogService')).toHaveLength(1))
     expect(writes(t.calls, 'saveCatalogService')[0]![2]).toMatchObject({
       version: 4,
       description: 'Hand wash, wheels and interior.',
-      memberPriceCents: 4600,
+      publicName: 'Signature',
     })
   })
 
   it('catalog: a save on an older copy is refused (412) and nothing of theirs is undone; saving again merges', async () => {
     const t = makeExtrasLogic()
     await open(t.logic, 'catalog')
-    call(t.logic, 'live.cat.svc.setMember', '46')
+    call(t.logic, 'live.cat.svc.setPublicName', 'Signature')
     const sig = t.cat.packages[0]
     sig.description = 'Hand wash, wheels and interior.'
     sig.version = 4
@@ -109,13 +116,13 @@ describe('Settings extras: someone else saves meanwhile', () => {
     expect(writes(t.calls, 'saveCatalogService')[0]![2].version).toBe(3)
     expect(sig.description).toBe('Hand wash, wheels and interior.')
     await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.description).toBe('Hand wash, wheels and interior.'))
-    expect(vals(t.logic).live.cat.svc.member).toBe('46')
+    expect(vals(t.logic).live.cat.svc.publicName).toBe('Signature')
     call(t.logic, 'live.cat.svc.save')
     await vi.waitFor(() => expect(writes(t.calls, 'saveCatalogService')).toHaveLength(2))
     expect(writes(t.calls, 'saveCatalogService')[1]![2]).toMatchObject({
       version: 4,
       description: 'Hand wash, wheels and interior.',
-      memberPriceCents: 4600,
+      publicName: 'Signature',
     })
     await vi.waitFor(() => expect(vals(t.logic).live.cat.svc.dirty).toBe(false))
   })
@@ -134,40 +141,57 @@ describe('Settings extras: someone else saves meanwhile', () => {
     expect(vals(t.logic).live.cat.svc).toMatchObject({ description: 'Theirs.', dirty: false, error: '' })
   })
 
-  it('plans, tint, markup and a category rename are rebased the same way and saved with the newer version', async () => {
+  it('a price row, a tier, the monthly prices, the booking fee and a category rename are rebased the same way', async () => {
     const t = makeExtrasLogic()
-    await open(t.logic, 'catalog')
-    call(t.logic, 'live.cat.plans.0.setMonthly', '109')
-    call(t.logic, 'live.cat.tint.rows.0.setGuestMax', '369')
-    call(t.logic, 'live.cat.markup.inc')
-    t.cat.plans[0].perks = ['Unlimited hand washes']
-    t.cat.plans[0].version = 2
-    t.cat.tintMatrix.prices[0].memberMinCents = 21900
-    t.cat.tintMatrix.version = 5
-    t.cat.guestMarkup = { pct: 30, version: 3 }
+    await open(t.logic, 'prices')
+    // Signature: this person sets Large car; someone else meanwhile sets Large SUV
+    call(t.logic, 'live.prices.groups.0.rows.0.cells.1.setFrom', '45')
+    call(t.logic, 'live.prices.fee.setAmount', '30')
+    const sig = t.cat.prices[0]
+    sig.cells.push({ class: 'large_suv', cents: 6000, maxCents: null })
+    sig.version = 4
+    t.cat.packages[0].version = 4
+    t.cat.guestFee = { cents: 2500, collect: 'link', version: 1 }
     await pushed(t, 'catalog')
-    await vi.waitFor(() => expect(vals(t.logic).live.cat.plans[0].perks).toBe('Unlimited hand washes'))
-    const v = vals(t.logic).live.cat
-    expect(v.plans[0].monthly).toBe('109')
-    expect(v.tint.rows[0]).toMatchObject({ memberMin: '219', guestMax: '369' })
-    expect(v.markup).toMatchObject({ val: '25%', dirty: true, sub: CONFLICT_MESSAGE })
-    call(t.logic, 'live.cat.plans.0.save')
-    call(t.logic, 'live.cat.tint.save')
-    call(t.logic, 'live.cat.markup.save')
-    await vi.waitFor(() => expect(writes(t.calls, 'saveGuestMarkup')).toHaveLength(1))
-    await vi.waitFor(() => expect(writes(t.calls, 'saveTintMatrix')).toHaveLength(1))
-    await vi.waitFor(() => expect(writes(t.calls, 'savePlan')).toHaveLength(1))
-    expect(writes(t.calls, 'savePlan')[0]![2]).toMatchObject({
-      version: 2,
-      monthlyPriceCents: 10900,
+    await vi.waitFor(() => expect(vals(t.logic).live.prices.groups[0].rows[0].cells[3].from).toBe('60'))
+    const v = vals(t.logic).live.prices
+    expect(v.groups[0].rows[0].cells[1].from).toBe('45')
+    expect(v.error).toBe('')
+    expect(v.fee).toMatchObject({ amount: '30', dirty: true })
+    expect(v.fee.opts[1].style.background).toBe('var(--accent)')
+    call(t.logic, 'live.prices.save')
+    call(t.logic, 'live.prices.fee.save')
+    await vi.waitFor(() => expect(writes(t.calls, 'savePrices')).toHaveLength(1))
+    await vi.waitFor(() => expect(writes(t.calls, 'saveGuestFee')).toHaveLength(1))
+    expect(writes(t.calls, 'savePrices')[0]![1]).toEqual({
+      rows: [{ serviceId: 'p-sig', version: 4, cells: [{ class: 'large_car', cents: 4500, maxCents: null }] }],
+    })
+    expect(writes(t.calls, 'saveGuestFee')[0]![1]).toEqual({ cents: 3000, collect: 'link', version: 1 })
+
+    await open(t.logic, 'memberships')
+    call(t.logic, 'live.mem.t.setDiscount', '10')
+    call(t.logic, 'live.mem.grid.rows.0.cells.1.set', '149')
+    const gold = t.cat.tiers[0]
+    gold.perks = ['Unlimited hand washes']
+    gold.version = 4
+    gold.priceVersion = 3
+    gold.prices = [{ ...gold.prices[0], monthlyCents: 13900, priceVersion: 3 }]
+    await pushed(t, 'catalog')
+    await vi.waitFor(() => expect(vals(t.logic).live.mem.t.perks).toBe('Unlimited hand washes'))
+    expect(vals(t.logic).live.mem.t.discount).toBe('10')
+    expect(vals(t.logic).live.mem.grid.rows[0].cells.map((c: any) => c.value)).toEqual(['139', '149', '', ''])
+    call(t.logic, 'live.mem.t.save')
+    call(t.logic, 'live.mem.grid.save')
+    await vi.waitFor(() => expect(writes(t.calls, 'saveTier')).toHaveLength(1))
+    await vi.waitFor(() => expect(writes(t.calls, 'saveTierPrices')).toHaveLength(1))
+    expect(writes(t.calls, 'saveTier')[0]![2]).toMatchObject({
+      version: 4,
+      memberDiscountBp: 1000,
       perks: ['Unlimited hand washes'],
     })
-    expect(writes(t.calls, 'saveTintMatrix')[0]![1]).toMatchObject({ version: 5 })
-    expect(writes(t.calls, 'saveTintMatrix')[0]![1].prices[0]).toMatchObject({
-      memberMinCents: 21900,
-      guestMaxCents: 36900,
+    expect(writes(t.calls, 'saveTierPrices')[0]![1]).toEqual({
+      rows: [{ tierKey: 'gold', priceVersion: 3, cells: [{ class: 'large_car', monthlyCents: 14900 }] }],
     })
-    expect(writes(t.calls, 'saveGuestMarkup')[0]![1]).toEqual({ pct: 25, version: 3 })
 
     await open(t.logic, 'categories')
     call(t.logic, 'live.cats.rows.2.setLabel', 'Window tint')

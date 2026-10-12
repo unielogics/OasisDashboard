@@ -91,7 +91,7 @@ import type {
   VipKey,
 } from '@/lib/settings'
 import { settle } from './data'
-import type { SettingsExtras } from './live/extras'
+import type { ExtraSection, SettingsExtras } from './live/extras'
 import type {
   EmergencyPreview,
   MaybeAsync,
@@ -123,10 +123,21 @@ const SECTION_PARTS: Record<SectionKey, SyncPartName[]> = {
   catalog: [],
   categories: [],
   reminders: [],
+  // live only (ADR 0170): Vehicle sizes, Prices by size, Memberships (live/pricing.ts, live/memberships.ts)
+  sizes: [],
+  prices: [],
+  memberships: [],
 }
 
-/** The sections the design does not have (live variant only, DV-317..DV-321). */
-const EXTRA_SECTIONS: ReadonlySet<SectionKey> = new Set<SectionKey>(['catalog', 'categories', 'reminders'])
+/** The sections the design does not have (live variant only, DV-317..DV-321, DV-322..DV-326). */
+const EXTRA_SECTIONS: ReadonlySet<SectionKey> = new Set<SectionKey>([
+  'catalog',
+  'categories',
+  'reminders',
+  'sizes',
+  'prices',
+  'memberships',
+])
 
 export class SettingsLogic extends DCLogic<SettingsState> {
   readonly data: SettingsData
@@ -332,7 +343,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   private gate(section: SectionKey): 'locked' | 'loading' | 'failed' | null {
     if (!this.data.live) return null
     if (EXTRA_SECTIONS.has(section))
-      return this.extras ? this.extras.gate(section as 'catalog' | 'categories' | 'reminders') : 'loading'
+      return this.extras ? this.extras.gate(section as ExtraSection) : 'loading'
     if (this.data.locked(section)) return 'locked'
     if (section === 'assistant') {
       const st = this.data.assistant?.state() ?? 'failed'

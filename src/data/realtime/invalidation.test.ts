@@ -56,6 +56,8 @@ describe('keysForEvent', () => {
     for (const x of ['reviews', 'status_texts', 'leads'])
       expect(s(x)).toEqual([['settings', x], ['settings', 'reminders']])
     expect(s('reminders')).toEqual([['settings', 'reminders']])
+    // the booking fee (booking.guest_fee) is edited in Settings → Prices by size, which reads the catalog
+    expect(s('booking')).toEqual([['settings', 'booking'], ['settings', 'catalog']])
     expect(s('constructor')).toEqual([['settings', 'constructor']])
   })
 })

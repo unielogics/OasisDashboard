@@ -21,8 +21,8 @@ const CATEGORY_VIEWS: QueryKey[] = [
 ]
 
 /**
- * Settings sections whose change shows elsewhere too (ADR 0160 plan A, I, K): a service's website fields and the
- * catalog (categories, plans, tint, markup) are read whole by Settings → Catalog (['settings', 'catalog']); categories
+ * Settings sections whose change shows elsewhere too (ADR 0160 plan A, I, K; ADR 0170): a service's website fields and the
+ * catalog (categories, sizes, prices by size, tiers, tier prices) are read whole by Settings → Catalog (['settings', 'catalog']); categories
  * colour the board and Payments chips; a service's duration changes the open times; the Reminders section reads five
  * settings sections and the category list.
  */
@@ -32,6 +32,8 @@ const SETTINGS_ALSO: Record<string, QueryKey[]> = {
   reviews: [['settings', 'reminders']],
   status_texts: [['settings', 'reminders']],
   leads: [['settings', 'reminders']],
+  // the booking fee (`booking.guest_fee`, ADR 0170) is read with the catalog (Settings → Prices by size)
+  booking: [['settings', 'catalog']],
 }
 
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */

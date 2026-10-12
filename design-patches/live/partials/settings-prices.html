@@ -1,0 +1,51 @@
+<sc-if value="{{ live.secPrices }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:14px 16px;background:var(--accentSoft);border:1px solid var(--accentBrd);border-radius:14px;margin-bottom:12px;color:var(--accentInk);font-size:13.5px;font-weight:700;line-height:1.45;">{{ live.prices.note }}</div>
+  <sc-if value="{{ live.prices.hasMissing }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:rgba(255,181,71,.16);border:1px solid rgba(255,181,71,.5);border-radius:12px;margin-bottom:12px;font-size:13px;font-weight:800;color:var(--ink);"><span style="width:9px;height:9px;border-radius:50%;background:#FFB547;flex:none;"></span><span>{{ live.prices.missing }}</span><span style="font-weight:600;color:var(--ink2);">· shown as — below</span></div>
+  </sc-if>
+  <sc-if value="{{ live.prices.noSizes }}" hint-placeholder-val="{{ false }}"><div style="padding:20px;text-align:center;color:var(--ink3);font-weight:600;font-size:13px;">Turn on a vehicle size first (Vehicle sizes).</div></sc-if>
+  <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:14px 16px;overflow-x:auto;">
+    <div style="{{ live.prices.headStyle }}">
+      <div style="font-size:10.5px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;">Service</div>
+      <sc-for list="{{ live.prices.heads }}" as="h" hint-placeholder-count="5"><div style="font-size:10.5px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;text-align:right;padding-right:10px;">{{ h.label }}</div></sc-for>
+    </div>
+    <sc-for list="{{ live.prices.groups }}" as="g" hint-placeholder-count="3">
+      <div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px;font-size:12.5px;font-weight:800;color:var(--ink2);"><span style="{{ g.swatch }}"></span>{{ g.label }}</div>
+      <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+        <div style="{{ r.style }}">
+          <div style="min-width:0;"><div style="font-weight:700;font-size:13.5px;">{{ r.name }}</div><div style="font-size:11.5px;font-weight:700;color:var(--ink3);margin-top:2px;">{{ r.sub }}</div></div>
+          <sc-for list="{{ r.cells }}" as="x" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:4px;min-width:0;">
+              <sc-if value="{{ x.single }}" hint-placeholder-val="{{ true }}"><input value="{{ x.from }}" sc-camel-on-input="{{ x.setFrom }}" title="{{ x.label }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"></sc-if>
+              <sc-if value="{{ x.range }}" hint-placeholder-val="{{ false }}"><input value="{{ x.from }}" sc-camel-on-input="{{ x.setFrom }}" title="{{ x.label }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"><span style="color:var(--ink3);font-weight:700;">–</span><input value="{{ x.to }}" sc-camel-on-input="{{ x.setTo }}" title="{{ x.toLabel }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </sc-for>
+  </div>
+  <sc-if value="{{ live.prices.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.prices.error }}</div></sc-if>
+  <sc-if value="{{ live.prices.dirty }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:14px;">
+      <span style="flex:1;font-size:13px;font-weight:700;color:var(--ink2);">{{ live.prices.dirtyText }}</span>
+      <button sc-camel-on-click="{{ live.prices.discard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button>
+      <button sc-camel-on-click="{{ live.prices.save }}" style="{{ live.prices.saveStyle }}">{{ live.prices.saveLabel }}</button>
+    </div>
+  </sc-if>
+  <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:18px;max-width:560px;">
+    <div style="font-weight:800;font-size:15px;">Booking fee for guests</div>
+    <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 14px;line-height:1.45;">{{ live.prices.fee.sub }}</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="font-weight:700;font-size:14px;">$</div>
+      <input value="{{ live.prices.fee.amount }}" sc-camel-on-input="{{ live.prices.fee.setAmount }}" inputmode="numeric" placeholder="0" style="width:90px;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;">
+      <div style="flex:1;min-width:220px;display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;"><sc-for list="{{ live.prices.fee.opts }}" as="o" hint-placeholder-count="2"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+    </div>
+    <sc-if value="{{ live.prices.fee.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.prices.fee.error }}</div></sc-if>
+    <sc-if value="{{ live.prices.fee.dirty }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+        <button sc-camel-on-click="{{ live.prices.fee.discard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button>
+        <button sc-camel-on-click="{{ live.prices.fee.save }}" style="{{ live.prices.fee.saveStyle }}">{{ live.prices.fee.saveLabel }}</button>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>

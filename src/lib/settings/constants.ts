@@ -108,10 +108,14 @@ export const SECTION_META: Record<SectionKey, readonly [title: string, descripti
   // live variant only (DV-317..DV-321)
   catalog: [
     'Catalog',
-    'Names, descriptions, prices and plans the website, online booking and the text assistant show.',
+    'Names, descriptions and categories the website, online booking and the text assistant show.',
   ],
   categories: ['Categories', 'Group services into categories. Their colours mark visits on the board and in Payments.'],
   reminders: ['Reminders & texts', 'Appointment reminders, status texts as the car moves, and the lead follow-up.'],
+  // live variant only (DV-322..DV-326)
+  sizes: ['Vehicle sizes', 'The sizes every price is set for, smallest first.'],
+  prices: ['Prices by size', 'One price per service and vehicle size, and the booking fee guests pay.'],
+  memberships: ['Memberships', 'Tiers, what each includes, the member % off and the monthly price per size.'],
 }
 
 export const MON = [
