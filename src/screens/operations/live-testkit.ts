@@ -424,6 +424,9 @@ export function stubPayments(): StubPayments {
     squareReassign: step('squareReassign', () => ({})),
     reconciliation: step('reconciliation', () => ({})),
     chargeCard: step('chargeCard', () => ({})),
+    invoiceCharges: step('invoiceCharges', () => ({ items: [] })),
+    chargeFee: step('chargeFee', () => ({})),
+    waiveFee: step('waiveFee', () => ({})),
   }
   return p as unknown as StubPayments
 }

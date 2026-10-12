@@ -509,6 +509,17 @@ export interface PaymentsPort {
    * CARD_DECLINED keeps the charge (the same key again is a new attempt on it).
    */
   chargeCard(id: string, input: { cardId: string; amountCents: number }, o?: CommandOptions): Promise<CardChargeResult>
+  /** GET /invoices/:id/card-charges (pay.collect or pay.reports): the saved-card charges of an invoice, fees included. */
+  invoiceCharges(id: string): Promise<{ items: CardCharge[] }>
+  /** POST /appointments/:id/fee-charges/:chargeId/charge (pay.collect): a proposed or declined fee, after a confirm. */
+  chargeFee(appointmentId: string, chargeId: string, o?: CommandOptions): Promise<CardChargeResult>
+  /** POST /appointments/:id/fee-charges/:chargeId/waive (pay.collect): nothing is charged; the reason is kept. */
+  waiveFee(
+    appointmentId: string,
+    chargeId: string,
+    reason: string,
+    o?: CommandOptions,
+  ): Promise<{ charge: CardCharge; invoice?: InvoiceDetail | null }>
   /** GET /payments/export.csv with the active range, filter and search. */
   exportCsv(q: InvoiceQuery): Promise<CsvDownload>
 }
@@ -563,6 +574,11 @@ export function createLivePaymentsPort(c: ApiClient): PaymentsPort {
       c.post(`/payments/square/${enc(paymentId)}/reassign`, { toInvoiceId }, o),
     reconciliation: () => c.get('/payments/reconciliation'),
     chargeCard: (id, input, o) => c.post(`/invoices/${enc(id)}/card-charges`, input, o),
+    invoiceCharges: (id) => c.get(`/invoices/${enc(id)}/card-charges`),
+    chargeFee: (appointmentId, chargeId, o) =>
+      c.post(`/appointments/${enc(appointmentId)}/fee-charges/${enc(chargeId)}/charge`, {}, o),
+    waiveFee: (appointmentId, chargeId, reason, o) =>
+      c.post(`/appointments/${enc(appointmentId)}/fee-charges/${enc(chargeId)}/waive`, { reason }, o),
     async exportCsv(q) {
       const query = {
         range: q.range,

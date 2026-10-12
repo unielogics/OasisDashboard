@@ -19,6 +19,7 @@ import { getDataPort } from '@/data/default-port'
 import { getQueryClient, qk } from '@/data/query'
 import { QueryStore } from '@/data/query-store'
 import type {
+  CardCharge,
   CardChargeResult,
   CollectResult,
   CsvDownload,
@@ -50,6 +51,9 @@ import {
   toMatchBanner,
 } from '@/lib/payments/square'
 import { toastForError, toastText } from '@/data/toast'
+import { serverNow } from '@/lib/clock'
+import { DEFAULT_TZ, businessToday } from '@/lib/tz'
+import { chargeFeeText, feeChargeToast, feeLineStyle, feeRows } from '@/lib/operations/live/billing'
 import { invoicePill } from '@/lib/color'
 import {
   FILTERS,
@@ -141,6 +145,12 @@ export interface LiveState {
   moveError: string
   /** DV-901: the saved-card charge of the Collect sheet: declined (Square's reason) or waiting for Square (202). */
   cardState: { kind: 'declined' | 'waiting'; text: string } | null
+  /** DV-904: the fee of a canceled visit whose charge asks first, the fee being waived and the reason typed. */
+  feeConfirm: string | null
+  feeWaive: string | null
+  waiveReason: string
+  /** A fee command in flight. */
+  feeBusy: boolean
 }
 
 export interface LiveDeps {
@@ -250,6 +260,10 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       moveTo: '',
       moveError: '',
       cardState: null,
+      feeConfirm: null,
+      feeWaive: null,
+      waiveReason: '',
+      feeBusy: false,
     }
   }
 
@@ -356,6 +370,15 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
   private readToMatch(): SquarePaymentToMatch[] | undefined {
     const key = qk.payments('square', 'unmatched')
     const v = this.deps.store.read(key, () => this.deps.port.squareToMatch(), { staleTimeMs: 30_000 })
+    return v?.items
+  }
+
+  /** DV-904: the fees of a canceled visit's invoice (GET /invoices/:id/card-charges), read quietly. */
+  private readCharges(d: InvoiceDetail): CardCharge[] | undefined {
+    if (!d.canceled || !d.appointmentId) return undefined
+    const v = this.deps.store.read(qk.payments('charges', d.id), () => this.deps.port.invoiceCharges(d.id), {
+      staleTimeMs: 30_000,
+    })
     return v?.items
   }
 
@@ -677,6 +700,50 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     } else this.setState({ sqBusy: null })
   }
 
+  /** DV-904: charge a canceled visit's proposed (or declined) fee on its saved card, after the confirm. */
+  private async chargeFee(d: InvoiceDetail, c: CardCharge, perms: LivePerms): Promise<void> {
+    if (!perms.canCollect) {
+      this.flash(deniedTitle('pay.collect'))
+      return
+    }
+    if (this.state.feeBusy || !d.appointmentId) return
+    const act = this.actionFor('fee-charge:' + c.id)
+    this.setState({ feeBusy: true })
+    const r = await this.run(
+      act,
+      (i) => this.deps.port.chargeFee(d.appointmentId!, c.id, { idempotencyKey: i }),
+      (res) => feeChargeToast(res.charge).title + ' · ' + feeChargeToast(res.charge).desc,
+      'collect payments',
+    )
+    if (this.unmounted) return
+    if (r.ok) act.renew()
+    this.setState({ feeBusy: false, feeConfirm: null })
+  }
+
+  private async waiveFee(d: InvoiceDetail, c: CardCharge, perms: LivePerms): Promise<void> {
+    if (!perms.canCollect) {
+      this.flash(deniedTitle('pay.collect'))
+      return
+    }
+    const why = this.state.waiveReason.trim()
+    if (why.length < 2) {
+      this.flash('Say why first')
+      return
+    }
+    if (this.state.feeBusy || !d.appointmentId) return
+    const act = this.actionFor('fee-waive:' + c.id)
+    this.setState({ feeBusy: true })
+    const r = await this.run(
+      act,
+      (i) => this.deps.port.waiveFee(d.appointmentId!, c.id, why, { idempotencyKey: i }),
+      () => 'Fee waived · nothing is charged',
+      'collect payments',
+    )
+    if (this.unmounted) return
+    if (r.ok) act.renew()
+    this.setState(r.ok ? { feeBusy: false, feeWaive: null, waiveReason: '' } : { feeBusy: false })
+  }
+
   private async exportCsv(rowCount: number): Promise<void> {
     if (this.exporting) return
     this.exporting = true
@@ -819,6 +886,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       catSplitLabel: split.label,
       catSplit: split.items,
       ...sq,
+      ...this.feeVals(detail, perms, session?.businessTz ?? DEFAULT_TZ),
     }
     if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
       document.documentElement.setAttribute('data-theme', s.theme)
@@ -892,6 +960,43 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       })),
       sqInFlight: inFlightText(recon),
       sqHasInFlight: !!inFlightText(recon),
+    }
+  }
+
+  /**
+   * DV-904: the no-show or late-cancel fee of a canceled visit, under the invoice's actions (`live.fee*`): the same rows as
+   * the appointment file's, so a fee the client's own late cancel proposed is found where the canceled invoice is.
+   */
+  private feeVals(det: InvoiceDetail | undefined, perms: LivePerms, tz: string): Vals {
+    const s = this.state
+    const charges = det ? this.readCharges(det) : undefined
+    const today = businessToday(serverNow(), tz)
+    const rows = feeRows(charges, tz, today)
+    const byId = new Map((charges ?? []).map((c) => [c.id, c]))
+    return {
+      feeShow: !!det && rows.length > 0,
+      feeRows: rows.map((r) => ({
+        ...r,
+        lineStyle: feeLineStyle(r.tone),
+        charge: () => {
+          if (!perms.canCollect) return this.flash(deniedTitle('pay.collect'))
+          this.setState({ feeConfirm: r.id, feeWaive: null })
+        },
+        waive: () => {
+          if (!perms.canCollect) return this.flash(deniedTitle('pay.collect'))
+          this.setState({ feeWaive: r.id, feeConfirm: null, waiveReason: '' })
+        },
+        confirming: s.feeConfirm === r.id && r.canDecide,
+        confirmText: chargeFeeText(r),
+        confirm: () => det && void this.chargeFee(det, byId.get(r.id)!, perms),
+        waiving: s.feeWaive === r.id && r.canDecide,
+        reason: s.feeWaive === r.id ? s.waiveReason : '',
+        setReason: (e: InputEvent) => this.setState({ waiveReason: e.target.value }),
+        waiveConfirm: () => det && void this.waiveFee(det, byId.get(r.id)!, perms),
+        back: () => this.setState({ feeConfirm: null, feeWaive: null }),
+      })),
+      feeButtonStyle: approveButtonStyle(perms.canCollect && !s.feeBusy),
+      feeConfirmBtnStyle: approveButtonStyle(!s.feeBusy),
     }
   }
 

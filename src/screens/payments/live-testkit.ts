@@ -6,6 +6,7 @@ import type { Session } from '@/auth/session-model'
 import { QueryStore } from '@/data/query-store'
 import type {
   AdjustResult,
+  CardCharge,
   CardChargeResult,
   CollectResult,
   EventResult,
@@ -262,6 +263,8 @@ export interface StubPort extends PaymentsPort {
   toMatch: SquarePaymentToMatch[]
   /** What GET /payments/reconciliation answers. */
   recon: Reconciliation
+  /** What GET /invoices/:id/card-charges answers, per invoice. */
+  charges: Map<string, CardCharge[]>
 }
 
 export function stubPort(): StubPort {
@@ -317,6 +320,13 @@ export function stubPort(): StubPort {
       return p.recon
     },
     chargeCard: (id, input, o) => cmd<CardChargeResult>('chargeCard', [id, input], o),
+    charges: new Map(),
+    async invoiceCharges(id) {
+      calls.push({ op: 'invoiceCharges', args: [id] })
+      return { items: p.charges.get(id) ?? [] }
+    },
+    chargeFee: (aid, cid, o) => cmd<CardChargeResult>('chargeFee', [aid, cid], o),
+    waiveFee: (aid, cid, reason, o) => cmd<{ charge: CardCharge; invoice?: InvoiceDetail | null }>('waiveFee', [aid, cid, reason], o),
     async exportCsv(q) {
       calls.push({ op: 'exportCsv', args: [q] })
       return { body: new Blob(['Invoice\r\n']), filename: 'oasis-invoices_2026-06-07_2026-06-13.csv' }

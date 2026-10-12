@@ -99,6 +99,12 @@
       "tpl": 221,
       "expectTag": "div",
       "htmlFile": "pay-collect-card.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 140,
+      "expectTag": "div",
+      "htmlFile": "pay-fee.html"
     }
   ]
 }

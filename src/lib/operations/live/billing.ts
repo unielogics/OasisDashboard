@@ -154,7 +154,13 @@ export interface FeeRowVM {
   tone: 'amber' | 'red' | 'green' | 'ink'
 }
 
-export function feeRows(items: readonly FeeCharge[] | undefined, tz: string, today: string): FeeRowVM[] {
+/** A fee as both the Operations and the Payments ports type it (api-spec 30.11 ChargeDto). */
+export type FeeLike = Pick<
+  FeeCharge,
+  'id' | 'purpose' | 'state' | 'amountCents' | 'card' | 'decidedBy' | 'decidedAt' | 'chargedAt' | 'error' | 'waiveReason'
+>
+
+export function feeRows(items: readonly FeeLike[] | undefined, tz: string, today: string): FeeRowVM[] {
   return (items ?? [])
     .filter((c) => c.purpose !== 'balance')
     .map((c) => {

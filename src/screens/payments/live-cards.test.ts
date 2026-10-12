@@ -221,3 +221,53 @@ describe('Square receipts on the ledger (DV-902)', () => {
     expect(l.opened).toEqual(['https://squareup.com/receipt/preview/sqp-1'])
   })
 })
+
+describe('the fee of a canceled visit on its invoice (DV-904)', () => {
+  const canceled = (): InvoiceDetail => ({
+    ...makeDetail({ label: 'INV-20641', client: 'Maria Alvarez', canceled: true, items: [{ name: 'Signature Hand Wash', priceCents: 4000 }] }),
+    appointmentId: 'appt-1',
+  })
+  const fee = (over: Partial<CardCharge> = {}): CardCharge =>
+    charge({ id: 'fee-1', purpose: 'no_show_fee', state: 'proposed', amountCents: 1500, squarePaymentId: null, chargedAt: null, decidedBy: null, ...over })
+
+  it('a proposed fee shows under the actions; Charge asks first, then charges on the visit', async () => {
+    const d = canceled()
+    const l = boot(session('mgmt'), d)
+    l.port.charges.set(d.id, [fee()])
+    let v = await load(l)
+    expect(l.port.calls.some((c) => c.op === 'invoiceCharges')).toBe(true)
+    expect(v.live.feeShow).toBe(true)
+    expect(v.live.feeRows[0]).toMatchObject({ title: 'No-show fee · $15 on Visa ••4242', canDecide: true })
+    v.live.feeRows[0].charge()
+    v = l.vals()
+    expect(v.live.feeRows[0].confirming).toBe(true)
+    expect(v.live.feeRows[0].confirmText).toBe('Charge the No-show fee of $15 on Visa ••4242 now?')
+    l.port.next.chargeFee = { charge: fee({ state: 'charged' }), invoice: null }
+    v.live.feeRows[0].confirm()
+    await l.settle()
+    const call = l.port.calls.find((c) => c.op === 'chargeFee')!
+    expect(call.args).toEqual(['appt-1', 'fee-1'])
+    expect(call.key).toBeTruthy()
+    expect(l.logic.state.toast).toBe('No-show fee charged · $15 on Visa ••4242')
+  })
+
+  it('Waive needs a reason; an open invoice reads no fees', async () => {
+    const d = canceled()
+    const l = boot(session('mgmt'), d)
+    l.port.charges.set(d.id, [fee()])
+    let v = await load(l)
+    v.live.feeRows[0].waive()
+    l.vals().live.feeRows[0].waiveConfirm()
+    await l.settle()
+    expect(l.port.calls.some((c) => c.op === 'waiveFee')).toBe(false)
+    l.vals().live.feeRows[0].setReason({ target: { value: 'First time' } })
+    l.port.next.waiveFee = { charge: fee({ state: 'waived' }) }
+    l.vals().live.feeRows[0].waiveConfirm()
+    await l.settle()
+    expect(l.port.calls.find((c) => c.op === 'waiveFee')!.args).toEqual(['appt-1', 'fee-1', 'First time'])
+    const open = boot(session('mgmt'), unpaid())
+    v = await load(open)
+    expect(v.live.feeShow).toBe(false)
+    expect(open.port.calls.some((c) => c.op === 'invoiceCharges')).toBe(false)
+  })
+})
