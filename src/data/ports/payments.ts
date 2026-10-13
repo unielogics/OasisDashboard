@@ -287,7 +287,14 @@ export interface InvoiceDetail {
   refundPending: boolean
   canceled: boolean
   cancelReason: 'canceled' | 'no_show' | null
+  /** Deprecated (ADR 0173): the rate rounded half up to whole basis points (6.625% reads 663). Use taxDbp. */
   taxBp: number
+  /**
+   * The invoice's rate in thousandths of a percent (7000 = 7%, 6625 = 6.625%) and how its tax is rounded, once on its
+   * subtotal (ADR 0173). Absent from a server before ADR 0173: taxBp × 10, half up (cents.ts taxRateOf).
+   */
+  taxDbp?: number
+  taxRounding?: 'half_up' | 'half_even'
   tipCents: number
   paymentLinkUrl: string | null
   awaitingProcessorCount: number

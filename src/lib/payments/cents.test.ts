@@ -1,6 +1,7 @@
 // The cents twin of the invoice arithmetic: equal to the design's float calc() on the 105 fixtures and on seeded random
 // invoices (amounts whose tax never lands on a half cent, where float and half-up cents must agree), golden vectors from
-// the backend (test/golden/pay/DEVIATIONS.md) and the text parsers.
+// the backend (test/golden/pay/DEVIATIONS.md; ADR 0173 "Dashboard twin" for 6.625% and Square's rounding) and the text
+// parsers.
 import { describe, expect, it } from 'vitest'
 import { buildInvoices } from '@/screens/payments/fixtures'
 import { seeded } from '@/screens/payments/testkit'
@@ -15,11 +16,16 @@ import {
   money0,
   parseCents,
   parsePercentBp,
+  parseTaxPercent,
   percentOfCents,
-  taxHalfUp,
-  taxLabel,
+  salesTaxCents,
+  taxPercentLabel,
+  taxRateOf,
 } from './cents'
-import type { CentsCalc, CentsEvent } from './cents'
+import type { CentsCalc, CentsEvent, TaxRate } from './cents'
+
+const SEVEN: TaxRate = { dbp: 7000, rounding: 'half_up' }
+const taxHalfUp = (sub: number, bp: number): number => salesTaxCents(sub, { dbp: bp * 10, rounding: 'half_up' })
 
 const toCents = (n: number): number => Math.round(n * 100)
 
@@ -41,7 +47,8 @@ function twin(tx: Invoice): CentsCalc {
       status: e.type === 'refund' ? e.status : undefined,
       dest: e.dest,
     })),
-    taxBp: 700,
+    taxDbp: 7000,
+    taxRounding: 'half_up',
     tipCents: toCents(tx.tip),
     canceled: tx.canceled,
   })
@@ -143,32 +150,33 @@ describe('half-up cents (backend golden vectors)', () => {
     expect(percentOfCents(10000, 1250)).toBe(1250)
   })
   it('by-item refund adds the invoice tax and never exceeds what is refundable', () => {
-    expect(itemsRefundValue([4000], 700, 100000)).toBe(4280)
-    expect(itemsRefundValue([54000], 700, 100000)).toBe(57780)
-    expect(itemsRefundValue([54000], 700, 10000)).toBe(10000)
-    expect(itemsRefundValue([], 700, 10000)).toBe(0)
+    expect(itemsRefundValue([4000], SEVEN, 100000)).toBe(4280)
+    expect(itemsRefundValue([54000], SEVEN, 100000)).toBe(57780)
+    expect(itemsRefundValue([54000], SEVEN, 10000)).toBe(10000)
+    expect(itemsRefundValue([], SEVEN, 10000)).toBe(0)
   })
   it('adjust preview: discount on a paid invoice leaves an overpayment to settle', () => {
     const c = calcCents({
       itemPrices: [26000],
       events: [{ type: 'pay', amountCents: 27820 }],
-      taxBp: 700,
+      taxDbp: 7000,
+      taxRounding: 'half_up',
       tipCents: 0,
       canceled: false,
     })
-    expect(adjustPreview(c, 700, { kind: 'discount', unit: '%', value: 1000 })).toEqual({
+    expect(adjustPreview(c, SEVEN, { kind: 'discount', unit: '%', value: 1000 })).toEqual({
       pre: 2600,
       signed: -2600,
       newSub: 23400,
       newTotal: 25038,
       diff: 2782,
     })
-    expect(adjustPreview(c, 700, { kind: 'surcharge', unit: '$', value: 1500 })).toMatchObject({
+    expect(adjustPreview(c, SEVEN, { kind: 'surcharge', unit: '$', value: 1500 })).toMatchObject({
       newTotal: 29425,
       diff: -1605,
     })
     // a discount larger than the invoice floors the tax base at zero
-    expect(adjustPreview(c, 700, { kind: 'discount', unit: '$', value: 30000 }).newTotal).toBe(-4000)
+    expect(adjustPreview(c, SEVEN, { kind: 'discount', unit: '$', value: 30000 }).newTotal).toBe(-4000)
   })
   it('a void takes a payment back out of paid, and a canceled invoice has no balance', () => {
     const c = calcCents({
@@ -177,12 +185,20 @@ describe('half-up cents (backend golden vectors)', () => {
         { type: 'pay', amountCents: 10700 },
         { type: 'void', amountCents: 10700 },
       ],
-      taxBp: 700,
+      taxDbp: 7000,
+      taxRounding: 'half_up',
       tipCents: 0,
       canceled: false,
     })
     expect([c.paid, c.balance, c.status]).toEqual([0, 10700, 'unpaid'])
-    const k = calcCents({ itemPrices: [10000], events: [], taxBp: 700, tipCents: 0, canceled: true })
+    const k = calcCents({
+      itemPrices: [10000],
+      events: [],
+      taxDbp: 7000,
+      taxRounding: 'half_up',
+      tipCents: 0,
+      canceled: true,
+    })
     expect([k.balance, k.status]).toEqual([0, 'canceled'])
   })
   it('rejects non-integer cents', () => {
@@ -210,16 +226,30 @@ describe('display and parsing', () => {
     expect(parsePercentBp('10')).toBe(1000)
     expect(parsePercentBp('12.5%')).toBe(1250)
   })
-  it('tax label follows the invoice rate', () => {
-    expect(taxLabel(700)).toBe('7%')
-    expect(taxLabel(625)).toBe('6.25%')
+  it('tax label follows the invoice rate, up to three decimals (DV-213, ADR 0173)', () => {
+    expect([7000, 6625, 6250, 1, 6600, 0, 100_000, 10].map(taxPercentLabel)).toEqual([
+      '7%',
+      '6.625%',
+      '6.25%',
+      '0.001%',
+      '6.6%',
+      '0%',
+      '100%',
+      '0.01%',
+    ])
   })
 })
 
 // ADR 0171 D4: a card refund Square reported FAILED or REJECTED gave nothing back, so it no longer counts as refunded. The
 // same golden vectors as the backend's test/square/core-pure.test.ts ("calc with a failed card refund"), so the twins agree.
 describe('a failed card refund is not refunded (ADR 0171 D4; backend golden)', () => {
-  const base = { itemPrices: [10_000], taxBp: 700, tipCents: 0, canceled: false }
+  const base = {
+    itemPrices: [10_000],
+    taxDbp: 7000,
+    taxRounding: 'half_up' as const,
+    tipCents: 0,
+    canceled: false,
+  }
   const payE: CentsEvent = { type: 'pay', amountCents: 10_700 }
   const refundE = (amountCents: number, processorState: CentsEvent['processorState']): CentsEvent => ({
     type: 'refund',
@@ -252,5 +282,125 @@ describe('a failed card refund is not refunded (ADR 0171 D4; backend golden)', (
   it('an event without a processor state (cash, store credit, older data) counts as before', () => {
     const r = calcCents({ ...base, events: [payE, { type: 'refund', amountCents: 500, status: 'done', dest: 'cash' }] })
     expect(r.refunded).toBe(500)
+  })
+})
+
+// ADR 0173 "Dashboard twin": the rate in thousandths of a percent and each invoice's own rounding. The vectors are the
+// backend's (test/unit/tax-precision.test.ts); the 6.625% half-even ones are Square's own CalculateOrder answers (SQR-18).
+describe('sales tax at a precise rate with the invoice’s rounding (ADR 0173; backend golden)', () => {
+  const NJ: TaxRate = { dbp: 6625, rounding: 'half_even' }
+  const vec = (rate: TaxRate, pairs: Array<[number, number]>) => {
+    for (const [sub, tax] of pairs) expect(salesTaxCents(sub, rate), `${rate.dbp} ${rate.rounding} ${sub}`).toBe(tax)
+  }
+  it('6.625% half to even (Square’s answers)', () => {
+    vec(NJ, [
+      [400, 26],
+      [1200, 80],
+      [2000, 132],
+      [3600, 238],
+      [5200, 344],
+      [10_000, 662],
+      [50_000, 3312],
+      [800, 53],
+      [2400, 159],
+      [6000, 398],
+      [14_000, 928],
+      [5500, 364],
+      [12_900, 855],
+      [150, 10],
+      [100, 7],
+      [500, 33],
+      [4000, 265],
+      [5000, 331],
+      [25_000, 1656],
+      [1600, 106],
+      [10_400, 689],
+      [5600, 371],
+      [250, 17],
+      [650, 43],
+    ])
+  })
+  it('6.625% half up', () => vec({ dbp: 6625, rounding: 'half_up' }, [[400, 27], [10_000, 663], [5200, 345]]))
+  it('7% half to even differs from half up only on $x.50 with x odd; every whole-dollar subtotal is the same', () => {
+    vec({ dbp: 7000, rounding: 'half_even' }, [[150, 10], [250, 18], [18_400, 1288]])
+    for (let d = 0; d <= 5000; d++)
+      expect(salesTaxCents(d * 100, { dbp: 7000, rounding: 'half_even' })).toBe(salesTaxCents(d * 100, SEVEN))
+  })
+  it('7% half up: the design’s vectors are unchanged', () =>
+    vec(SEVEN, [
+      [50, 4],
+      [150, 11],
+      [250, 18],
+      [1000, 70],
+      [18_400, 1288],
+      [54_000, 3780],
+      [15_400, 1078],
+      [35_000, 2450],
+    ]))
+  it('half up in dbp is exactly the old basis-point formula for every whole-bp rate', () => {
+    for (let bp = 0; bp <= 10_000; bp += 7)
+      for (const sub of [0, 1, 49, 50, 150, 999, 4321, 123_457])
+        expect(salesTaxCents(sub, { dbp: bp * 10, rounding: 'half_up' })).toBe(Math.floor((sub * bp * 2 + 10_000) / 20_000))
+  })
+  it('half to even equals an exact BigInt reference', () => {
+    for (let sub = 0; sub <= 20_000; sub += 3)
+      for (const dbp of [6625, 7000, 8875, 1, 99_999]) {
+        const n = BigInt(sub) * BigInt(dbp)
+        const q = n / 100_000n
+        const r2 = 2n * (n % 100_000n)
+        const ref = r2 > 100_000n ? q + 1n : r2 < 100_000n ? q : q % 2n === 0n ? q : q + 1n
+        expect(salesTaxCents(sub, { dbp, rounding: 'half_even' })).toBe(Number(ref))
+      }
+  })
+  it('the invoice calc rounds once on the adjusted subtotal; tips are untaxed', () => {
+    const inv = (rounding: TaxRate['rounding']) =>
+      calcCents({
+        itemPrices: [2000, 3600],
+        events: [{ type: 'adjust', amountCents: -400 }],
+        taxDbp: 6625,
+        taxRounding: rounding,
+        tipCents: 500,
+        canceled: false,
+      })
+    expect([inv('half_even').sub, inv('half_even').tax, inv('half_even').total]).toEqual([5200, 344, 6044])
+    expect(inv('half_up').tax).toBe(345)
+    // $4 + $4 at 6.625% is 53 cents (once on the order), never 52 or 54 (per line)
+    const two = calcCents({ itemPrices: [400, 400], events: [], taxDbp: 6625, taxRounding: 'half_even', tipCents: 0, canceled: false })
+    expect(two.tax).toBe(53)
+  })
+  it('net takes the tax part of refunds out half up at the invoice’s rate', () => {
+    const c = calcCents({
+      itemPrices: [10_000],
+      events: [
+        { type: 'pay', amountCents: 10_662 },
+        { type: 'refund', amountCents: 5331, status: 'done', dest: 'card' },
+      ],
+      taxDbp: 6625,
+      taxRounding: 'half_even',
+      tipCents: 0,
+      canceled: false,
+    })
+    // 5331 × 100000 / 106625 = 4999.76 -> 5000
+    expect(c.net).toBe(10_000 - 5000)
+  })
+  it('by-item refunds and adjustment previews use the invoice’s rule (backend vectors)', () => {
+    expect(itemsRefundValue([400], NJ, 100_000)).toBe(426)
+    expect(itemsRefundValue([400], { dbp: 6625, rounding: 'half_up' }, 100_000)).toBe(427)
+    const c = calcCents({ itemPrices: [4000], events: [], taxDbp: 6625, taxRounding: 'half_even', tipCents: 0, canceled: false })
+    expect(adjustPreview(c, NJ, { kind: 'discount', unit: '$', value: 400 }).newTotal).toBe(3600 + 238)
+  })
+  it('reads the rate an invoice carries; a server before ADR 0173 sends only taxBp (half up)', () => {
+    expect(taxRateOf({ taxDbp: 6625, taxRounding: 'half_even', taxBp: 663 })).toEqual(NJ)
+    expect(taxRateOf({ taxDbp: 7000, taxRounding: 'half_up', taxBp: 700 })).toEqual(SEVEN)
+    expect(taxRateOf({ taxBp: 700 })).toEqual(SEVEN)
+    expect(taxRateOf({ taxDbp: 6625 })).toEqual({ dbp: 6625, rounding: 'half_up' })
+  })
+  it('parses a percentage exactly like the server (up to three decimals, 0 to 100) and round-trips the label', () => {
+    expect(['6.625', '7', '7.0', '6.625%', ' 6.625 ', '0', '100', '0.001', '8.25'].map(parseTaxPercent)).toEqual([
+      6625, 7000, 7000, 6625, 6625, 0, 100_000, 1, 8250,
+    ])
+    for (const bad of ['6.6255', '-1', '100.001', '101', 'abc', '', '6,625', '1e2', '.5', '6.62.5'])
+      expect(parseTaxPercent(bad), bad).toBeNull()
+    for (let dbp = 0; dbp <= 100_000; dbp += 37) expect(parseTaxPercent(taxPercentLabel(dbp))).toBe(dbp)
   })
 })

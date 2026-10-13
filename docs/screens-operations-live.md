@@ -174,7 +174,8 @@ Backend (branch `ws/d9-be`) changes this screen needed: see "Backend changes" be
 
 ## Backend changes (`ws/d9-be`)
 
-- `InvoiceSummary.awaitingCents` and `PayView.kind = "pending"` (Payment pending, DV-212 on the board), plus `taxBp`.
+- `InvoiceSummary.awaitingCents` and `PayView.kind = "pending"` (Payment pending, DV-212 on the board), plus `taxBp`
+  (since ADR 0173 the file's Payments tab reads `taxDbp` for its `Tax (6.625%)` line, `taxBp` × 10 from an older server).
 - Payment commands and Squarespace confirmations also publish `ops` events (`appointment.updated {change: "payment"}`,
   `kpi.dirty`), so the board refreshes by itself.
 - The `parity-ops` seed creates one invoice per design appointment (`PARITY_OPS_MONEY`: paid, deposit, unpaid, tips) and

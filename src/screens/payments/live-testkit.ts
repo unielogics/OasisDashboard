@@ -79,7 +79,9 @@ export interface DetailSpec {
   events?: LedgerEvent[]
   tipCents?: number
   canceled?: boolean
-  taxBp?: number
+  /** The invoice's rate in thousandths of a percent (default 7000 = 7%) and its rounding (default half_up; ADR 0173). */
+  taxDbp?: number
+  taxRounding?: 'half_up' | 'half_even'
   creditCents?: number
   paymentLinkUrl?: string | null
   refundCaps?: InvoiceDetail['refundCaps']
@@ -116,7 +118,8 @@ export function refundCapsOf(events: readonly LedgerEvent[], refundable: number)
 export function makeDetail(spec: DetailSpec = {}): InvoiceDetail {
   const items = spec.items ?? [{ name: 'Executive Detail', priceCents: 26000 }]
   const events = spec.events ?? []
-  const taxBp = spec.taxBp ?? 700
+  const taxDbp = spec.taxDbp ?? 7000
+  const taxRounding = spec.taxRounding ?? 'half_up'
   const cevents: CentsEvent[] = events.map((e) => ({
     type: e.type,
     amountCents: e.amountCents,
@@ -127,7 +130,8 @@ export function makeDetail(spec: DetailSpec = {}): InvoiceDetail {
   const calc = calcCents({
     itemPrices: items.map((i) => i.priceCents),
     events: cevents,
-    taxBp,
+    taxDbp,
+    taxRounding,
     tipCents: spec.tipCents ?? 0,
     canceled: spec.canceled ?? false,
   })
@@ -161,7 +165,10 @@ export function makeDetail(spec: DetailSpec = {}): InvoiceDetail {
     refundPending: pending.length > 0,
     canceled: spec.canceled ?? false,
     cancelReason: spec.canceled ? 'canceled' : null,
-    taxBp,
+    // the deprecated whole-bp copy the server still sends (ADR 0173 T6): the rate rounded half up
+    taxBp: Math.floor((taxDbp + 5) / 10),
+    taxDbp,
+    taxRounding,
     tipCents: spec.tipCents ?? 0,
     paymentLinkUrl: spec.paymentLinkUrl ?? null,
     awaitingProcessorCount: awaiting,
