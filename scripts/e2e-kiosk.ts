@@ -88,7 +88,7 @@ async function api<T = any>(page: Page, method: string, url: string, body?: unkn
         const csrf = await (await fetch('/api/v1/auth/csrf', { credentials: 'same-origin' })).json()
         headers['X-CSRF-Token'] = csrf.csrfToken
         headers['Idempotency-Key'] = crypto.randomUUID()
-        headers['Content-Type'] = 'application/json'
+        if (body !== null) headers['Content-Type'] = 'application/json'
       }
       const r = await fetch('/api/v1' + url, {
         method,
@@ -126,7 +126,8 @@ async function context(browser: Browser, label: string): Promise<{ ctx: BrowserC
   const seen: Seen[] = []
   page.on('pageerror', (e) => pageErrors.push(`${label}: ${String(e)}`))
   page.on('console', (m) => {
-    if (m.type() === 'error' && !/Failed to load resource: the server responded with a status of 4\d\d/.test(m.text()))
+    // 4xx are answers; 501 is the team activity report until wave K2b builds it (checked as PENDING below)
+    if (m.type() === 'error' && !/Failed to load resource: the server responded with a status of (4\d\d|501)/.test(m.text()))
       pageErrors.push(`${label}: console: ${m.text()}`)
   })
   page.on('request', (r: Request) => {
@@ -134,7 +135,7 @@ async function context(browser: Browser, label: string): Promise<{ ctx: BrowserC
     seen.push({ method: r.method(), path: new URL(r.url()).pathname, actor: r.headers()['x-oasis-employee'] })
   })
   page.on('response', (r) => {
-    if (r.url().includes('/api/v1/') && r.status() >= 500)
+    if (r.url().includes('/api/v1/') && r.status() >= 500 && !(r.status() === 501 && r.url().includes('/reports/employee-activity')))
       apiBad.push(`${label}: ${r.status()} ${r.request().method()} ${r.url()}`)
   })
   return { ctx, page, seen }
@@ -165,7 +166,7 @@ const picker = (page: Page) => page.locator('[data-kiosk-picker]')
 /** Waits for the employee picker, checks its question, taps the person whose name starts with `first`. */
 async function tap(page: Page, first: string, question?: RegExp): Promise<string> {
   await picker(page).waitFor({ timeout: 8000 })
-  const title = ((await picker(page).locator('div').first().textContent()) ?? '').replace(/\s+/g, ' ')
+  const title = ((await picker(page).locator('div').first().textContent()) ?? '').replace(/\s+/g, ' ').trim()
   if (question) ok(question.test(title), 'the picker asks: ' + question.source, title)
   await picker(page).locator('[data-kiosk-tile]', { hasText: first }).first().click()
   await picker(page).waitFor({ state: 'detached', timeout: 5000 })
@@ -205,6 +206,17 @@ async function tab(page: Page, label: string): Promise<void> {
 
 async function keypadType(page: Page, digits: string): Promise<void> {
   for (const d of digits) await page.locator(`[data-key="${d}"]`).click()
+}
+
+/** The appointment id of a customer's card on today's board. */
+async function cardId(page: Page, name: string): Promise<string | undefined> {
+  const snap = (await api(page, 'GET', '/ops/snapshot?window=next24')).body
+  const cards = [
+    ...(snap.timeline?.groups ?? []).flatMap((g: any) => g.items),
+    ...(snap.completed?.items ?? []),
+    ...(snap.bays ?? []).flatMap((b: any) => (b.occupant ? [b.occupant.card] : [])),
+  ]
+  return cards.find((c: any) => c.customer?.name === name)?.id
 }
 
 const writesWith = (seen: Seen[], method: string, re: RegExp): Seen[] =>
@@ -276,78 +288,143 @@ async function main(): Promise<void> {
     await shot(tablet, '04-kiosk-board')
 
     // ---------------------------------------------------------------------------------------------------------------
-    section('a car to a bay: the picker asks who, the request names them')
+    section('one job through every step from its file, each step asking who (Grace Adeyemi)')
+    const lena = staff.find((s) => s.first === 'Lena')
+    const sofia = staff.find((s) => s.first === 'Sofia')
+    const graceId = await cardId(tablet, 'Grace Adeyemi')
+    ok(!!graceId, 'Grace Adeyemi is on the board')
+    await openFile(tablet, 'Grace Adeyemi')
+    const steps: Array<[string, RegExp, string, string, string | undefined]> = [
+      ['Confirm Appointment', /^Who’s confirming Grace’s/, 'Confirmation sent', 'confirmed', marco?.id],
+      ['Mark Arrived', /^Who’s checking in Grace’s/, 'Marked arrived', 'arrived', lena?.id],
+      ['Start Cleaning', /^Who’s starting Grace’s/, 'Cleaning started', 'cleaning', marco?.id],
+      ['Mark Complete', /^Who finished Grace’s/, 'Job completed', 'completed', lena?.id],
+    ]
+    for (const [label, question, toast, status, who] of steps) {
+      const before = T.seen.length
+      await modal(tablet).getByRole('button', { name: label, exact: true }).click()
+      await tap(tablet, who === lena?.id ? 'Lena' : 'Marco', question)
+      const t = await waitToast(tablet, toast)
+      ok(t.includes(toast), `${label}: the server's toast after the picker`, t)
+      const st = await until(async () => ((await api(tablet, 'GET', `/appointments/${graceId}`)).body.status === status ? status : null))
+      ok(st === status, `${label} -> ${status} in the API`, st)
+      const sent = T.seen.slice(before).filter((x) => x.method === 'POST' && /\/appointments\/[^/]+\/[a-z-]+$/.test(x.path))
+      ok(sent.length === 1 && sent[0]!.actor === who, `${label} names the person tapped`, sent)
+    }
+    // collect: one question for the payment and its receipt
+    await modal(tablet).getByRole('button', { name: 'Collect Payment', exact: true }).click()
+    await sleep(300)
+    await modal(tablet).getByRole('button', { name: 'Cash', exact: true }).click()
+    const payBefore = T.seen.length
+    await modal(tablet).getByRole('button', { name: /^Mark Paid/ }).click()
+    await tap(tablet, 'Marco', /^Who’s taking Grace’s payment\?/)
+    let tt = await waitToast(tablet, 'Payment collected', 10_000)
+    ok(tt.includes('Payment collected'), 'Mark Paid by cash after the picker', tt)
+    const pays = T.seen.slice(payBefore).filter((x) => x.method === 'POST' && /\/invoices\/[^/]+\/(payments|receipt)$/.test(x.path))
+    ok(pays.length === 2 && pays.every((x) => x.actor === marco?.id), 'payment and receipt carry the one name asked', pays)
+    const file = (await api(tablet, 'GET', `/appointments/${graceId}`)).body
+    const lines = (file.activity ?? []).map((a: any) => `${a.text} · ${a.actorName ?? ''}`)
+    later(
+      (file.activity ?? []).some((a: any) => /arriv/i.test(a.text ?? '') && (a.actorName ?? '').startsWith('Lena')),
+      'History: “Arrival logged · Today · Lena …” (the tapped name)',
+      lines.slice(0, 6),
+    )
+    await tablet.keyboard.press('Escape')
+    await modal(tablet).waitFor({ state: 'detached', timeout: 5000 }).catch(() => undefined)
+
+    // ---------------------------------------------------------------------------------------------------------------
+    section('a booking asks once; texts ask once per open file (Dana Whitfield, an allowed number)')
+    const cat = (await api(tablet, 'GET', '/services')).body
+    const express = cat.packages.find((x: any) => x.name === 'Express Hand Wash')
+    const slots = ((await api(tablet, 'GET', `/availability?date=2026-06-13&serviceId=${express.id}&channel=desk`)).body.slots ?? []).filter(
+      (x: any) => x.state === 'available',
+    )
+    ok(slots.length >= 2, 'the day has open slots', slots.length)
+    await tablet.locator('#dc-root button', { hasText: 'New Appointment' }).first().click()
+    await tablet.waitForSelector('input[placeholder="Full name"]')
+    await tablet.fill('input[placeholder="Full name"]', 'Dana Whitfield')
+    await tablet.fill('input[placeholder="Phone number"]', '(305) 555-0171')
+    await tablet.fill('input[placeholder="Year / Make / Model"]', '2022 Tesla Model 3')
+    await tablet.fill('input[placeholder="License plate"]', 'dw-2022')
+    await tablet.locator('div[style*="z-index: 70"] button', { hasText: 'Express Hand Wash' }).first().click()
+    await sleep(900)
+    await tablet
+      .locator('div[style*="z-index: 70"] button', { hasText: new RegExp('^' + slots[1].time + '$') })
+      .first()
+      .click()
+    const bookBefore = T.seen.length
+    await tablet.locator('div[style*="z-index: 70"] button', { hasText: 'Book Appointment' }).click()
+    await tap(tablet, 'Sofia', /^Who’s making this booking\?/)
+    tt = await waitToast(tablet, 'booked')
+    ok(tt.includes('booked'), 'the booking is made after the picker', tt)
+    const books = writesWith(T.seen.slice(bookBefore), 'POST', /\/api\/v1\/appointments$/)
+    ok(books.length === 1 && books[0]!.actor === sofia?.id, 'POST /appointments names Sofia', books)
+    const danaId = await until(() => cardId(tablet, 'Dana Whitfield'))
+    ok(!!danaId, 'Dana is on the board')
+    await openFile(tablet, 'Dana Whitfield')
+    await tab(tablet, 'Messages')
+    const composer = modal(tablet).locator('input[placeholder="Type a message…"]')
+    await composer.fill('Hi Dana, we will text you when your Tesla is ready.')
+    const textBefore = T.seen.length
+    await composer.press('Enter')
+    await tap(tablet, 'Sofia', /^Who’s texting Dana\?/)
+    tt = await waitToast(tablet, 'Message sent')
+    ok(tt.includes('Message sent'), 'the text is sent after the picker', tt)
+    ok((await text(tablet)).includes('As Sofia'), 'the file shows “As Sofia … · Change”')
+    await composer.fill('See you soon.')
+    await composer.press('Enter')
+    tt = await waitToast(tablet, 'Message sent')
+    ok((await picker(tablet).count()) === 0, 'a second text within 2 minutes does not ask again')
+    const texts = writesWith(T.seen.slice(textBefore), 'POST', /\/appointments\/[^/]+\/messages$/)
+    ok(texts.length === 2 && texts.every((x) => x.actor === sofia?.id), 'both texts name Sofia', texts)
+    await shot(tablet, '05-file-acting')
+    // the composer has the focus: the first Escape leaves it, the second closes the file
+    await tablet.keyboard.press('Escape')
+    await tablet.keyboard.press('Escape')
+    await modal(tablet).waitFor({ state: 'detached', timeout: 5000 }).catch(() => undefined)
+
+    // ---------------------------------------------------------------------------------------------------------------
+    section('a car to a bay by drag: the picker asks who, the request names them')
     const assignBefore = T.seen.length
     await dragTo(
       tablet,
       tablet.locator('#dc-root button', { hasText: 'Marcus Webb' }).first(),
       tablet.locator('[data-drop="bay:2"]').first(),
     )
-    ok(!T.seen.slice(assignBefore).some((s) => s.path.endsWith('/assign-bay')), 'nothing is sent before a name is tapped')
-    await shot(tablet, '05-picker')
+    await picker(tablet).waitFor({ timeout: 8000 })
+    ok(!T.seen.slice(assignBefore).some((x) => x.path.endsWith('/assign-bay')), 'nothing is sent before a name is tapped')
+    await sleep(400) // the overlay fades in
+    await shot(tablet, '06-picker')
     await tap(tablet, 'Marco', /^Who’s putting Marcus’s .+ in Bay 2\?/)
-    let tt = await waitToast(tablet, 'Bay 2')
+    tt = await waitToast(tablet, 'Bay 2')
     ok(tt.includes('Bay 2'), 'the server’s toast after the drop', tt)
     const assign = writesWith(T.seen.slice(assignBefore), 'POST', /\/assign-bay$/)
     ok(assign.length === 1 && assign[0]!.actor === marco?.id, 'POST assign-bay carries X-Oasis-Employee = Marco', assign)
-    const cards = (await api(tablet, 'GET', '/ops/snapshot?window=next24')).body
-    const bay2 = cards.bays?.find((b: any) => b.number === 2)
+    const snap = (await api(tablet, 'GET', '/ops/snapshot?window=next24')).body
+    const bay2 = snap.bays?.find((x: any) => x.number === 2)
     ok(bay2?.occupant?.card?.customer?.name === 'Marcus Webb', 'Marcus is in Bay 2 in the API')
     later(bay2?.occupant?.worker?.name?.startsWith('Marco'), 'the bay card’s worker is Marco (attribution package)', bay2?.occupant?.worker)
     const marcusId: string | undefined = bay2?.occupant?.card?.id
     if (marcusId) {
-      const file = (await api(tablet, 'GET', `/appointments/${marcusId}`)).body
-      const line = (file.activity ?? []).find((a: any) => /bay|clean|start/i.test(a.text ?? ''))
-      later(
-        (file.activity ?? []).some((a: any) => (a.actorName ?? '').startsWith('Marco')),
-        'History reads “Today · Marco R.” for the bay step',
-        line,
+      const mf = (await api(tablet, 'GET', `/appointments/${marcusId}`)).body
+      ok(
+        (mf.activity ?? []).some((a: any) => (a.actorName ?? '').startsWith('Marco')),
+        'History names Marco for the bay step',
+        (mf.activity ?? []).slice(0, 3),
       )
     }
 
     // ---------------------------------------------------------------------------------------------------------------
-    section('complete, collect and text, each with the picker')
+    section('complete from the bay card')
     await tablet.locator('#dc-root button', { hasText: 'Bay Board' }).first().click()
     await sleep(500)
     const completeBefore = T.seen.length
     await tablet.locator('[data-drop="bay:1"]').getByRole('button', { name: 'Mark Complete' }).click()
-    await tap(tablet, 'Lena')
+    await tap(tablet, 'Lena', /^Who finished /)
     tt = await waitToast(tablet, 'completed')
     ok(tt.toLowerCase().includes('completed'), 'Mark Complete from the bay card, after the picker', tt)
-    const lena = staff.find((s) => s.first === 'Lena')
-    const adv = T.seen.slice(completeBefore).filter((s) => s.method === 'POST' && /\/(advance|complete)$/.test(s.path))
-    ok(adv.length >= 1 && adv.every((s) => s.actor === lena?.id), 'the completion names Lena', adv)
-    await tablet.locator('#dc-root button', { hasText: 'Timeline' }).first().click()
-    await sleep(500)
-    await openFile(tablet, 'Jonathan Franco')
-    await modal(tablet).getByRole('button', { name: 'Collect Payment', exact: true }).click()
-    await sleep(300)
-    await modal(tablet).getByRole('button', { name: 'Cash', exact: true }).click()
-    const payBefore = T.seen.length
-    await modal(tablet).getByRole('button', { name: /^Mark Paid/ }).click()
-    await tap(tablet, 'Marco', /^Who’s taking Jonathan’s payment\?/)
-    tt = await waitToast(tablet, 'Payment collected', 10_000)
-    ok(tt.includes('Payment collected'), 'Mark Paid by cash after the picker', tt)
-    const pays = T.seen.slice(payBefore).filter((s) => s.method === 'POST' && /\/invoices\/[^/]+\/(payments|receipt)$/.test(s.path))
-    ok(pays.length === 2 && pays.every((s) => s.actor === marco?.id), 'payment and receipt carry the one name asked', pays)
-    await tab(tablet, 'Messages')
-    const composer = modal(tablet).locator('input[placeholder="Type a message…"]')
-    await composer.fill('Your car is ready at the front.')
-    const textBefore = T.seen.length
-    await composer.press('Enter')
-    await tap(tablet, 'Sofia', /^Who’s texting Jonathan\?/)
-    tt = await waitToast(tablet, 'Message sent')
-    ok(tt.includes('Message sent'), 'the text is sent after the picker', tt)
-    ok((await text(tablet)).includes('As Sofia'), 'the file shows “As Sofia … · Change”')
-    await composer.fill('See you soon.')
-    await composer.press('Enter')
-    await sleep(800)
-    ok((await picker(tablet).count()) === 0, 'a second text within 2 minutes does not ask again')
-    const texts = writesWith(T.seen.slice(textBefore), 'POST', /\/appointments\/[^/]+\/messages$/)
-    const sofia = staff.find((s) => s.first === 'Sofia')
-    ok(texts.length === 2 && texts.every((s) => s.actor === sofia?.id), 'both texts name Sofia', texts)
-    await shot(tablet, '06-file-acting')
-    await tablet.keyboard.press('Escape')
+    const adv = T.seen.slice(completeBefore).filter((x) => x.method === 'POST' && /\/(advance|complete)$/.test(x.path))
+    ok(adv.length >= 1 && adv.every((x) => x.actor === lena?.id), 'the completion names Lena', adv)
 
     // ---------------------------------------------------------------------------------------------------------------
     section('the kiosk cannot reach Settings, even by direct URL')
@@ -385,7 +462,17 @@ async function main(): Promise<void> {
     // ---------------------------------------------------------------------------------------------------------------
     section('the manager removes the tablet; codes no longer work there')
     const M = await context(browser, 'manager')
-    await login(M.page, stack, EMAILS.manager, '/operations')
+    // kiosk mode is on: every sign-in page shows the keypad; 0218 reveals the email form (a browser that is not a kiosk)
+    await M.page.goto(`${stack.webUrl}/login`)
+    await M.page.waitForSelector('text=Enter the shop code', { timeout: 15_000 })
+    ok((await text(M.page)).includes('Oasis kiosk'), 'another browser shows the keypad too, without a tablet name')
+    await M.page.keyboard.type('0218')
+    await M.page.getByLabel(/email/i).fill(EMAILS.manager)
+    await M.page.getByLabel(/password/i).fill(stack.devPassword)
+    await Promise.all([
+      M.page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 20_000 }),
+      M.page.getByRole('button', { name: /sign in/i }).click(),
+    ])
     await M.page.waitForSelector('text=Appointments 24h', { timeout: 30_000 })
     r = await api(M.page, 'DELETE', `/kiosk/devices/${deviceId}`)
     ok(r.status === 200 || r.status === 204, 'DELETE /kiosk/devices/:id removes the tablet', r.status)
