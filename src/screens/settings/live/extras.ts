@@ -198,8 +198,13 @@ export class SettingsExtras {
     this.memberships = new MembershipSections(ctx, {
       canMove: () => this.can(BILLING_DENY),
       allowedMove: () => this.allowed(BILLING_DENY),
-      // the notice the backend uses: the billing setting when this person may read it, else its default (30)
+      // the billing setting's notice when this person may read it; null until it has loaded (Move members then waits)
       noticeDays: () => (this.can(BILLING_DENY) ? (this.billing()?.priceChangeNotice.days ?? null) : null),
+      noticeFailed: () => this.can(BILLING_DENY) && !this.billing() && this.store.status(BILLING_KEY) === 'error',
+      retryNotice: () => {
+        void this.qc.invalidateQueries({ queryKey: BILLING_KEY })
+        this.changed()
+      },
       today: () => businessToday(serverNow(), this.tz()),
       runMove: (name, request, o = {}) =>
         this.run(name, CATALOG_KEY, request, BILLING_DENY, o.invalidate ?? [], o.staleMessage, o.explain),

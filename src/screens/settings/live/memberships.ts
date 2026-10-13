@@ -58,6 +58,10 @@ export interface MoveHooks {
   allowedMove(): boolean
   /** The billing setting's notice (days); null while it has not loaded (Move members then waits: no fallback is sent). */
   noticeDays(): number | null
+  /** The billing settings could not be read (Move members says so and offers to read them again). */
+  noticeFailed(): boolean
+  /** Read the billing settings again. */
+  retryNotice(): void
   today(): string
   runMove<T>(name: string, request: (idem: string) => Promise<T>, o?: RunOptions): Promise<RunResult<T>>
 }
@@ -80,6 +84,8 @@ export class MembershipSections {
       canMove: () => false,
       allowedMove: () => false,
       noticeDays: () => null,
+      noticeFailed: () => false,
+      retryNotice: () => undefined,
       today: () => '1970-01-01',
       runMove: async () => ({ ok: false, message: '' }),
     },
@@ -333,6 +339,9 @@ export class MembershipSections {
         ? null
         : moveMembersPreview({ tierName: t.name, fromCents: t.fromMonthlyCents ?? null, days, today: this.move.today() })
     const busy = this.ctx.busy('move:' + t.key)
+    // the read failed (not just slow): say so and let the button read it again instead of waiting forever
+    const failed = days === null && this.move.noticeFailed()
+    const waiting = failed ? 'We couldn’t read the notice period. Try again.' : 'Reading the notice period…'
     return {
       canMove: can,
       moveOpen: can && open,
@@ -349,15 +358,16 @@ export class MembershipSections {
         this.ctx.changed()
       },
       moveExplain: pv ? pv.explain : '',
-      moveText: pv ? pv.text : 'Reading the notice period…',
-      moveWhen: pv ? 'Moves at the first bill after ' + pv.when : 'Reading the notice period…',
-      moveLabel: busy ? 'Sending…' : 'Send the notice and move them',
+      moveText: pv ? pv.text : waiting,
+      moveWhen: pv ? 'Moves at the first bill after ' + pv.when : waiting,
+      moveLabel: busy ? 'Sending…' : failed ? 'Try again' : 'Send the notice and move them',
       moveConfirm: () => {
+        if (failed) return this.move.retryNotice()
         if (days !== null && pv) void this.doMove(t, days, pv.when)
       },
       moveHasError: open && !!this.moveError,
       moveError: open ? this.moveError : '',
-      moveStyle: saveButtonStyle(!busy && pv !== null),
+      moveStyle: saveButtonStyle(!busy && (pv !== null || failed)),
     }
   }
 

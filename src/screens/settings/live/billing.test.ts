@@ -239,19 +239,23 @@ describe('Memberships: Move members and each price’s Square state (DV-909)', (
     expect(writes(t.calls, 'moveMembers')[0]![2]).toEqual({ notice: 14 })
   })
 
-  it('while the notice period has not loaded, Move members waits and sends nothing (F3)', async () => {
+  it('when the notice period cannot be read, Move members says so, sends nothing and offers to read it again (F3, N1)', async () => {
     const t = makeExtrasLogic('super')
     t.fail.set('billing', new Error('offline') as any)
     await openMem(t.logic)
     await vi.waitFor(() => expect(writes(t.calls, 'billing').length).toBeGreaterThan(0))
     call(t.logic, 'live.mem.t.moveStart')
+    await vi.waitFor(() => expect(vals(t.logic).live.mem.t.moveText).toBe('We couldn’t read the notice period. Try again.'))
     const m = vals(t.logic).live.mem
     expect(m.t.moveOpen).toBe(true)
-    expect(m.t.moveWhen).toBe('Reading the notice period…')
-    expect(m.t.moveText).toBe('Reading the notice period…')
+    expect(m.t.moveWhen).toBe('We couldn’t read the notice period. Try again.')
+    expect(m.t.moveLabel).toBe('Try again')
+    const reads = writes(t.calls, 'billing').length
+    t.fail.delete('billing')
     call(t.logic, 'live.mem.t.moveConfirm')
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.waitFor(() => expect(writes(t.calls, 'billing').length).toBeGreaterThan(reads))
     expect(writes(t.calls, 'moveMembers')).toHaveLength(0)
+    await vi.waitFor(() => expect(vals(t.logic).live.mem.t.moveWhen).toMatch(/^Moves at the first bill after /))
   })
 
   it('without set.billing there is no Move members box', async () => {
