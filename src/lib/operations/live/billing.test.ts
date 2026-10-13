@@ -495,6 +495,32 @@ describe('the billing block (DV-907)', () => {
       '$129 on Oct 13 · $129 refunded',
     )
   })
+  it('a payment already partly refunded: no Refund last payment, the server refunds only in full and once (F2)', () => {
+    const part = billingBlock(
+      member(
+        billing({
+          lastPaid: {
+            amountCents: 12900,
+            paidAt: '2026-10-13T14:00:00.000Z',
+            dueDate: null,
+            refundedCents: 900,
+          },
+        }),
+      ),
+      ui,
+    )
+    expect(part.buttons.map((x) => x.key)).not.toContain('refund-last')
+    expect(part.lines.find((l) => l.label === 'Last payment')!.value).toBe('$129 on Oct 13 · $9 refunded')
+    const free = billingBlock(
+      member(
+        billing({
+          lastPaid: { amountCents: 0, paidAt: '2026-10-13T14:00:00.000Z', dueDate: null, refundedCents: 0 },
+        }),
+      ),
+      ui,
+    )
+    expect(free.buttons.map((x) => x.key)).not.toContain('refund-last')
+  })
   it('no card on file reads in red', () => {
     const b = billingBlock(member(billing({ card: null })), ui)
     expect(b.lines.find((l) => l.label === 'Card')).toMatchObject({ value: 'No card on file', tone: 'red' })

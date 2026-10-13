@@ -1583,11 +1583,14 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       cdConfirmBtnStyle: actionButtonStyle('danger', busy('card')),
     }
 
-    // ---- the visit: cancel / no-show, then the fee (Overview)
+    // ---- the visit: cancel / no-show, then the fee (Overview). Only once Square takes card money (the fees are charged
+    // on a saved Square card): with today's defaults (Squarespace) nothing new shows. Cancel / No-show only for
+    // sched.cancel; a closed visit's card only when it has fees to show.
     const open = canCloseVisit(f)
     const closed = isClosedVisit(f)
+    const squareOn = this.processorOf(f) === 'square'
     const fees =
-      overview && closed && (this.can('pay.collect') || this.can('sched.cancel'))
+      overview && closed && squareOn && (this.can('pay.collect') || this.can('sched.cancel'))
         ? this.deps.store.read<FeeCharges>(qk.ops('fees', f.id), () => this.deps.port.feeCharges(f.id), {
             staleTimeMs: FRESH_MS,
           })
@@ -1595,7 +1598,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const feeVMs = feeRows(fees?.items, tz, today)
     const reason = s.cancelReason.trim()
     const visitVals: VM = {
-      vsShow: overview && (open || closed),
+      vsShow: overview && squareOn && ((open && this.can('sched.cancel')) || (closed && feeVMs.length > 0)),
       vsCanClose: open,
       vsClosed: closed,
       vsClosedText: closedText(f),

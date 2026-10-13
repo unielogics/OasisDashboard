@@ -47,6 +47,7 @@ import {
   processorOf,
   receiptMeta,
   safeReceiptUrl,
+  collectTenderList,
   savedCardOf,
   savedCardOkText,
   savedCardPermText,
@@ -576,6 +577,10 @@ const firstName = (client: string): string => client.split(' ')[0]!
 export const methodOfLabel = (label: string): CollectInput['method'] =>
   label === 'Cash' ? 'cash' : label === 'Payment link' ? 'payment_link' : 'card'
 
+/** The Collect sheet when the picked tender is no longer offered by the server. */
+export const staleTenderText = (tender: string): string =>
+  tender + ' can’t be used any more. Pick another way to pay.'
+
 /** The tender the Collect sheet opens on: the design's "Card on file", or "Square reader" once Square takes card money. */
 export const defaultTender = (d: Pick<InvoiceDetail, 'processing'> | undefined): string =>
   processorOf(d) === 'square' ? TENDER_SQUARE_READER : 'Card on file'
@@ -745,7 +750,15 @@ export function liveSheetCalc(args: {
   }
 
   const card = sk === 'collect' ? savedCardOf(d) : null
-  if (card && f.method === savedCardTender(card)) {
+  if (sk === 'collect' && !collectTenderList(d.processing).includes(f.method)) {
+    // the picked tender is no longer offered (the saved card was removed elsewhere, Square writes went off): nothing is
+    // sent until another one is picked, never a quiet switch to another way to pay
+    summary = [{ label: 'Balance due', value: money(c.balance), color: 'var(--red)' }]
+    blocked = true
+    permText = staleTenderText(f.method)
+    permOk = false
+    submitLabel = 'Pick a way to pay'
+  } else if (card && f.method === savedCardTender(card)) {
     // DV-901: the balance on the saved card the server named, only with the client's OK, for exactly the balance
     const first = firstName(d.client)
     summary = [

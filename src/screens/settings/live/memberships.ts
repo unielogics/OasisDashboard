@@ -56,13 +56,11 @@ export interface MoveHooks {
   canMove(): boolean
   /** set.billing, or the "Your role can’t …" toast and false. */
   allowedMove(): boolean
-  /** The billing setting's notice (days) when this person may read it; null: the server's default applies (30). */
+  /** The billing setting's notice (days); null while it has not loaded (Move members then waits: no fallback is sent). */
   noticeDays(): number | null
   today(): string
   runMove<T>(name: string, request: (idem: string) => Promise<T>, o?: RunOptions): Promise<RunResult<T>>
 }
-
-const DEFAULT_NOTICE_DAYS = 30
 
 export class MembershipSections {
   private moveFor: string | null = null
@@ -326,9 +324,14 @@ export class MembershipSections {
    */
   private moveVals(t: TierItem): Vals {
     const can = this.move.canMove() && t.prices.length > 0
-    const days = this.move.noticeDays() ?? DEFAULT_NOTICE_DAYS
+    // the owner's notice period from Billing & integrations; until it has loaded nothing is sent (a guessed notice could
+    // give members less notice than the setting says)
+    const days = this.move.noticeDays()
     const open = this.moveFor === t.key
-    const pv = moveMembersPreview({ tierName: t.name, fromCents: t.fromMonthlyCents ?? null, days, today: this.move.today() })
+    const pv =
+      days === null
+        ? null
+        : moveMembersPreview({ tierName: t.name, fromCents: t.fromMonthlyCents ?? null, days, today: this.move.today() })
     const busy = this.ctx.busy('move:' + t.key)
     return {
       canMove: can,
@@ -345,14 +348,16 @@ export class MembershipSections {
         this.moveError = ''
         this.ctx.changed()
       },
-      moveExplain: pv.explain,
-      moveText: pv.text,
-      moveWhen: 'Moves at the first bill after ' + pv.when,
+      moveExplain: pv ? pv.explain : '',
+      moveText: pv ? pv.text : 'Reading the notice period…',
+      moveWhen: pv ? 'Moves at the first bill after ' + pv.when : 'Reading the notice period…',
       moveLabel: busy ? 'Sending…' : 'Send the notice and move them',
-      moveConfirm: () => void this.doMove(t, days, pv.when),
+      moveConfirm: () => {
+        if (days !== null && pv) void this.doMove(t, days, pv.when)
+      },
       moveHasError: open && !!this.moveError,
       moveError: open ? this.moveError : '',
-      moveStyle: saveButtonStyle(!busy),
+      moveStyle: saveButtonStyle(!busy && pv !== null),
     }
   }
 

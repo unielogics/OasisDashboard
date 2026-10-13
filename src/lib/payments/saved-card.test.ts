@@ -131,7 +131,7 @@ describe('the saved card’s step (DV-901)', () => {
     expect(c.savedCard).toBeNull()
     expect(c.request).toEqual({ kind: 'collect', input: { method: 'card' } })
   })
-  it('a server that names no card never offers the step, even with a stale tender label', () => {
+  it('a server that names no card never offers the step; a stale tender blocks the sheet, never a reader collect (F4)', () => {
     const c = liveSheetCalc({
       kind: 'collect',
       f: liveSheetForm({ method: 'Saved card ••4242', cardOk: true }),
@@ -139,7 +139,29 @@ describe('the saved card’s step (DV-901)', () => {
       p: PERMS,
     })
     expect(c.savedCard).toBeNull()
-    expect(c.request?.kind).toBe('collect')
+    expect(c.blocked).toBe(true)
+    expect(c.request).toBeNull()
+    expect(c.permOk).toBe(false)
+    expect(c.permText).toBe('Saved card ••4242 can’t be used any more. Pick another way to pay.')
+    expect(c.submitLabel).toBe('Pick a way to pay')
+    // another tender the server still offers works as before
+    const reader = liveSheetCalc({
+      kind: 'collect',
+      f: liveSheetForm({ method: 'Square reader' }),
+      d: unpaid(proc({})),
+      p: PERMS,
+    })
+    expect(reader.request).toEqual({ kind: 'collect', input: { method: 'card' } })
+  })
+  it('a tender the server stopped offering (Payment link with Square writes off) is not sent either (F4)', () => {
+    const c = liveSheetCalc({
+      kind: 'collect',
+      f: liveSheetForm({ method: 'Payment link' }),
+      d: unpaid(proc({ link: false })),
+      p: PERMS,
+    })
+    expect(c.request).toBeNull()
+    expect(c.blocked).toBe(true)
   })
   it('the words of the answers', () => {
     expect(savedCardOkText('Maria', 4280, 'Visa ••4242')).toBe(

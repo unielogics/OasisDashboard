@@ -111,14 +111,20 @@ export const consentPurposes = (p: readonly string[]): string =>
 
 // ---- drafts -----------------------------------------------------------------------------------------------------------
 
-/** Whole dollars as typed ("15", "$15", "15.00"); null for anything else. */
+/**
+ * Typed dollars to cents: "15", "$15", "15.5", "15.50", "1,000". "" is $0; anything else (letters, a minus, three
+ * decimals) is null.
+ */
 export function parseDollars(raw: string): number | null {
-  const t = raw.trim().replace(/^\$/, '')
+  const t = raw.trim().replace(/^\$/, '').replace(/,/g, '')
   if (t === '') return 0
-  if (!/^\d{1,4}(\.00?)?$/.test(t)) return null
-  return Number(t.split('.')[0]) * 100
+  const m = /^(\d{1,4})(?:\.(\d{1,2}))?$/.exec(t)
+  if (!m) return null
+  return Number(m[1]) * 100 + (m[2] ? Number(m[2].padEnd(2, '0')) : 0)
 }
-export const dollars = (cents: number): string => String(Math.round(cents / 100))
+/** Cents as the form shows them: "25" when whole, else "25.50". Exact, so a saved amount goes back unchanged. */
+export const dollars = (cents: number): string =>
+  cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2)
 
 export interface FeesDraft {
   enabled: boolean
@@ -138,9 +144,9 @@ export function feesBody(
   const ns = parseDollars(d.noShow)
   const lc = parseDollars(d.lateCancel)
   if (ns === null || ns > 100_000)
-    return { ok: false, message: 'The no-show fee is whole dollars, $0 to $1,000.' }
+    return { ok: false, message: 'Enter the no-show fee like 25 or 25.50, $0 to $1,000.' }
   if (lc === null || lc > 100_000)
-    return { ok: false, message: 'The late-cancel fee is whole dollars, $0 to $1,000.' }
+    return { ok: false, message: 'Enter the late-cancel fee like 25 or 25.50, $0 to $1,000.' }
   if (d.enabled && ns === 0 && lc === 0)
     return { ok: false, message: 'Set at least one fee before turning fees on.' }
   return { ok: true, value: { enabled: d.enabled, noShowCents: ns, lateCancelCents: lc } }

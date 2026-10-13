@@ -434,14 +434,16 @@ export function billingBlock(
       buttons.push({ key: 'change', label: 'Change tier or size', confirm: null, danger: false })
     buttons.push({ key: 'card-link', label: 'Text card link', confirm: null, danger: false })
   }
-  const refundable = b.lastPaid && b.lastPaid.refundedCents < b.lastPaid.amountCents
+  // the server refunds the last payment in full, once: a payment already partly refunded is refused
+  // (MEMBERSHIP_BILLING_STATE), so the button is offered only on one with nothing refunded yet
+  const refundable = b.lastPaid && b.lastPaid.amountCents > 0 && b.lastPaid.refundedCents === 0
   if (refundable && b.lastPaid)
     buttons.push({
       key: 'refund-last',
       label: 'Refund last payment',
       confirm:
         'Refund ' +
-        opsMoney(b.lastPaid.amountCents - b.lastPaid.refundedCents) +
+        opsMoney(b.lastPaid.amountCents) +
         ' of ' +
         instantDay(b.lastPaid.paidAt, ui.tz, today) +
         ' to the card through Square? The membership itself does not change.',

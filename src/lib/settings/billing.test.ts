@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest'
 import { billingFixture } from '@/screens/settings/live/extras-testkit'
 import {
   checkLines,
+  dollars,
   feesBody,
+  feesDraft,
   lastTestText,
   moveMembersPreview,
   moveToast,
@@ -80,15 +82,34 @@ describe('the Square row and Test connection', () => {
 })
 
 describe('the forms’ checks', () => {
-  it('whole dollars', () => {
+  it('dollars and cents, exact', () => {
     expect(parseDollars('15')).toBe(1500)
     expect(parseDollars('$15')).toBe(1500)
     expect(parseDollars('15.00')).toBe(1500)
     expect(parseDollars('')).toBe(0)
-    expect(parseDollars('15.50')).toBeNull()
+    expect(parseDollars('15.50')).toBe(1550)
+    expect(parseDollars('15.5')).toBe(1550)
+    expect(parseDollars('1,000')).toBe(100000)
+    expect(parseDollars('15.505')).toBeNull()
+    expect(parseDollars('-5')).toBeNull()
     expect(parseDollars('abc')).toBeNull()
+    expect(dollars(2500)).toBe('25')
+    expect(dollars(2550)).toBe('25.50')
+    expect(dollars(1205)).toBe('12.05')
   })
-  it('the fees: whole dollars up to $1,000; on needs at least one fee', () => {
+  it('a stored fee that is not whole dollars goes back unchanged (F1)', () => {
+    const d = feesDraft({ enabled: false, noShowCents: 2550, lateCancelCents: 1250 })
+    expect(d).toEqual({ enabled: false, noShow: '25.50', lateCancel: '12.50' })
+    expect(feesBody({ ...d, enabled: true })).toEqual({
+      ok: true,
+      value: { enabled: true, noShowCents: 2550, lateCancelCents: 1250 },
+    })
+    expect(feesBody({ ...d, noShow: '25.505' })).toEqual({
+      ok: false,
+      message: 'Enter the no-show fee like 25 or 25.50, $0 to $1,000.',
+    })
+  })
+  it('the fees: up to $1,000; on needs at least one fee', () => {
     expect(feesBody({ enabled: true, noShow: '15', lateCancel: '10' })).toEqual({
       ok: true,
       value: { enabled: true, noShowCents: 1500, lateCancelCents: 1000 },

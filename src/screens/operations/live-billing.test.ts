@@ -3,7 +3,7 @@
 // Cards on file, the visit's cancel / no-show with the proposed fee, the deposit line, the processor for every role and the
 // Square billing block on the live appointment file (ADR 0171 wave Q3; DV-903..DV-907): what the file shows from the server,
 // what each control sends (permission first, then the request), and the live template rendering the new parts. With today's
-// defaults (no saved cards, Squarespace, no Square membership) none of it shows but the visit's two buttons.
+// defaults (no saved cards, Squarespace, no Square membership) none of it shows, the visit's Cancel / No-show neither (F5).
 import fs from 'node:fs'
 import path from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -105,20 +105,34 @@ const CARDS = (charge = true): CustomerCards =>
     ],
   }) as CustomerCards
 
+/** Square takes card money on this file's invoice (wave Q3's `invoice.processing`); `status` changes the visit's status. */
+const squareFile = (port: StubPort, status?: string): any => {
+  const f = clone(FILES.late) as any
+  if (status) f.status = status
+  f.invoice = {
+    ...f.invoice,
+    processing: {
+      processor: 'square',
+      squarePosAppSwitch: false,
+      squareTenders: { reader: true, link: true, savedCard: null },
+    },
+  }
+  port.files.set(f.id, f)
+  return f
+}
+
 describe('with today’s defaults', () => {
-  it('no cards block, no billing block; an open visit has Cancel visit and No-show', async () => {
+  it('no cards block, no billing block, no Visit card (Squarespace: nothing new shows, F5)', async () => {
     const l = await boot()
     const f = FILES.late as any
     let v = await openFile(l, f.id)
     expect(calls(l, 'cards')).toHaveLength(1)
     expect(v.sel.cdShow).toBe(false)
-    expect(v.sel.vsShow).toBe(true)
-    expect(v.sel.vsCanClose).toBe(true)
+    expect(v.sel.vsShow).toBe(false)
     expect(v.sel.feeRows).toEqual([])
     expect(calls(l, 'feeCharges')).toHaveLength(0)
     const page = html(l)
-    expect(page).toContain('Cancel visit')
-    expect(page).toContain('No-show')
+    expect(page).not.toContain('Cancel visit')
     expect(page).not.toContain('Cards on file')
     v = await openFile(l, (FILES.cleaning as any).id, 'membership')
     expect(v.sel.blShow).toBe(false)
@@ -217,9 +231,15 @@ const FEES = (state = 'proposed', extra: Record<string, unknown> = {}): FeeCharg
 
 describe('the visit: cancel, no-show and the fee (DV-904)', () => {
   it('Cancel visit asks for a reason first, then sends it with the text to the client', async () => {
-    const l = await boot()
-    const f = FILES.late as any
+    const port = stubPort()
+    const f = squareFile(port)
+    const l = await boot(port)
     let v = await openFile(l, f.id)
+    expect(v.sel.vsShow).toBe(true)
+    expect(v.sel.vsCanClose).toBe(true)
+    const page = html(l)
+    expect(page).toContain('Cancel visit')
+    expect(page).toContain('No-show')
     v.sel.vsCancel()
     v = l.vals()
     expect(v.sel.vsCancelling).toBe(true)
@@ -241,8 +261,9 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
   })
 
   it('No-show asks first, then sends it', async () => {
-    const l = await boot()
-    const f = FILES.late as any
+    const port = stubPort()
+    const f = squareFile(port)
+    const l = await boot(port)
     const v = await openFile(l, f.id)
     v.sel.vsNoShow()
     expect(l.vals().sel.vsNoShowText).toBe(
@@ -255,12 +276,11 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
 
   it('a no-show visit lists its proposed fee: Charge asks first, then charges; Waive needs a reason', async () => {
     const port = stubPort()
-    const f = clone(FILES.late) as any
-    f.status = 'no_show'
-    port.files.set(f.id, f)
+    const f = squareFile(port, 'no_show')
     port.feesOf.set(f.id, FEES())
     const l = await boot(port)
     let v = await openFile(l, f.id)
+    expect(v.sel.vsShow).toBe(true)
     expect(v.sel.vsCanClose).toBe(false)
     expect(v.sel.vsClosedText).toBe('Marked as a no-show')
     expect(v.sel.feeRows[0]).toMatchObject({
@@ -299,9 +319,7 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
 
   it('declined and waiting-for-Square fees say so; a charged one cannot be decided again', async () => {
     const port = stubPort()
-    const f = clone(FILES.late) as any
-    f.status = 'canceled'
-    port.files.set(f.id, f)
+    const f = squareFile(port, 'canceled')
     port.feesOf.set(f.id, FEES('declined', { error: 'Insufficient funds.', purpose: 'late_cancel_fee' }))
     const l = await boot(port)
     let v = await openFile(l, f.id)
@@ -321,20 +339,48 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
 
   it('without pay.collect the fee can be read but not charged; without sched.cancel nothing closes', async () => {
     const port = stubPort()
-    const f = clone(FILES.late) as any
-    f.status = 'no_show'
-    port.files.set(f.id, f)
+    const f = squareFile(port, 'no_show')
     port.feesOf.set(f.id, FEES())
     // Crew: neither pay.collect nor sched.cancel: the fee is not even read
     const crew = await boot(port, { role: 'crew' } as any)
     let v = await openFile(crew, f.id)
     expect(calls(crew, 'feeCharges')).toHaveLength(0)
     expect(v.sel.feeRows).toEqual([])
-    const open = await boot(stubPort(), { role: 'crew' } as any)
-    v = await openFile(open, (FILES.late as any).id)
+    expect(v.sel.vsShow).toBe(false)
+    // an open visit: no Cancel / No-show without sched.cancel (F5); a stray call is still refused
+    const openPort = stubPort()
+    const g = squareFile(openPort)
+    const open = await boot(openPort, { role: 'crew' } as any)
+    v = await openFile(open, g.id)
+    expect(v.sel.vsShow).toBe(false)
+    expect(html(open)).not.toContain('Cancel visit')
     v.sel.vsCancel()
     expect(open.vals().sel.vsCancelling).toBe(false)
     expect(open.vals().toastTitle).toBe('Your role can’t cancel appointments')
+  })
+})
+
+describe('the Visit card only once Square takes card money (F5)', () => {
+  it('Squarespace: no Visit card on an open visit, and a closed one reads no fees', async () => {
+    const port = stubPort()
+    const f = clone(FILES.late) as any
+    f.status = 'no_show'
+    port.files.set(f.id, f)
+    port.feesOf.set(f.id, FEES())
+    const l = await boot(port)
+    const v = await openFile(l, f.id)
+    expect(v.sel.vsShow).toBe(false)
+    expect(calls(l, 'feeCharges')).toHaveLength(0)
+    expect(html(l)).not.toContain('No-show fee')
+  })
+  it('Square: a closed visit without fees shows no card', async () => {
+    const port = stubPort()
+    const f = squareFile(port, 'canceled')
+    port.feesOf.set(f.id, { items: [] } as unknown as FeeCharges)
+    const l = await boot(port)
+    const v = await openFile(l, f.id)
+    expect(calls(l, 'feeCharges')).toHaveLength(1)
+    expect(v.sel.vsShow).toBe(false)
   })
 })
 

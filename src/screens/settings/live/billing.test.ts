@@ -225,6 +225,35 @@ describe('Memberships: Move members and each price’s Square state (DV-909)', (
     expect(vals(t.logic).live.mem.t.moveOpen).toBe(false)
   })
 
+  it('sends the owner’s notice period (F3): 14 days from Billing & integrations, not a 30-day guess', async () => {
+    const t = makeExtrasLogic('super')
+    t.bill.priceChangeNotice = { days: 14, version: 0 }
+    await openMem(t.logic)
+    await vi.waitFor(() => expect(writes(t.calls, 'billing').length).toBeGreaterThan(0))
+    call(t.logic, 'live.mem.t.moveStart')
+    await vi.waitFor(() =>
+      expect(vals(t.logic).live.mem.t.moveWhen).toMatch(/^Moves at the first bill after /),
+    )
+    call(t.logic, 'live.mem.t.moveConfirm')
+    await vi.waitFor(() => expect(writes(t.calls, 'moveMembers')).toHaveLength(1))
+    expect(writes(t.calls, 'moveMembers')[0]![2]).toEqual({ notice: 14 })
+  })
+
+  it('while the notice period has not loaded, Move members waits and sends nothing (F3)', async () => {
+    const t = makeExtrasLogic('super')
+    t.fail.set('billing', new Error('offline') as any)
+    await openMem(t.logic)
+    await vi.waitFor(() => expect(writes(t.calls, 'billing').length).toBeGreaterThan(0))
+    call(t.logic, 'live.mem.t.moveStart')
+    const m = vals(t.logic).live.mem
+    expect(m.t.moveOpen).toBe(true)
+    expect(m.t.moveWhen).toBe('Reading the notice period…')
+    expect(m.t.moveText).toBe('Reading the notice period…')
+    call(t.logic, 'live.mem.t.moveConfirm')
+    await new Promise((r) => setTimeout(r, 20))
+    expect(writes(t.calls, 'moveMembers')).toHaveLength(0)
+  })
+
   it('without set.billing there is no Move members box', async () => {
     const t = makeExtrasLogic('mgmt')
     const m = await openMem(t.logic)
