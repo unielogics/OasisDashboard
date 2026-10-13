@@ -4,8 +4,31 @@
 // fees, the renewal policy and the price-change notice (set.billing), the booking fee's collect mode (PUT
 // /catalog/guest-fee, set.services); Test connection and Sync to Square. The server's switches (processor, writes, the
 // simulator) are read only. Drafts rebase on a newer copy from the event stream (lib/settings/drafts.ts).
-import type { BillingRes, SettingsApi, SquareTestRes } from '@/data/ports/settings-api'
+// Wave K3 (ADR 0172, ADR 0173): the "Sales tax" form (PUT /settings/billing/sales-tax with the rate's version; DV-914) and
+// the "Square item library" block (GET /integrations/square/items: state, tax check, counts, last runs, failures, the
+// preview; Sync now, the tax Oasis items carry, archive all; DV-911).
+import type { QueryKey } from '@tanstack/react-query'
+import type {
+  BillingRes,
+  SettingsApi,
+  SquareItemsRes,
+  SquareItemsSyncRes,
+  SquareTestRes,
+} from '@/data/ports/settings-api'
 import { DraftSet, STALE_ACTION_MESSAGE } from '@/lib/settings/drafts'
+import {
+  archiveToast,
+  candidateRows,
+  countsText,
+  itemsHeadline,
+  itemsSyncToast,
+  previewText,
+  roundingLine,
+  showCounts,
+  syncNote,
+  taxLine,
+  taxModeText,
+} from '@/lib/settings/square-items'
 import {
   checkLines,
   consentPurposes,
@@ -17,8 +40,11 @@ import {
   policyDraft,
   policyText,
   processingLines,
+  roundingText,
+  salesTaxBody,
   sameFees,
   samePolicy,
+  sameSalesTax,
   squareStatus,
   syncToast,
   testToast,
@@ -42,6 +68,13 @@ export interface BillingCtx {
   flash(text: string): void
   /** "Thu, Oct 12, 3:04 PM" in the shop's time zone. */
   stamp(iso: string): string
+  /** GET /integrations/square/items (set.billing), read while the section is open; undefined until it is here. */
+  items(): SquareItemsRes | undefined
+  /** The item library read failed (the block says so and offers to read it again). */
+  itemsFailed(): boolean
+  retryItems(): void
+  /** The query keys a Square item write refetches: the item library and the catalog (Prices by size dots). */
+  itemsKeys: QueryKey[]
 }
 
 const toneColour = (t: Line['tone']): string =>
@@ -62,8 +95,13 @@ export class BillingSection {
   private readonly policy = new DraftSet<PolicyDraft>(samePolicy)
   private readonly notice = new DraftSet<{ days: string }>((a, b) => a.days.trim() === b.days.trim())
   private readonly collect = new DraftSet<{ mode: string }>()
+  private readonly salesTax = new DraftSet<{ percent: string }>(sameSalesTax)
   private errors: Record<string, string> = {}
   private test: SquareTestRes | null = null
+  /** The last Sync now answer of this page (what Square changed, what failed), until the next one. */
+  private itemsRun: SquareItemsSyncRes | null = null
+  /** "Archive Oasis items in Square" asks first. */
+  private archiveAsk = false
 
   constructor(private readonly ctx: BillingCtx) {}
 
@@ -113,6 +151,11 @@ export class BillingSection {
     const nBase = { days: String(b.priceChangeNotice.days) }
     const nEntry = this.notice.get('notice', nBase, b.priceChangeNotice.version)
     const n = nEntry?.value ?? nBase
+
+    // the sales tax rate (DV-914): the rate as typed, saved with the rate's version; the rounding is read only
+    const tBase = { percent: b.salesTax.percent }
+    const tEntry = this.salesTax.get('tax', tBase, b.salesTax.version)
+    const t = tEntry?.value ?? tBase
 
     // the booking fee's collect mode (the amount is edited in Prices by size)
     const cBase = { mode: b.guestFee.collect }
@@ -236,6 +279,31 @@ export class BillingSection {
         delete this.errors.collect
         this.ctx.changed()
       },
+      // the sales tax rate (DV-914)
+      tax: {
+        percent: t.percent,
+        setPercent: (e: InputEvent) => {
+          if (!this.ctx.allowed()) return
+          this.salesTax.set('tax', tBase, b.salesTax.version, { percent: e.target.value })
+          delete this.errors.tax
+          this.ctx.changed()
+        },
+        sub: 'New invoices are made at this rate. Each invoice keeps the rate it was made with. Prices are before tax.',
+        rounding: roundingText(b.salesTax.rounding),
+        dirty: !!tEntry,
+        hasError: !!err('tax', tEntry),
+        error: err('tax', tEntry),
+        saveStyle: saveButtonStyle(!!tEntry && !this.ctx.busy('billing:tax')),
+        saveLabel: this.ctx.busy('billing:tax') ? 'Saving…' : 'Save',
+        save: () => void this.saveSalesTax(b),
+        discard: () => {
+          this.salesTax.drop('tax')
+          delete this.errors.tax
+          this.ctx.changed()
+        },
+      },
+      // the Square item library (DV-911)
+      items: this.itemsVals(),
       // consent (read only)
       consentVersion: 'Version ' + b.consent.version + ' · the box starts unticked',
       consentText: b.consent.text,
@@ -353,6 +421,176 @@ export class BillingSection {
     this.notice.drop('notice')
     delete this.errors.notice
     this.ctx.flash('Price-change notice saved · ' + r.data.days + ' days')
+  }
+
+  private async saveSalesTax(b: BillingRes): Promise<void> {
+    if (!this.ctx.allowed()) return
+    const e = this.salesTax.get('tax', { percent: b.salesTax.percent }, b.salesTax.version)
+    if (!e) return
+    const body = salesTaxBody(e.value.percent)
+    if (!body.ok) {
+      this.errors.tax = body.message
+      return this.ctx.changed()
+    }
+    const r = await this.ctx.run('billing:tax', (idem) =>
+      this.ctx.api.saveSalesTax({ percent: body.value, version: e.version }, { idempotencyKey: idem }),
+    )
+    if (!r.ok) {
+      this.errors.tax = r.message
+      return this.ctx.changed()
+    }
+    this.salesTax.drop('tax')
+    delete this.errors.tax
+    this.ctx.flash('Sales tax saved · ' + r.data.label + ' on new invoices')
+  }
+
+  // ---- the Square item library (DV-911) -----------------------------------------------------------------------------
+
+  private itemsVals(): Vals {
+    const v = this.ctx.items()
+    const failed = !v && this.ctx.itemsFailed()
+    if (!v)
+      return {
+        has: false,
+        loading: !failed,
+        failed,
+        retry: () => this.ctx.retryItems(),
+      }
+    const head = itemsHeadline(v)
+    const tax = taxLine(v.taxCheck)
+    const round = roundingLine(v.taxCheck)
+    const picked = v.taxMode === 'adopt' ? v.taxObjectId : null
+    const cands = candidateRows(v.taxCheck, picked)
+    const stamp = (iso: string | null) => (iso ? this.ctx.stamp(iso) : '')
+    const runs = [
+      v.lastSyncAt ? 'Last sync ' + stamp(v.lastSyncAt) : 'Not synced yet',
+      v.lastDriftAt ? 'full check ' + stamp(v.lastDriftAt) : null,
+      v.taxCheckedAt ? 'tax checked ' + stamp(v.taxCheckedAt) : null,
+    ].filter(Boolean)
+    const run = this.itemsRun
+    const busy = this.ctx.busy('billing:items-sync')
+    const canArchive =
+      v.mode === 'off' && v.writesEnabled && v.counts.onSquare + v.counts.waiting + v.counts.failed > 0
+    const modeOpt = (mode: 'auto' | 'create', label: string) => ({
+      label,
+      style: seg(v.taxMode === mode),
+      onClick: () => void this.setTaxMode(v, mode),
+    })
+    return {
+      has: true,
+      loading: false,
+      failed: false,
+      retry: () => this.ctx.retryItems(),
+      headline: head.text,
+      headStyle: { fontSize: '13.5px', fontWeight: 800, color: toneColour(head.tone), marginTop: '4px' },
+      tax: tax.text,
+      taxStyle: { fontSize: '13px', fontWeight: 700, color: toneColour(tax.tone), lineHeight: 1.45 },
+      hasRounding: !!round,
+      rounding: round?.text ?? '',
+      roundingStyle: { fontSize: '12.5px', fontWeight: 600, color: toneColour(round?.tone ?? 'ink') },
+      warnings: (v.taxCheck?.warnings ?? []).map((text) => ({ text })),
+      hasWarnings: (v.taxCheck?.warnings.length ?? 0) > 0,
+      // which Square tax Oasis items carry
+      taxMode: taxModeText(v, v.taxCheck),
+      taxModes: [modeOpt('auto', 'Automatic'), modeOpt('create', 'Oasis’s own tax')],
+      candidates: cands.map((c) => ({
+        text: c.text,
+        style: { fontSize: '12.5px', fontWeight: 600, color: toneColour(c.tone), lineHeight: 1.45, flex: 1, minWidth: 0 },
+        canUse: c.canUse,
+        use: () => void this.setTaxMode(v, 'adopt', c.id),
+      })),
+      hasCandidates: cands.length > 0,
+      taxError: this.errors.itemsTax ?? '',
+      hasTaxError: !!this.errors.itemsTax,
+      // counts and runs
+      hasCounts: showCounts(v),
+      counts: countsText(v.counts),
+      runs: runs.join(' · '),
+      hasPreview: !!v.preview,
+      preview: v.preview ? 'Preview ' + stamp(v.preview.at) + ': ' + previewText(v.preview) : '',
+      failures: v.failures.map((f) => ({ text: f.service + (f.error ? ': ' + f.error : '') })),
+      hasFailures: v.failures.length > 0,
+      hasLastError: !!v.lastError,
+      lastError: v.lastError ? 'Last problem ' + stamp(v.lastErrorAt) + ': ' + v.lastError : '',
+      // the last Sync now answer of this page
+      changed: (run?.changedInSquare ?? []).map((text) => ({ text: 'Changed in Square: ' + text })),
+      hasChanged: (run?.changedInSquare.length ?? 0) > 0,
+      runFailures: (run?.failures ?? []).map((text) => ({ text })),
+      hasRunFailures: (run?.failures.length ?? 0) > 0,
+      syncLabel: busy ? (v.mode === 'on' ? 'Syncing…' : 'Reading Square…') : 'Sync now',
+      sync: () => void this.syncItems(),
+      note: syncNote(v),
+      // rollback: archive every Oasis item (writes on, the item sync off: the server allows it only then)
+      canArchive,
+      archiveAsk: canArchive && this.archiveAsk,
+      archiveStart: () => {
+        if (!this.ctx.allowed()) return
+        this.archiveAsk = true
+        this.ctx.changed()
+      },
+      archiveCancel: () => {
+        this.archiveAsk = false
+        this.ctx.changed()
+      },
+      archiveLabel: this.ctx.busy('billing:items-archive') ? 'Archiving…' : 'Archive them',
+      archive: () => void this.archiveItems(),
+    }
+  }
+
+  private async syncItems(): Promise<void> {
+    if (!this.ctx.allowed()) return
+    const r = await this.ctx.run(
+      'billing:items-sync',
+      (idem) => this.ctx.api.syncSquareItems({ idempotencyKey: idem }),
+      { invalidate: this.ctx.itemsKeys },
+    )
+    if (!r.ok) {
+      if (r.message) this.ctx.flash(r.message)
+      return
+    }
+    this.itemsRun = r.data
+    this.ctx.flash(itemsSyncToast(r.data))
+  }
+
+  private async setTaxMode(v: SquareItemsRes, mode: 'auto' | 'adopt' | 'create', squareTaxId?: string): Promise<void> {
+    if (!this.ctx.allowed()) return
+    if (mode !== 'adopt' && v.taxMode === mode) return
+    const r = await this.ctx.run(
+      'billing:items-tax',
+      (idem) =>
+        this.ctx.api.setSquareItemsTax(
+          { mode, ...(squareTaxId ? { squareTaxId } : {}), version: v.version },
+          { idempotencyKey: idem },
+        ),
+      { invalidate: this.ctx.itemsKeys, staleMessage: STALE_ACTION_MESSAGE },
+    )
+    if (!r.ok) {
+      this.errors.itemsTax = r.message
+      return this.ctx.changed()
+    }
+    delete this.errors.itemsTax
+    this.ctx.flash(
+      mode === 'auto'
+        ? 'Square tax: automatic · applies at the next sync'
+        : mode === 'create'
+          ? 'Square tax: Oasis’s own · applies at the next sync'
+          : 'Square tax picked · applies at the next sync',
+    )
+  }
+
+  private async archiveItems(): Promise<void> {
+    if (!this.ctx.allowed()) return
+    const r = await this.ctx.run(
+      'billing:items-archive',
+      (idem) => this.ctx.api.archiveSquareItems({ idempotencyKey: idem }),
+      { invalidate: this.ctx.itemsKeys },
+    )
+    this.archiveAsk = false
+    if (!r.ok) {
+      if (r.message) this.ctx.flash(r.message)
+      return this.ctx.changed()
+    }
+    this.ctx.flash(archiveToast(r.data))
   }
 
   private async saveCollect(b: BillingRes): Promise<void> {

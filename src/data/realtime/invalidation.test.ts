@@ -60,7 +60,8 @@ describe('keysForEvent', () => {
     // Settings → Billing & integrations with link tipping, the membership renewal policy and notice and the card fees
     // (ADR 0171, DV-908)
     expect(s('booking')).toEqual([['settings', 'booking'], ['settings', 'catalog'], ['settings', 'billing']])
-    for (const x of ['payments', 'memberships', 'fees']) expect(s(x)).toEqual([['settings', x], ['settings', 'billing']])
+    for (const x of ['payments', 'memberships', 'fees', 'tax'])
+      expect(s(x)).toEqual([['settings', x], ['settings', 'billing']])
     expect(s('constructor')).toEqual([['settings', 'constructor']])
   })
 })

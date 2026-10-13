@@ -4,6 +4,7 @@
 // field); these helpers only shape what is sent and say early what the server would refuse anyway, in plain words.
 import { keyFromLabel } from './catalog'
 import type { Checked } from './catalog'
+import type { PriceRowSquare } from './square-items'
 
 /** A vehicle size as GET /catalog sends it. */
 export interface VehicleClassItem {
@@ -28,6 +29,8 @@ export interface PriceRowItem {
   cells: PriceCell[]
   fromCents: number
   missing: number
+  /** Where its Square item stands (ADR 0172, DV-912): only while the item sync is on, only for set.services holders. */
+  square?: PriceRowSquare
 }
 
 /** The server's limits (api-spec 15.9, 15.10). */

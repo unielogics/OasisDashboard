@@ -388,3 +388,41 @@ edit with the usual message, a 422 is said under the block. Memberships (DV-909)
 
 Tests: `src/lib/settings/billing.test.ts`, `src/screens/settings/live/billing.test.ts` (the section, the forms, permissions,
 Move members, the live template).
+
+## Square item library and the sales tax (live only; ADR 0172, ADR 0173, wave K3; DEVIATIONS DV-911..DV-914)
+
+```
+src/data/ports/settings-api.ts       saveSalesTax, squareItems, syncSquareItems, setSquareItemsTax, archiveSquareItems
+src/lib/settings/billing.ts          the sales tax form's check (the server's parser, lib/payments/cents.ts parseTaxPercent),
+                                     the rounding in words, the `Square item library` switch line, the `Sales tax` check label
+src/lib/settings/square-items.ts     pure: the item sync's state, the tax check, the shop's taxes, counts, preview, Sync now's
+                                     answer, the Prices by size dots and the Catalog word
+src/screens/settings/live/billing.ts BillingSection: the `Sales tax` draft and the `Square item library` block and its writes
+src/screens/settings/live/pricing.ts the cells' dots and the row's Square state (DV-912)
+src/screens/settings/live/extras.ts  the item library read (key ['settings','squareItems'], set.billing, while the tab is
+                                     open) and the Catalog list's `archived in Square` (DV-913)
+design-patches/live/partials/settings-billing-tax.html, settings-billing-items.html (included by settings-billing.html),
+settings-prices.html (the dot)
+```
+
+| Block | Values (`live.bill.*`) | Write |
+| --- | --- | --- |
+| Sales tax (right column, first) | `tax.percent`, `tax.setPercent`, `tax.rounding`, `tax.dirty`, `tax.error`, `tax.save`, `tax.discard` | `PUT /settings/billing/sales-tax {percent, version}` (the rate as typed, checked here with the server's rule first; `version` is `salesTax.version`, the version of `tax.rate_dbp`; `rounding` is never sent: the rollout sets it with 6.625%). Toast `Sales tax saved · 6.625% on new invoices` |
+| Square item library (left column, under Square) | `items.headline`, `items.tax`, `items.rounding`, `items.warnings`, `items.candidates[]` (`use`), `items.taxModes[]`, `items.counts` (`hasCounts`), `items.runs`, `items.preview`, `items.failures`, `items.lastError`, `items.changed`, `items.runFailures`, `items.sync`, `items.canArchive`, `items.archiveAsk`, `items.archive`; `items.loading` / `items.failed` / `items.retry` while it is not here | `POST /integrations/square/items/sync` (with the sync off it is the read-only preview; the toast is the answer: `Preview · Would make …`, `Synced with Square · 3 made · 1 put back`, `Not synced: <reason>`); `PUT /integrations/square/items/tax {mode, squareTaxId?, version}` (`Use this tax` on a matching tax of the shop, `Automatic`, `Oasis’s own tax`); `POST /integrations/square/items/archive-all` after a confirm, offered only with writes on and the item sync off (the only state the server allows it in) |
+
+Every item write refetches the item library and the catalog (the dots); the item library has no event of its own, so the
+block shows what Oasis last recorded (the jobs run every 5 minutes and at 4:40 AM). The counts show once Oasis has items in
+Square: in watch-only mode every service would read "waiting", and the preview says what the sync would do instead. The
+tax check's words are the server's (backend `src/modules/catalog/square/tax.ts`).
+
+Prices by size (DV-912): GET /catalog sends `prices[].square {state, cells {<size key>: synced|pending|failed|hidden},
+error}` only while `SQUARE_WRITES_ENABLED` and `SQUARE_ITEMS_SYNC_ENABLED` are on, to `set.services` holders; then each
+active size's cell gets a dot (`cellDot`), the failure's reason as its tooltip, and the row's line ends with the item's
+state (`rowSquareText`; key `""`, a service sold at one price, has only that). Without the block the grid is as before.
+
+The sales tax rate also changes Payments and the operations file (DV-213): the tax line reads `Tax (6.625%)` from the
+invoice's `taxDbp`, and the sheet previews round with its `taxRounding` (`src/lib/payments/cents.ts`, docs/screens-payments-live.md).
+
+Tests: `src/lib/settings/square-items.test.ts`, `src/lib/settings/billing.test.ts`, `src/screens/settings/live/billing-items.test.ts`
+(the view model with the fake API and the live template), `src/data/ports/billing-ports.test.ts` (verbs, paths, bodies, keys).
+End to end: `scripts/e2e-items-stack.sh` (`pnpm e2e:items`, below).

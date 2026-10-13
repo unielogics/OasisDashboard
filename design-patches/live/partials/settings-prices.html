@@ -15,9 +15,10 @@
         <div style="{{ r.style }}">
           <div style="min-width:0;"><div style="font-weight:700;font-size:13.5px;">{{ r.name }}</div><div style="font-size:11.5px;font-weight:700;color:var(--ink3);margin-top:2px;">{{ r.sub }}</div></div>
           <sc-for list="{{ r.cells }}" as="x" hint-placeholder-count="5">
-            <div style="display:flex;align-items:center;gap:4px;min-width:0;">
+            <div style="display:flex;align-items:center;gap:4px;min-width:0;position:relative;">
               <sc-if value="{{ x.single }}" hint-placeholder-val="{{ true }}"><input value="{{ x.from }}" sc-camel-on-input="{{ x.setFrom }}" title="{{ x.label }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"></sc-if>
               <sc-if value="{{ x.range }}" hint-placeholder-val="{{ false }}"><input value="{{ x.from }}" sc-camel-on-input="{{ x.setFrom }}" title="{{ x.label }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"><span style="color:var(--ink3);font-weight:700;">–</span><input value="{{ x.to }}" sc-camel-on-input="{{ x.setTo }}" title="{{ x.toLabel }}" inputmode="numeric" placeholder="—" style="{{ x.style }}"></sc-if>
+              <sc-if value="{{ x.hasDot }}" hint-placeholder-val="{{ false }}"><span title="{{ x.dotTitle }}" style="{{ x.dotStyle }}"></span></sc-if>
             </div>
           </sc-for>
         </div>

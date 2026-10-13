@@ -1,0 +1,8 @@
+<div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+  <div style="font-weight:800;font-size:15px;">Sales tax</div>
+  <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 12px;line-height:1.45;">{{ live.bill.tax.sub }}</div>
+  <div style="display:flex;align-items:center;gap:10px;"><input title="Sales tax rate" value="{{ live.bill.tax.percent }}" sc-camel-on-input="{{ live.bill.tax.setPercent }}" inputmode="decimal" placeholder="6.625" style="width:110px;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;"><span style="font-weight:700;font-size:14px;">%</span></div>
+  <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:8px;line-height:1.45;">{{ live.bill.tax.rounding }}</div>
+  <sc-if value="{{ live.bill.tax.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.bill.tax.error }}</div></sc-if>
+  <sc-if value="{{ live.bill.tax.dirty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button sc-camel-on-click="{{ live.bill.tax.discard }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Discard</button><button sc-camel-on-click="{{ live.bill.tax.save }}" style="{{ live.bill.tax.saveStyle }}">{{ live.bill.tax.saveLabel }}</button></div></sc-if>
+</div>

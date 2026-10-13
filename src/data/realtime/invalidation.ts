@@ -39,6 +39,8 @@ const SETTINGS_ALSO: Record<string, QueryKey[]> = {
   payments: [['settings', 'billing']],
   memberships: [['settings', 'billing']],
   fees: [['settings', 'billing']],
+  // the sales tax rate and rounding (`tax.rate_dbp`, `tax.rounding`; ADR 0173) show in Billing & integrations (DV-914)
+  tax: [['settings', 'billing']],
 }
 
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */

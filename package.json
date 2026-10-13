@@ -50,7 +50,8 @@
     "e2e:catalog": "tsx scripts/e2e-catalog.ts",
     "e2e:pricing": "tsx scripts/e2e-pricing.ts",
     "e2e:visits": "tsx scripts/e2e-visits.ts",
-    "e2e:billing": "tsx scripts/e2e-billing.ts"
+    "e2e:billing": "tsx scripts/e2e-billing.ts",
+    "e2e:items": "tsx scripts/e2e-items.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -2,8 +2,10 @@
 // Memberships tab's Square words (DV-909), pure: the Square status and Test connection in plain words, the server's
 // switches read only, the drafts of the editable blocks (link tipping, the saved-card fees, the renewal policy, the
 // price-change notice, the booking fee's collect mode) with their checks, "Sync to Square", and "Move members"'s notice
-// preview. The server keeps every value and its version; these helpers only word and check what is typed.
+// preview, and the sales tax rate (ADR 0173, DV-914). The server keeps every value and its version; these helpers only
+// word and check what is typed.
 import type { BillingRes, CatalogSyncRes, SquareTestRes } from '@/data/ports/settings-api'
+import { parseTaxPercent } from '@/lib/payments/cents'
 import { MONTHS } from '@/lib/dates'
 import { addDays, parseIso } from '@/lib/tz'
 
@@ -35,6 +37,8 @@ const CHECK_LABEL: Record<string, string> = {
   location: 'Location',
   events: 'Events',
   webhook: 'Webhook',
+  // ADR 0172: Square's tax against Oasis's rate (counts toward "all checks passed" only while the item sync is on)
+  tax: 'Sales tax',
 }
 
 /** The checks of a connection test: one line each, with the server's plain reason. */
@@ -84,6 +88,12 @@ export function processingLines(p: BillingRes['processing']): Line[] {
       tone: p.writesEnabled ? 'green' : 'amber',
     },
     { label: 'Memberships on Square', value: onOff(p.membershipsEnabled), tone: 'ink' },
+    // DV-911: the Square item library (ADR 0172) writes only with Square writes on too
+    {
+      label: 'Square item library',
+      value: !p.itemsSyncEnabled ? 'Off' : p.writesEnabled ? 'On' : 'On once Square writes are on (watch only now)',
+      tone: 'ink',
+    },
     {
       label: 'Saved cards and fees',
       value: p.cardsOn ? 'On' : 'Off until Square takes card payments',
@@ -287,4 +297,29 @@ export function priceSquareText(
   if (state === 'failed') return { text: 'Square sync failed', tone: 'red' }
   if (state === 'pending' && error) return { text: 'Square lost it · making it again', tone: 'amber' }
   return { text: 'Not synced yet', tone: 'ink' }
+}
+
+// ---- the sales tax rate (ADR 0173, DV-914) -----------------------------------------------------------------------------
+
+/** What the server answers on a percentage it refuses (api-spec 30.15); the form says it before sending. */
+export const SALES_TAX_FORMAT = 'Use a percentage from 0 to 100 with up to three decimals, such as 6.625'
+
+/** The typed rate as the body of PUT /settings/billing/sales-tax (`percent` as typed, trimmed); never `rounding`. */
+export function salesTaxBody(raw: string): { ok: true; value: string } | { ok: false; message: string } {
+  const t = raw.trim()
+  return parseTaxPercent(t) === null ? { ok: false, message: SALES_TAX_FORMAT } : { ok: true, value: t }
+}
+
+/**
+ * The draft is the text as typed: compared as text (trimmed), never as a number, so a half-typed "7." stays on screen
+ * instead of snapping back to the saved "7".
+ */
+export const sameSalesTax = (a: { percent: string }, b: { percent: string }): boolean =>
+  a.percent.trim() === b.percent.trim()
+
+/** How new invoices round their tax, read only here (the rollout sets it together with 6.625%). */
+export function roundingText(r: BillingRes['salesTax']['rounding']): string {
+  return r === 'half_even'
+    ? 'Rounded like Square (half cents to the even cent), once per invoice.'
+    : 'Rounded half up, once per invoice.'
 }
