@@ -192,8 +192,11 @@ export interface SettingsApi {
   syncSquareCatalog(o?: Opts): Promise<CatalogSyncRes>
   /** POST /catalog/tiers/:key/move-members (set.billing): members on an older price are told, then moved. */
   moveMembers(key: string, body: { notice?: number }, o?: Opts): Promise<MoveMembersRes>
-  /** PUT /settings/billing/sales-tax (set.billing): the rate new invoices are made with. Never sends `rounding`. */
-  saveSalesTax(body: { percent: string; version: number }, o?: Opts): Promise<SalesTaxRes>
+  /**
+   * PUT /settings/billing/sales-tax (set.billing): the rate new invoices (and visits not done yet) are made with, always with Square's
+   * rounding (`half_even`): the Square item sync waits for it (K4 review tax:H2).
+   */
+  saveSalesTax(body: { percent: string; rounding: 'half_even'; version: number }, o?: Opts): Promise<SalesTaxRes>
   /** GET /integrations/square/items (set.billing): the Square item library, read from Oasis only. */
   squareItems(): Promise<SquareItemsRes>
   /** POST /integrations/square/items/sync ("Sync now"): with the sync off it only reads Square (a preview). */

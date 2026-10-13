@@ -391,7 +391,9 @@ export function signOffProblem(text: string): string | null {
   if (
     /\d|[$€£¥¢%@]/.test(t) ||
     /\b(?:https?|www)\b|\.(?:com|net|org|io|co|us|app|shop|ly)\b/i.test(t) ||
-    /\b(?:free|guarantee[ds]?|promise[ds]?|discount|off|deal|refund|cheapest|best price)\b/i.test(t)
+    /\b(?:free|guarantee[ds]?|promise[ds]?|discounts?|off|deals?|refund|cheapest|best price)\b/i.test(t) ||
+    // the server's offer words (K4 review asst:K4A-7): the sign-off is added to every reply and never judged
+    /\b(?:on us|bogo|b1g1|sales?|promos?|promotions?|specials?|half|coupons?|savings?|save|bonus|gifts?|percent|pct)\b/i.test(t)
   )
     return 'The sign-off cannot hold an amount, a number, a link or a promise.'
   return null

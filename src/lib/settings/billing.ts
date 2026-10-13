@@ -304,7 +304,7 @@ export function priceSquareText(
 /** What the server answers on a percentage it refuses (api-spec 30.15); the form says it before sending. */
 export const SALES_TAX_FORMAT = 'Use a percentage from 0 to 100 with up to three decimals, such as 6.625'
 
-/** The typed rate as the body of PUT /settings/billing/sales-tax (`percent` as typed, trimmed); never `rounding`. */
+/** The typed rate for PUT /settings/billing/sales-tax (`percent` as typed, trimmed; the save adds Square's rounding). */
 export function salesTaxBody(raw: string): { ok: true; value: string } | { ok: false; message: string } {
   const t = raw.trim()
   return parseTaxPercent(t) === null ? { ok: false, message: SALES_TAX_FORMAT } : { ok: true, value: t }

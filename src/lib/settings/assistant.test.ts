@@ -201,7 +201,7 @@ describe('limits and tone (ADR 0174 §3)', () => {
     expect(signOffProblem('')).toBeNull()
     expect(signOffProblem('– Oasis Auto Spa')).toBeNull()
     expect(signOffProblem('x'.repeat(25))).toBe('24 characters at most (now 25).')
-    for (const t of ['$5 off today', 'Call 555', 'oasis.com', 'Free wash!', '10% off'])
+    for (const t of ['$5 off today', 'Call 555', 'oasis.com', 'Free wash!', '10% off', 'Wash on us Fridays', 'BOGO Tuesdays', 'Big sale soon', 'Half price wax'])
       expect(signOffProblem(t), t).toBe('The sign-off cannot hold an amount, a number, a link or a promise.')
     expect(styleNotesProblem('x'.repeat(400))).toBeNull()
     expect(styleNotesProblem('x'.repeat(401))).toBe('400 characters at most (now 401).')

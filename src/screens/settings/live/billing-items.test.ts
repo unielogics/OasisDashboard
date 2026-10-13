@@ -83,8 +83,9 @@ describe('Sales tax (ADR 0173, DV-914)', () => {
     expect(vals(t.logic).live.bill.tax.hasError).toBe(false)
     call(t.logic, 'live.bill.tax.save')
     await vi.waitFor(() => expect(writes(t.calls, 'saveSalesTax')).toHaveLength(1))
-    expect(writes(t.calls, 'saveSalesTax')[0]![1]).toEqual({ percent: '6.625', version: 0 })
-    await vi.waitFor(() => expect(t.flashes).toContain('Sales tax saved · 6.625% on new invoices'))
+    // always with Square's rounding: the Square item sync waits for it (K4 review tax:H2)
+    expect(writes(t.calls, 'saveSalesTax')[0]![1]).toEqual({ percent: '6.625', rounding: 'half_even', version: 0 })
+    await vi.waitFor(() => expect(t.flashes).toContain('Sales tax saved · 6.625%, rounded like Square'))
     await vi.waitFor(() => expect(vals(t.logic).live.bill.tax).toMatchObject({ percent: '6.625', dirty: false }))
   })
 

@@ -433,7 +433,7 @@ export class BillingSection {
       return this.ctx.changed()
     }
     const r = await this.ctx.run('billing:tax', (idem) =>
-      this.ctx.api.saveSalesTax({ percent: body.value, version: e.version }, { idempotencyKey: idem }),
+      this.ctx.api.saveSalesTax({ percent: body.value, rounding: 'half_even', version: e.version }, { idempotencyKey: idem }),
     )
     if (!r.ok) {
       this.errors.tax = r.message
@@ -441,7 +441,7 @@ export class BillingSection {
     }
     this.salesTax.drop('tax')
     delete this.errors.tax
-    this.ctx.flash('Sales tax saved · ' + r.data.label + ' on new invoices')
+    this.ctx.flash('Sales tax saved · ' + r.data.label + ', rounded like Square')
   }
 
   // ---- the Square item library (DV-911) -----------------------------------------------------------------------------

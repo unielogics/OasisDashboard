@@ -306,7 +306,7 @@ async function openInvoice(label: string): Promise<void> {
 try {
   await login(page, stack, EMAILS.superAdmin, '/settings#billing')
 
-  await step('Sales tax: a rate the server would refuse is said before sending; 6.625% is saved with its version', async () => {
+  await step('Sales tax: a rate the server would refuse is said before sending; 6.625% is saved with its version and Square’s rounding', async () => {
     await page.goto(`${stack.webUrl}/settings#billing`, { waitUntil: 'load' })
     await seeText(page, 'How payments run')
     const b0 = await api(req, '/settings/billing')
@@ -320,13 +320,14 @@ try {
     eq((await api(req, '/settings/billing')).salesTax.rateDbp, 7000, 'nothing was sent')
     await input.fill('6.625')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await seeText(page, 'Sales tax saved · 6.625% on new invoices')
+    await seeText(page, 'Sales tax saved · 6.625%, rounded like Square')
     const b1 = await api(req, '/settings/billing')
     eq(
       [b1.salesTax.rateDbp, b1.salesTax.label, b1.salesTax.rounding, b1.salesTax.version],
-      [6625, '6.625%', 'half_up', b0.salesTax.version + 1],
-      'saved: the rate, never the rounding',
+      [6625, '6.625%', 'half_even', b0.salesTax.version + 1],
+      'saved: the rate with Square’s rounding (the item sync waits for it: K4 review tax:H2)',
     )
+    await seeText(page, 'Rounded like Square (half cents to the even cent), once per invoice.')
     await shot(page, 'sales-tax-saved')
   })
 
@@ -430,7 +431,9 @@ try {
     await shot(page, 'prices-on-square')
   })
 
-  await step('a visit at 6.625% rounded half up: the invoice keeps its rate and rule; the twin equals the server', async () => {
+  await step('a visit at 6.625% rounded half up (the rounding set back through the API): the invoice has that rule; the twin equals the server', async () => {
+    const b = await api(req, '/settings/billing')
+    await write(ctx, 'PUT', '/settings/billing/sales-tax', { percent: '6.625', rounding: 'half_up', version: b.salesTax.version })
     S.a = await visitFor('a')
     const d = await api(req, `/invoices/${S.a.invoice}`)
     eq([d.taxDbp, d.taxRounding, d.taxBp], [6625, 'half_up', 663], 'the invoice’s rate and rule')
@@ -449,6 +452,10 @@ try {
     })
     await seeText(page, 'Rounded like Square (half cents to the even cent), once per invoice.', 20_000)
     await shot(page, 'sales-tax-like-square')
+    // the visit booked before the change and not done yet moves to the new rule (K4 review tax:M1)
+    const a = await api(req, `/invoices/${S.a.invoice}`)
+    eq([a.taxDbp, a.taxRounding], [6625, 'half_even'], 'the open visit’s invoice takes the new rule')
+    eq(a.calc.tax, salesTaxCents(a.calc.sub, { dbp: 6625, rounding: 'half_even' }), 'its tax')
   })
 
   await step('Payments: Tax (6.625%); the Adjust sheet previews a half-cent subtotal exactly as the server computes it', async () => {
@@ -488,7 +495,7 @@ try {
       money(even),
     )
     await shot(page, 'payments-tax-6625')
-    // the half-up invoice reads the same rate
+    // the first visit's invoice (moved to the new rule) reads the same rate
     await openInvoice(S.a.label)
     await page.waitForFunction(() => document.querySelector('aside')?.textContent?.includes('Tax (6.625%)'))
     sameAsServer(await api(req, `/invoices/${S.a.invoice}`), S.a.label)
