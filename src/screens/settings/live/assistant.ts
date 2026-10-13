@@ -1,6 +1,14 @@
-// Settings → Oasis AI assistant, live variant only (ADR 0160, design section 8, plan G; DEVIATIONS.md DV-705..707).
-// One section over GET/PUT /settings/assistant: the on/off switch, in-chat actions, the stage (who it answers), the test
-// numbers of the first stage, how long a staff reply pauses it, and the FAQ it answers from.
+// Settings → Oasis AI assistant, live variant only (ADR 0160, design section 8, plan G; DEVIATIONS.md DV-705..707; ADR 0174
+// and DV-708..715 for the tabs). One section over GET/PUT /settings/assistant: the on/off switch, in-chat actions, the stage
+// (who it answers), the test numbers of the first stage, how long a staff reply pauses it, the FAQ it answers from, and
+// (ADR 0174) what it may do and how it writes (Limits & tone).
+//
+// Five tabs over the section (the pricing tabs' segment control; `#assistant/<tab>`): Status & switches, Knowledge (the
+// FAQ of this working copy plus the knowledge entries and PDFs, live/assistant-knowledge.ts), Practice
+// (live/assistant-practice.ts), Limits & tone (live/assistant-limits.ts, saved by this section) and Conversations
+// (live/assistant-review.ts). The "Correct this answer" dialog (live/assistant-correction.ts) is shared by Practice and
+// Conversations. The fields of this working copy (Status, Q&A, Limits & tone) share one save bar; knowledge entries save
+// one at a time.
 //
 // Like Working hours (DV-309) the screen keeps a working copy: the fields the person changed sit over the server's view, so
 // a change saved elsewhere (SSE `settings.changed {section: assistant}` refetches the view) shows in the fields nobody
@@ -12,29 +20,65 @@ import { command } from '@/data/command'
 import type { ApiError } from '@/data/http/problem'
 import { qk } from '@/data/query'
 import type { AssistantApi, AssistantView } from '@/data/ports/assistant-api'
+import type { AssistantKnowledgeApi } from '@/data/ports/assistant-knowledge-api'
+import type { AssistantPracticeApi, AssistantReviewApi } from '@/data/ports/assistant-practice-api'
 import type { ToastSpec } from '@/data/toast'
 import {
+  ACTIONS_SUB,
+  DEFAULT_BEHAVIOR,
+  DEFAULT_CAPABILITIES,
   MAX_FAQ,
   MAX_FAQ_CHARS,
   STAGES,
+  answerOnlyCapabilities,
   assistantStatus,
+  behaviorProblems,
   changedFields,
   clampPause,
   faqProblems,
   formatPhone,
+  isAnswerOnly,
+  listItemProblem,
   numberProblem,
   pauseLabel,
   stageOf,
   toE164,
 } from '@/lib/settings/assistant'
-import type { AssistantFields, AssistantStage } from '@/lib/settings/assistant'
+import type {
+  AssistantBehavior,
+  AssistantFields,
+  AssistantLength,
+  AssistantSpanish,
+  AssistantStage,
+  AssistantTone,
+  BehaviorListKey,
+  CapabilityKey,
+} from '@/lib/settings/assistant'
+import { budgetRefusal } from '@/lib/settings/assistant-knowledge'
 import { seg, sw } from '@/lib/settings/styles'
+import type { AiCtx, ReadState, Timers } from './assistant-ctx'
+import { realTimers } from './assistant-ctx'
+import { CorrectionDialog, KNOWLEDGE_KEY } from './assistant-correction'
+import { KnowledgeSection } from './assistant-knowledge'
+import { limitsVals } from './assistant-limits'
+import { PracticeSection } from './assistant-practice'
+import { ReviewSection } from './assistant-review'
 
 export const ASSISTANT_KEY = qk.settings('assistant')
 
-/** Saving the section takes the permission of the shop's other business settings (backend api-spec 15.6b). */
-export const ASSISTANT_PERMISSION = 'set.hours'
+/** Saving the section takes its own permission (backend ADR 0174 D3: `set.assistant`, given to every role that held set.hours). */
+export const ASSISTANT_PERMISSION = 'set.assistant'
 export const ASSISTANT_DENIED = 'Your role can’t change the assistant settings'
+
+export type AssistantTab = 'status' | 'knowledge' | 'practice' | 'limits' | 'conversations'
+export const ASSISTANT_TABS: ReadonlyArray<readonly [AssistantTab, string]> = [
+  ['status', 'Status & switches'],
+  ['knowledge', 'Knowledge'],
+  ['practice', 'Practice'],
+  ['limits', 'Limits & tone'],
+  ['conversations', 'Conversations'],
+]
+export const isAssistantTab = (t: string): t is AssistantTab => ASSISTANT_TABS.some(([k]) => k === t)
 
 export interface AssistantDeps {
   api: AssistantApi
@@ -48,16 +92,39 @@ export interface AssistantDeps {
   emit(t: ToastSpec): void
   /** Something the screen shows changed (re-render). */
   changed(): void
+  /** The tabs of ADR 0174: their APIs (without one the tab shows the locked card). */
+  ai?: { knowledge?: AssistantKnowledgeApi; practice?: AssistantPracticeApi; review?: AssistantReviewApi }
+  /** Reads under ['settings', ...key] through the screen's store (the tabs' lists). */
+  query?: {
+    read<T>(key: readonly unknown[], fetcher: () => Promise<T>): T | undefined
+    status(key: readonly unknown[]): ReadState
+    error(key: readonly unknown[]): unknown
+  }
+  /** The shop's time zone. */
+  tz?: () => string
+  timers?: Timers
+  /** Opens a download (a PDF's presigned link). */
+  open?: (url: string) => void
 }
 
-const fieldsOf = (v: AssistantView): AssistantFields => ({
-  enabled: v.enabled,
-  actionsEnabled: v.actionsEnabled,
-  stage: v.stage,
-  allowlist: [...v.allowlist],
-  staffPauseHours: v.staffPauseHours,
-  faq: v.faq.map((p) => ({ q: p.q, a: p.a })),
-})
+const fieldsOf = (v: AssistantView): AssistantFields => {
+  const b = (v as Partial<AssistantView>).behavior ?? DEFAULT_BEHAVIOR
+  return {
+    enabled: v.enabled,
+    actionsEnabled: v.actionsEnabled,
+    stage: v.stage,
+    allowlist: [...v.allowlist],
+    staffPauseHours: v.staffPauseHours,
+    faq: v.faq.map((p) => ({ q: p.q, a: p.a })),
+    capabilities: { ...((v as Partial<AssistantView>).capabilities ?? DEFAULT_CAPABILITIES) },
+    behavior: {
+      ...b,
+      avoidWords: [...b.avoidWords],
+      avoidTopics: [...b.avoidTopics],
+      handoffTopics: [...b.handoffTopics],
+    },
+  }
+}
 
 /** 422 field paths of the server ("body.stage", "allowlist.1", "faq.0.a") as the screen keys them. */
 const fieldPath = (p: string): string => p.replace(/^body\./, '')
@@ -69,8 +136,72 @@ export class AssistantSection {
   private numberError = ''
   private saveError = ''
   private saving = false
+  private tab: AssistantTab = 'status'
+  /** This page wrote `#assistant/<tab>` (cleared again when the person leaves the section). */
+  private wroteHash = false
+  private listNew: Record<BehaviorListKey, string> = { avoidWords: '', avoidTopics: '', handoffTopics: '' }
+  private listError: Record<BehaviorListKey, string> = { avoidWords: '', avoidTopics: '', handoffTopics: '' }
+  readonly ctx: AiCtx
+  readonly correction: CorrectionDialog
+  readonly knowledge: KnowledgeSection
+  readonly practice: PracticeSection
+  readonly review: ReviewSection
 
-  constructor(private readonly d: AssistantDeps) {}
+  constructor(private readonly d: AssistantDeps) {
+    const none = (): undefined => undefined
+    this.ctx = {
+      qc: d.qc,
+      read: d.query ? (k, f) => d.query!.read(k, f) : none,
+      status: d.query ? (k) => d.query!.status(k) : () => 'pending',
+      error: d.query ? (k) => d.query!.error(k) : () => null,
+      can: (k) => d.can(k),
+      emit: (t) => d.emit(t),
+      changed: () => d.changed(),
+      tz: d.tz ?? (() => 'America/New_York'),
+      timers: d.timers ?? realTimers,
+      open:
+        d.open ??
+        ((url) => {
+          if (typeof window !== 'undefined') window.location.assign(url)
+        }),
+    }
+    this.correction = new CorrectionDialog(this.ctx, () => d.ai?.review)
+    this.knowledge = new KnowledgeSection(this.ctx, d.ai?.knowledge)
+    this.practice = new PracticeSection(this.ctx, d.ai?.practice, this.correction)
+    this.review = new ReviewSection(this.ctx, d.ai?.review, this.correction)
+  }
+
+  // ---- the tabs ---------------------------------------------------------------------------------------------------------
+
+  /** The rest of `#assistant/<tab>` on load (an unknown tab opens Status & switches). */
+  openFromHash(rest: string): void {
+    const t = rest.replace(/^\//, '')
+    if (isAssistantTab(t)) this.setTab(t, false)
+  }
+
+  currentTab(): AssistantTab {
+    return this.tab
+  }
+
+  /** Switches the tab; `remember` writes `#assistant/<tab>` so a reload comes back to it. */
+  setTab(t: AssistantTab, remember = true): void {
+    if (this.tab === t) return
+    this.tab = t
+    if (remember) {
+      this.writeHash('#assistant' + (t === 'status' ? '' : '/' + t))
+      this.wroteHash = true
+    }
+    this.d.changed()
+  }
+
+  private writeHash(hash: string): void {
+    if (typeof window === 'undefined' || !window.history?.replaceState) return
+    try {
+      window.history.replaceState(window.history.state, '', hash || window.location.pathname + window.location.search)
+    } catch {
+      /* a sandboxed frame: the tab still switches */
+    }
+  }
 
   view(): AssistantView | undefined {
     return this.d.read()
@@ -101,7 +232,12 @@ export class AssistantSection {
     return this.errors[path] ?? ''
   }
 
-  private allowed(): boolean {
+  errorUnder(prefix: string): string {
+    const k = Object.keys(this.errors).find((p) => p === prefix || p.startsWith(prefix + '.'))
+    return k ? this.errors[k]! : ''
+  }
+
+  allowed(): boolean {
     if (this.d.can(ASSISTANT_PERMISSION)) return true
     this.d.emit({ title: ASSISTANT_DENIED })
     return false
@@ -183,12 +319,81 @@ export class AssistantSection {
     if (c) this.edit({ faq: c.faq.filter((_, j) => j !== i) }, (k) => k.startsWith('faq'))
   }
 
+  // ---- Limits & tone (ADR 0174 §3) ---------------------------------------------------------------------------------------
+
+  toggleCapability(k: CapabilityKey): void {
+    const c = this.current()
+    if (c) this.edit({ capabilities: { ...c.capabilities, [k]: !c.capabilities[k] } }, (p) => p.startsWith('capabilities'))
+  }
+
+  /** "Answer questions only": every capability and booking by text off; pressed again, back to the defaults. */
+  answerOnly(): void {
+    const c = this.current()
+    if (!c) return
+    if (isAnswerOnly(c.capabilities, c.actionsEnabled))
+      this.edit({ capabilities: { ...DEFAULT_CAPABILITIES } }, (p) => p.startsWith('capabilities'))
+    else this.edit({ capabilities: answerOnlyCapabilities(), actionsEnabled: false }, (p) => p.startsWith('capabilities'))
+  }
+
+  private behave(patch: Partial<AssistantBehavior>, clear: (p: string) => boolean = () => false): void {
+    const c = this.current()
+    if (c) this.edit({ behavior: { ...c.behavior, ...patch } }, clear)
+  }
+
+  setTone(t: AssistantTone): void {
+    this.behave({ tone: t }, (p) => p === 'behavior.tone')
+  }
+  setLength(l: AssistantLength): void {
+    this.behave({ length: l }, (p) => p === 'behavior.length')
+  }
+  setSpanish(s: AssistantSpanish): void {
+    this.behave({ spanish: s }, (p) => p === 'behavior.spanish')
+  }
+  setStyleNotes(text: string): void {
+    this.behave({ styleNotes: text }, (p) => p === 'behavior.styleNotes')
+  }
+  setSignOff(text: string): void {
+    this.behave({ signOff: text }, (p) => p === 'behavior.signOff')
+  }
+
+  listInput(k: BehaviorListKey): { text: string; error: string } {
+    return { text: this.listNew[k], error: this.listError[k] }
+  }
+
+  setListNew(k: BehaviorListKey, text: string): void {
+    this.listNew[k] = text
+    this.listError[k] = ''
+    this.d.changed()
+  }
+
+  addListItem(k: BehaviorListKey): void {
+    const c = this.current()
+    if (!c || !this.allowed()) return
+    const problem = listItemProblem(c.behavior, k, this.listNew[k])
+    if (problem) {
+      this.listError[k] = problem
+      this.d.changed()
+      return
+    }
+    const item = this.listNew[k].trim().replace(/\s+/g, ' ')
+    this.listNew[k] = ''
+    this.listError[k] = ''
+    this.behave({ [k]: [...c.behavior[k], item] }, (p) => p.startsWith('behavior.' + k))
+  }
+
+  removeListItem(k: BehaviorListKey, i: number): void {
+    const c = this.current()
+    if (c) this.behave({ [k]: c.behavior[k].filter((_, j) => j !== i) }, (p) => p.startsWith('behavior.' + k))
+  }
+
   discard(): void {
     this.edits = {}
     this.errors = {}
     this.saveError = ''
     this.numberNew = ''
     this.numberError = ''
+    this.listNew = { avoidWords: '', avoidTopics: '', handoffTopics: '' }
+    this.listError = { avoidWords: '', avoidTopics: '', handoffTopics: '' }
     this.d.changed()
   }
 
@@ -201,6 +406,13 @@ export class AssistantSection {
     if (Object.keys(problems).length) {
       this.errors = problems
       this.saveError = 'Fix the questions marked in red, then save.'
+      this.d.changed()
+      return false
+    }
+    const limits = behaviorProblems(cur.behavior)
+    if (Object.keys(limits).length) {
+      this.errors = limits
+      this.saveError = 'Fix what is marked in red in Limits & tone, then save.'
       this.d.changed()
       return false
     }
@@ -222,6 +434,8 @@ export class AssistantSection {
       key: ASSISTANT_KEY,
       queryClient: this.d.qc,
       request: (idem) => this.d.api.save(body, { idempotencyKey: idem }),
+      // the Q&A counts against the knowledge budget the Knowledge tab shows
+      invalidate: [KNOWLEDGE_KEY],
       denyLabel: 'change the assistant settings',
       onOk: (res) => ({
         title: 'Assistant settings saved',
@@ -245,7 +459,10 @@ export class AssistantSection {
     } else if (r.error.status === 422) {
       this.errors = {}
       for (const e of r.error.errors) this.errors[fieldPath(e.path)] = e.message
-      this.saveError = r.error.detail || 'Check the fields marked in red.'
+      this.saveError =
+        r.error.code === 'KNOWLEDGE_BUDGET'
+          ? 'The questions and answers: ' + budgetRefusal(r.error.meta).replace(/^Knowledge is full: /, 'knowledge is full, ')
+          : r.error.detail || 'Check the fields marked in red.'
     }
     // a 412 refetched the view (command): the edits stay over the new version and the server said why
     this.d.changed()
@@ -254,15 +471,23 @@ export class AssistantSection {
 
   // ---- what the template reads (live.asst) -------------------------------------------------------------------------------
 
-  vals(): Record<string, unknown> {
+  /** `open`: the section is on screen and loaded; `here`: the section is the one selected (even while it loads). */
+  vals(open = true, here = open): Record<string, unknown> {
+    if (!here && this.wroteHash) {
+      // left the section: a reload opens the section the person is on, not this tab
+      this.wroteHash = false
+      this.writeHash('')
+    }
     const v = this.view()
     const c = this.current()
     const ready = !!v && !!c
+    const tab = this.tab
+    const on = (t: AssistantTab): boolean => open && tab === t
+    if (!on('knowledge')) this.knowledge.stop()
+    if (!on('practice')) this.practice.stop()
     const status = v ? assistantStatus(v) : { on: false, text: '' }
     const stage = stageOf(c?.stage ?? 'allowlist')
-    const actionsSub =
-      'Each booking, move or cancel waits until the client replies with a 4-digit number. Off: Oasis AI sends a booking link instead.' +
-      (v && !v.server.actionsEnabled ? ' It is also off on the server for now.' : '')
+    const actionsSub = ACTIONS_SUB + (v && !v.server.actionsEnabled ? ' It is also off on the server for now.' : '')
     const toggles = c
       ? [
           {
@@ -303,6 +528,17 @@ export class AssistantSection {
     const nFaq = c?.faq.length ?? 0
     return {
       ready,
+      tabs: ASSISTANT_TABS.map(([k, label]) => ({ label, style: seg(tab === k), onClick: () => this.setTab(k) })),
+      tabStatus: tab === 'status',
+      tabKnowledge: tab === 'knowledge',
+      tabPractice: tab === 'practice',
+      tabLimits: tab === 'limits',
+      tabConversations: tab === 'conversations',
+      kn: on('knowledge') ? this.knowledge.vals(true) : { ready: false, ed: { open: false } },
+      pr: on('practice') ? this.practice.vals(true) : { ready: false },
+      rv: on('conversations') ? this.review.vals() : { ready: false },
+      lim: limitsVals(this),
+      corr: this.correction.vals(),
       badge: !!v?.active,
       statusText: status.text,
       statusStyle: {

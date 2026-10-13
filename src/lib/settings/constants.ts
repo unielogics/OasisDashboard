@@ -85,6 +85,15 @@ export const PERMS: readonly PermGroup[] = [
 export const ALL_PERMS: readonly string[] = PERMS.flatMap((g) => g.items.map((i) => i[0]))
 export const ALL_PERM_ITEMS: readonly PermItem[] = PERMS.flatMap((g) => g.items)
 
+/**
+ * Live variant only (backend ADR 0174 D3, DEVIATIONS DV-715): the permission the design predates, `set.assistant`, appended
+ * last to the Settings group as the backend appends it to its catalog (sort 28). The fixture and parity builds keep PERMS.
+ */
+export const LIVE_PERMS: readonly PermGroup[] = PERMS.map((g) =>
+  g.mod === 'Settings' ? { ...g, items: [...g.items, ['set.assistant', 'Oasis AI assistant'] as const] } : g,
+)
+export const LIVE_PERM_ITEMS: readonly PermItem[] = LIVE_PERMS.flatMap((g) => g.items)
+
 export const SECTION_META: Record<SectionKey, readonly [title: string, description: string]> = {
   vip: ['VIP program', 'Booking priority for VIP clients. Built around saving them time.'],
   arrival: ['Arrival & check-in', 'Geofence check-in and bay prep for every client.'],

@@ -42,6 +42,8 @@ const SETTINGS_ALSO: Record<string, QueryKey[]> = {
   // kiosk mode (ADR 0180): who shows on the kiosk follows the team (Settings → Kiosk and the tablet's picker list,
   // ['settings', 'kiosk', 'staff'])
   employees: [['settings', 'kiosk']],
+  // the Settings Q&A counts against the knowledge budget Settings → Oasis AI → Knowledge shows (ADR 0174 §1c)
+  assistant: [['settings', 'assistant_knowledge']],
 }
 
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */
@@ -52,6 +54,8 @@ export function keysForEvent(e: RealtimeEvent): QueryKey[] {
   if (e.type === 'rbac.changed') return [['me'], ['settings', 'roles'], ['settings', 'employees']]
   // The server ended the session: /me answers 401 and the app goes to the sign-in page.
   if (e.type === 'auth.expired') return [['me']]
+  // A practice turn of this person finished (ADR 0174 §4c): Settings → Oasis AI → Practice reads its session again.
+  if (e.type === 'assistant.practice.turn') return [['settings', 'assistant_practice']]
   if (e.channel === 'settings') {
     const section = typeof e.payload.section === 'string' ? e.payload.section : null
     if (!section) return [['settings']]

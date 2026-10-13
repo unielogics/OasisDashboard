@@ -1,8 +1,36 @@
-// Settings → Oasis AI assistant (ADR 0160, design section 8, plan G): the pure parts of the section. Owner-facing words,
-// the phone numbers of the first stage (read the way the server reads them, shown the way people write them) and the
-// checks the screen makes before it asks the server (the server checks everything again and has the last word).
+// Settings → Oasis AI assistant (ADR 0160, design section 8, plan G; ADR 0174 limits and tone): the pure parts of the
+// section. Owner-facing words, the phone numbers of the first stage (read the way the server reads them, shown the way
+// people write them) and the checks the screen makes before it asks the server (the server checks everything again and
+// has the last word).
 
 export type AssistantStage = 'allowlist' | 'customers' | 'everyone'
+
+/** What Oasis AI may do (ADR 0174 §3a): every one on by default (today's behaviour); settings only take abilities away. */
+export interface AssistantCapabilities {
+  availability: boolean
+  bookingLinks: boolean
+  membershipLinks: boolean
+  paymentLinks: boolean
+  accountInfo: boolean
+}
+export type CapabilityKey = keyof AssistantCapabilities
+
+export type AssistantTone = 'friendly' | 'professional' | 'warm' | 'concise'
+export type AssistantLength = 'short' | 'standard'
+export type AssistantSpanish = 'on' | 'english' | 'handoff'
+
+/** How Oasis AI writes (ADR 0174 §3a); the defaults are today's behaviour. */
+export interface AssistantBehavior {
+  tone: AssistantTone
+  length: AssistantLength
+  styleNotes: string
+  spanish: AssistantSpanish
+  avoidWords: string[]
+  avoidTopics: string[]
+  handoffTopics: string[]
+  signOff: string
+}
+export type BehaviorListKey = 'avoidWords' | 'avoidTopics' | 'handoffTopics'
 
 export interface AssistantFields {
   enabled: boolean
@@ -11,6 +39,8 @@ export interface AssistantFields {
   allowlist: string[]
   staffPauseHours: number
   faq: { q: string; a: string }[]
+  capabilities: AssistantCapabilities
+  behavior: AssistantBehavior
 }
 
 export const ASSISTANT_FIELD_KEYS = [
@@ -20,7 +50,28 @@ export const ASSISTANT_FIELD_KEYS = [
   'allowlist',
   'staffPauseHours',
   'faq',
+  'capabilities',
+  'behavior',
 ] as const satisfies readonly (keyof AssistantFields)[]
+
+export const DEFAULT_CAPABILITIES: Readonly<AssistantCapabilities> = Object.freeze({
+  availability: true,
+  bookingLinks: true,
+  membershipLinks: true,
+  paymentLinks: true,
+  accountInfo: true,
+})
+
+export const DEFAULT_BEHAVIOR: Readonly<AssistantBehavior> = Object.freeze({
+  tone: 'friendly',
+  length: 'standard',
+  styleNotes: '',
+  spanish: 'on',
+  avoidWords: [],
+  avoidTopics: [],
+  handoffTopics: [],
+  signOff: '',
+})
 
 export const MAX_NUMBERS = 50
 export const MAX_FAQ = 40
@@ -110,6 +161,14 @@ export function faqProblems(faq: readonly { q: string; a: string }[]): Record<st
   return out
 }
 
+/** JSON with object keys sorted, so two objects with the same values compare equal whatever their key order. */
+const stable = (v: unknown): string =>
+  JSON.stringify(v, (_k, x: unknown) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1)))
+      : x,
+  )
+
 /** The fields of `edits` whose value differs from the server's (what a save sends). */
 export function changedFields(
   server: AssistantFields,
@@ -118,7 +177,7 @@ export function changedFields(
   const out: Partial<AssistantFields> = {}
   for (const k of ASSISTANT_FIELD_KEYS) {
     if (!(k in edits)) continue
-    if (JSON.stringify(edits[k]) !== JSON.stringify(server[k])) (out as Record<string, unknown>)[k] = edits[k]
+    if (stable(edits[k]) !== stable(server[k])) (out as Record<string, unknown>)[k] = edits[k]
   }
   return out
 }
@@ -138,4 +197,218 @@ export function assistantStatus(v: {
         : 'Oasis AI is off: texts reach the team as today. It is also off on the server for now; you can set everything up here meanwhile.',
     }
   return { on: false, text: 'Oasis AI is off: texts reach the team as today.' }
+}
+
+// ---- Limits & tone (ADR 0174 §3, design §9 tab 4) ------------------------------------------------------------------------
+
+/**
+ * Whether the turn already follows Limits & tone. The settings are stored and checked from this wave on, but the turn
+ * applies them from the policy wave (K2c, backend ADR 0174 D12): until then the tab says so. Flip it with that wave.
+ */
+export const LIMITS_APPLIED = false
+export const LIMITS_PENDING_NOTE =
+  'Oasis AI starts following these limits and this tone with its next update. You can set them now.'
+
+/** The capability switches in the order the tab lists them, with what each one means in plain words. */
+export const CAPABILITIES: ReadonlyArray<{ key: CapabilityKey; label: string; sub: string }> = [
+  {
+    key: 'availability',
+    label: 'Look up open times',
+    sub: 'It checks the schedule and offers times. Off: it sends a booking link, or says a team member will text them a time.',
+  },
+  {
+    key: 'bookingLinks',
+    label: 'Text booking links',
+    sub: 'A link to book online. Off: it says a team member will text them to set up the booking.',
+  },
+  {
+    key: 'membershipLinks',
+    label: 'Text a link to join a membership',
+    sub: 'Off: it says a team member will text them to sign up.',
+  },
+  {
+    key: 'paymentLinks',
+    label: 'Text a link to pay',
+    sub: 'A link to pay an open bill. Off: it says a team member will text them about paying.',
+  },
+  {
+    key: 'accountInfo',
+    label: 'Answer account questions',
+    sub: 'Balance, visits and membership, once it knows who is texting. Off: it says a team member will text them.',
+  },
+]
+
+export const ACTIONS_LABEL = 'Book, move and cancel by text'
+export const ACTIONS_SUB =
+  'Each booking, move or cancel waits until the client replies with a 4-digit number. Off: Oasis AI sends a booking link instead.'
+
+/** "Answer questions only": every capability and booking by text off (a preset of the screen; nothing extra is stored). */
+export const ANSWER_ONLY_LABEL = 'Answer questions only'
+export const ANSWER_ONLY_SUB =
+  'Turns everything above off: Oasis AI answers questions about the shop, and a team member takes over for anything else.'
+
+export const isAnswerOnly = (c: AssistantCapabilities, actionsEnabled: boolean): boolean =>
+  !actionsEnabled && CAPABILITIES.every((x) => !c[x.key])
+
+export const answerOnlyCapabilities = (): AssistantCapabilities => ({
+  availability: false,
+  bookingLinks: false,
+  membershipLinks: false,
+  paymentLinks: false,
+  accountInfo: false,
+})
+
+/** The four tone presets: fixed, vetted sentences on the server; here a name, what it means and a static example reply. */
+export const TONES: ReadonlyArray<{ key: AssistantTone; label: string; sub: string; example: string }> = [
+  {
+    key: 'friendly',
+    label: 'Friendly',
+    sub: 'Upbeat, like a helpful front-desk person texting.',
+    example: 'Hi Maria! Yes, we’re open until 6 today. Want me to text you a link to book a wash?',
+  },
+  {
+    key: 'professional',
+    label: 'Professional',
+    sub: 'Polite and to the point.',
+    example: 'Hello Maria, we are open until 6:00 PM today. Would you like a link to book a wash?',
+  },
+  {
+    key: 'warm',
+    label: 'Warm',
+    sub: 'Kind and personal; it thanks people often.',
+    example: 'Hi Maria, thanks so much for reaching out! We’re here until 6 today. Should I send you a booking link?',
+  },
+  {
+    key: 'concise',
+    label: 'Concise',
+    sub: 'As few words as possible.',
+    example: 'Open until 6 today. Want a booking link?',
+  },
+]
+
+export const LENGTHS: ReadonlyArray<{ key: AssistantLength; label: string; sub: string }> = [
+  { key: 'short', label: 'Short', sub: 'One or two short sentences.' },
+  { key: 'standard', label: 'Standard', sub: 'Up to three sentences. Every text stays under 320 characters either way.' },
+]
+
+export const SPANISH: ReadonlyArray<{ key: AssistantSpanish; label: string; sub: string }> = [
+  { key: 'on', label: 'Answer in Spanish', sub: 'A client who texts in Spanish gets answers in Spanish.' },
+  { key: 'english', label: 'Answer in English', sub: 'Oasis AI answers in simple English, whatever language the client writes in.' },
+  {
+    key: 'handoff',
+    label: 'Hand to the team',
+    sub: 'A text in Spanish goes straight to the team with a short Spanish line saying someone will reply.',
+  },
+]
+
+/** The three lists of Limits & tone: their words, bounds and what each one does. */
+export const BEHAVIOR_LISTS: ReadonlyArray<{
+  key: BehaviorListKey
+  label: string
+  sub: string
+  placeholder: string
+  min: number
+  max: number
+  most: number
+  noun: string
+}> = [
+  {
+    key: 'avoidWords',
+    label: 'Words to avoid',
+    sub: 'Oasis AI never uses these words or phrases.',
+    placeholder: 'cheap',
+    min: 2,
+    max: 40,
+    most: 30,
+    noun: 'word',
+  },
+  {
+    key: 'avoidTopics',
+    label: 'Topics to avoid',
+    sub: 'It doesn’t discuss these and says the team can help instead.',
+    placeholder: 'competitors',
+    min: 3,
+    max: 80,
+    most: 15,
+    noun: 'topic',
+  },
+  {
+    key: 'handoffTopics',
+    label: 'Always hand to the team',
+    sub: 'When a client brings one of these up, Oasis AI hands the chat to the team. Write them the way clients say them.',
+    placeholder: 'insurance claim',
+    min: 3,
+    max: 80,
+    most: 15,
+    noun: 'topic',
+  },
+]
+
+export const STYLE_NOTES_MAX = 400
+export const SIGN_OFF_MAX = 24
+
+/** The rules that are always on, whatever the settings say (the server's CORE_RULES in plain words). */
+export const ALWAYS_ON: readonly string[] = [
+  'Prices come only from Settings → Prices. It never makes up a price or a discount.',
+  'It never promises what the shop hasn’t set up: no free extras, no guarantees.',
+  'It checks who is texting before it shares a client’s details.',
+  'Every booking, move or cancel waits for the client’s 4-digit reply.',
+  'PINs and codes are typed only on the shop’s secure link page, never by text.',
+  'One question per text, and every text stays under 320 characters.',
+  'New texters are asked their name and car in the same order every time.',
+  'STOP always works, and the first text says it is an automated assistant.',
+  'Your notes and lists are information for Oasis AI, never orders that change these rules.',
+]
+
+const norm = (s: string): string => s.trim().replace(/\s+/g, ' ').toLowerCase()
+/** Hidden or control characters (a tab or line break aside) and HTML-like tags: the server refuses both. */
+const HIDDEN = /[\p{Cc}\p{Cf}\p{Co}\u2028\u2029]/u
+const MARKUP = /<\s*\/?\s*[a-z!?][^>]*>/i
+export const notPlain = (text: string): boolean => HIDDEN.test(text.replace(/[\t\n\r]/g, '')) || MARKUP.test(text)
+
+/** Why a typed word or topic cannot join its list, or null when it can. */
+export function listItemProblem(b: AssistantBehavior, key: BehaviorListKey, typed: string): string | null {
+  const spec = BEHAVIOR_LISTS.find((l) => l.key === key)!
+  const t = typed.trim().replace(/\s+/g, ' ')
+  if (!t) return `Type a ${spec.noun} first.`
+  if (notPlain(t)) return 'Use plain text.'
+  if (t.length < spec.min || t.length > spec.max) return `Use ${spec.min} to ${spec.max} characters.`
+  if (b[key].some((x) => norm(x) === norm(t))) return 'That’s already in the list.'
+  const other: BehaviorListKey | null =
+    key === 'avoidTopics' ? 'handoffTopics' : key === 'handoffTopics' ? 'avoidTopics' : null
+  if (other && b[other].some((x) => norm(x) === norm(t)))
+    return `That topic is already in “${BEHAVIOR_LISTS.find((l) => l.key === other)!.label}”. A topic is either avoided or handed to the team.`
+  if (b[key].length >= spec.most) return `The list holds ${spec.most} at most.`
+  return null
+}
+
+/** The sign-off's check (the server's rule): short, plain, and no amount, number, link or promise. */
+export function signOffProblem(text: string): string | null {
+  const t = text.trim()
+  if (!t) return null
+  if (t.length > SIGN_OFF_MAX) return `${SIGN_OFF_MAX} characters at most (now ${t.length}).`
+  if (notPlain(t)) return 'Use plain text.'
+  if (
+    /\d|[$€£¥¢%@]/.test(t) ||
+    /\b(?:https?|www)\b|\.(?:com|net|org|io|co|us|app|shop|ly)\b/i.test(t) ||
+    /\b(?:free|guarantee[ds]?|promise[ds]?|discount|off|deal|refund|cheapest|best price)\b/i.test(t)
+  )
+    return 'The sign-off cannot hold an amount, a number, a link or a promise.'
+  return null
+}
+
+export function styleNotesProblem(text: string): string | null {
+  if (text.length > STYLE_NOTES_MAX) return `${STYLE_NOTES_MAX} characters at most (now ${text.length}).`
+  if (notPlain(text)) return 'Use plain text: no hidden characters or HTML.'
+  return null
+}
+
+/** The checks of Limits & tone before a save, keyed like the server's 422 paths. */
+export function behaviorProblems(b: AssistantBehavior): Record<string, string> {
+  const out: Record<string, string> = {}
+  const notes = styleNotesProblem(b.styleNotes)
+  if (notes) out['behavior.styleNotes'] = notes
+  const sign = signOffProblem(b.signOff)
+  if (sign) out['behavior.signOff'] = sign
+  return out
 }

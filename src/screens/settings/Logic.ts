@@ -14,6 +14,8 @@ import { parseT } from '@/lib/time'
 import {
   ALL_PERMS,
   ALL_PERM_ITEMS,
+  LIVE_PERMS,
+  LIVE_PERM_ITEMS,
   CADENCES,
   DAYS,
   EMERGENCY_DURATIONS,
@@ -368,7 +370,11 @@ export class SettingsLogic extends DCLogic<SettingsState> {
 
   componentDidMount(): void {
     if (location.hash === '#emergency') this.setState({ section: 'emergency' })
-    else if (this.data.live && location.hash === '#assistant') this.setState({ section: 'assistant' })
+    else if (this.data.live && /^#assistant(\/|$)/.test(location.hash)) {
+      // `#assistant/<tab>` opens a tab of the section (ADR 0174, DV-708)
+      this.data.assistant?.openFromHash(location.hash.slice('#assistant/'.length))
+      this.setState({ section: 'assistant' })
+    }
     else if (this.data.live && location.hash === '#billing') this.setState({ section: 'billing' })
     // the user menu's "Make this a kiosk…" and "Team activity…" (ADR 0180, DV-1009, DV-1012), also while Settings is open
     else if (this.data.live) this.shopFloorHash()
@@ -711,7 +717,9 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       style: chip(s.roleFilter === r.id),
     }))
 
-    // roles matrix
+    // roles matrix (live: the design's 27 plus set.assistant, DV-715)
+    const permList = data.live ? LIVE_PERMS : PERMS
+    const permItems = data.live ? LIVE_PERM_ITEMS : ALL_PERM_ITEMS
     const roles = s.rc.roles
     const matrixCols = 'minmax(220px,1.6fr) repeat(' + roles.length + ', minmax(96px,1fr))'
     const roleCards = roles.map((r) => {
@@ -721,7 +729,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         name: r.name,
         desc: r.desc,
         people: ppl + (ppl === 1 ? ' person' : ' people'),
-        count: n + ' of ' + ALL_PERM_ITEMS.length + ' permissions',
+        count: n + ' of ' + permItems.length + ' permissions',
       }
     })
     const roleCols = roles.map((r) => ({
@@ -739,7 +747,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
         this.flash(r.name + ' removed')
       },
     }))
-    const permGroups = PERMS.map((g) => ({
+    const permGroups = permList.map((g) => ({
       mod: g.mod,
       rows: g.items.map(([pid, label, lim]) => ({
         label,
@@ -849,7 +857,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
           style: seg(dft[k] === o && !(k === 'payType' && dft.payHidden)),
         }))
       const tab = (k: SettingsState['drTab']) => drawerTabStyle(s.drTab === k)
-      const effOn = effectiveCount(s.rc, dft)
+      const effOn = data.live ? effectiveCount(s.rc, dft, permItems.map((i) => i[0])) : effectiveCount(s.rc, dft)
       dr = {
         heading: dft.id ? dft.first + ' ' + dft.last : 'New employee',
         sub: dft.id
@@ -905,8 +913,8 @@ export class SettingsLogic extends DCLogic<SettingsState> {
             box: roleOptionBoxStyle(on),
           }
         }),
-        effCount: effOn + ' of ' + ALL_PERMS.length + ' allowed',
-        effGroups: PERMS.map((g) => ({
+        effCount: effOn + ' of ' + (data.live ? permItems.length : ALL_PERMS.length) + ' allowed',
+        effGroups: permList.map((g) => ({
           mod: g.mod,
           rows: g.items.map(([pid, label]) => {
             const ef = effective(s.rc, dft, pid)
@@ -1311,7 +1319,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       // Settings → Oasis AI assistant (ADR 0160, DV-705..707): the nav entry, the section and its save bar
       secAssistant: sec === 'assistant' && !gate,
       asst: {
-        ...(this.data.assistant?.vals() ?? {}),
+        ...(this.data.assistant?.vals(sec === 'assistant' && !gate, sec === 'assistant') ?? {}),
         go: () => this.setState({ section: 'assistant' }),
         navStyle: navStyle(sec, 'assistant'),
         dirty: sec === 'assistant' && !gate && !!this.data.assistant?.dirty(),

@@ -35,6 +35,9 @@ export function effective(rc: RolesConfig, e: Pick<Employee, 'roles' | 'override
   return { on: false, src: 'Not included in assigned roles' }
 }
 
-/** How many of the 27 permissions a person effectively has. */
-export const effectiveCount = (rc: RolesConfig, e: Pick<Draft, 'roles' | 'overrides'>): number =>
-  ALL_PERMS.filter((p) => effective(rc, e, p).on).length
+/** How many of the permissions (the design's 27 unless the live list is given) a person effectively has. */
+export const effectiveCount = (
+  rc: RolesConfig,
+  e: Pick<Draft, 'roles' | 'overrides'>,
+  perms: readonly string[] = ALL_PERMS,
+): number => perms.filter((p) => effective(rc, e, p).on).length

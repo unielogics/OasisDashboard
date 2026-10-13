@@ -30,6 +30,19 @@ describe('keysForEvent', () => {
     expect(keysForEvent(ev('weird', 'x'))).toEqual([])
   })
 
+  it('Oasis AI (ADR 0174): a practice turn refetches the practice chats; the Q&A refreshes the knowledge budget', () => {
+    expect(keysForEvent(ev('notifications', 'assistant.practice.turn', { sessionId: 's1', turnId: 't1' }))).toEqual([
+      ['settings', 'assistant_practice'],
+    ])
+    expect(keysForEvent(ev('settings', 'settings.changed', { section: 'assistant' }))).toEqual([
+      ['settings', 'assistant'],
+      ['settings', 'assistant_knowledge'],
+    ])
+    expect(keysForEvent(ev('settings', 'settings.changed', { section: 'assistant_knowledge' }))).toEqual([
+      ['settings', 'assistant_knowledge'],
+    ])
+  })
+
   it('catalog, service and reminder sections also refresh where they show (ADR 0160 plan A, I, K)', () => {
     const s = (section: string) => keysForEvent(ev('settings', 'settings.changed', { section }))
     const views = [

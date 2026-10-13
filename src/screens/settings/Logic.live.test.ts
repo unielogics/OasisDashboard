@@ -425,7 +425,7 @@ describe('employees', () => {
     await vi.waitFor(() => expect(logic.state.draft).not.toBeNull())
     expect(logic.state.draft.overrides).toEqual({ 'sched.override': 'allow' })
     expect(logic.state.draft.sched[6]).toEqual({ on: true, from: '8:00 AM', to: '5:00 PM' })
-    expect(vals(logic).dr.effCount).toMatch(/^\d+ of 27 allowed$/)
+    expect(vals(logic).dr.effCount).toMatch(/^\d+ of 28 allowed$/)
   })
 
   it('a server validation error lands in the drawer on the right tab; success lists the saved person', async () => {

@@ -57,9 +57,10 @@ describe('can()', () => {
     expect(can(undefined, 'sched.view')).toBe(false)
     expect(can({ permissions: {} }, 'sched.view')).toBe(false)
   })
-  it('every default role grants exactly its keys (27 keys in total)', () => {
-    expect(PERMISSION_KEYS).toHaveLength(27)
-    expect(new Set(PERMISSION_KEYS).size).toBe(27)
+  it('every default role grants exactly its keys (28 keys in total)', () => {
+    expect(PERMISSION_KEYS).toHaveLength(28)
+    expect(new Set(PERMISSION_KEYS).size).toBe(28)
+    expect(PERMISSION_KEYS.at(-1)).toBe('set.assistant')
     for (const role of Object.keys(DEFAULT_ROLE_GRANTS) as Array<keyof typeof DEFAULT_ROLE_GRANTS>) {
       const s = makeSession({ role })
       for (const k of PERMISSION_KEYS)
@@ -110,7 +111,7 @@ describe('limit() mirrors Payments lim()', () => {
 })
 
 describe('deniedTitle', () => {
-  it('has wording for all 27 keys, with the typographic apostrophe', () => {
+  it('has wording for all 28 keys, with the typographic apostrophe', () => {
     for (const k of PERMISSION_KEYS) {
       const t = deniedTitle(k)
       expect(t, k).toMatch(/^Your role can’t \S+/)

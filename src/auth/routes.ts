@@ -42,6 +42,7 @@ export const ROUTE_ACCESS: readonly RouteAccess[] = [
       'team.roles',
       'cli.member',
       'set.billing',
+      'set.assistant',
     ],
     title: 'No settings access',
     named: 'team.view',

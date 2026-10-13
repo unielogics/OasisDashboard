@@ -6,6 +6,8 @@ import { getDataPort } from '@/data/default-port'
 import { api } from '@/data/http/client'
 import { createAssistantApi } from '@/data/ports/assistant-api'
 import { createKioskAdminApi } from '@/data/ports/kiosk-api'
+import { createAssistantKnowledgeApi } from '@/data/ports/assistant-knowledge-api'
+import { createAssistantPracticeApi, createAssistantReviewApi } from '@/data/ports/assistant-practice-api'
 import { getQueryClient } from '@/data/query'
 import { DCHost } from '@/dc/DCHost'
 import { ScreenStyle } from '@/dc/ScreenStyle'
@@ -23,6 +25,11 @@ const data: SettingsData = LIVE
       qc: getQueryClient(),
       session: () => liveChrome.getSession(),
       assistantApi: createAssistantApi(api),
+      assistantAi: {
+        knowledge: createAssistantKnowledgeApi(api),
+        practice: createAssistantPracticeApi(api),
+        review: createAssistantReviewApi(api),
+      },
     })
   : new FixtureData()
 // Catalog, Categories and Reminders & texts: sections the design does not have, live only (DV-317..DV-321)

@@ -474,6 +474,18 @@
       "matcher": { "rect": { "x": 28, "y": 847, "w": 246, "h": 112 } }
     },
     {
+      "id": "L-settings-74",
+      "screen": "settings",
+      "kind": "text",
+      "reason": "DV-715: the permission the design predates, set.assistant (backend ADR 0174 D3, appended last to the Settings group, sort 28), is a row of the live Roles & permissions matrix and of the employee drawer's effective permissions ('Oasis AI assistant', 28 rows, 'N of 28 permissions'). The oracle gets the same row in its permission list before it renders; its default roles are derived from that list, so Super Admin and Management hold it, as the migration grants it to every role that held set.hours.",
+      "swap": {
+        "find": "['set.billing','Billing & integrations']]",
+        "replace": "['set.billing','Billing & integrations'],['set.assistant','Oasis AI assistant']]",
+        "count": 1,
+        "target": "logic"
+      }
+    },
+    {
       "id": "L-settings-12",
       "screen": "settings",
       "kind": "text",
