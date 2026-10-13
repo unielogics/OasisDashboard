@@ -138,7 +138,9 @@ the page opens with `?locked=1[&at=9:00 PM]`: `The kiosk locked at 9:00 PM. Ente
 
 **The kiosk session** (`src/auth/session.tsx`): `GET /me` answers 403 `KIOSK_SESSION` on an unlocked tablet, and the session
 is then `GET /kiosk/me` (`toKioskSession`: kind `kiosk`, a synthetic user named after the tablet with initials `K`, the
-kiosk's permission set, no money limits, no view-as, the server clock from `serverTime`). While it lasts:
+kiosk's permission set, no money limits, no view-as, the server clock from `serverTime`). A refetch (focus, `refresh()`,
+the event stream's auth probe) finds the client already in kiosk mode, which refuses `GET /me` itself: that also reads
+`GET /kiosk/me`, so an ended kiosk session (its 401) still sends the tablet to the keypad. While it lasts:
 
 - the API client refuses, without sending them, the routes the kiosk may not call (`src/data/http/kiosk-routes.ts`, generated
   by `pnpm gen:api` from the backend's `x-oasis-kiosk` marks, `--check` guards it) with `Not on the kiosk · Ask a manager`;

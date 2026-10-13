@@ -479,6 +479,43 @@ describe('kiosk sessions (ADR 0180, DV-1002, DV-1014)', () => {
     expect(log.map((r) => r.method + ' ' + r.path)).toContain('GET /kiosk/me')
   })
 
+  it('a refetch while the client is in kiosk mode re-reads GET /kiosk/me (the client refuses /me locally) (F2)', async () => {
+    const { fn, log } = kioskRoutes()
+    const c = client(fn)
+    c.configure({ kiosk: { resolveActor: async () => null } })
+    const s = await loadSession(createMeApi(c), undefined, createKioskApi(c))
+    expect(s.kind).toBe('kiosk')
+    expect(log.map((r) => r.method + ' ' + r.path)).toContain('GET /kiosk/me')
+    expect(log.some((r) => r.path === '/me')).toBe(false)
+  })
+
+  it('the provider: refresh() of a kiosk session re-reads /kiosk/me; an ended session there goes to the keypad (F2)', async () => {
+    let ended = false
+    const { fn, log } = kioskRoutes([
+      on('GET', '/kiosk/me', () => (ended ? problem(401, 'UNAUTHENTICATED', 'Sign in') : json(makeKioskMe()))),
+    ])
+    const c = client(fn)
+    const n = nav()
+    let seen: ReturnType<typeof useSession> | undefined
+    await mount(createElement(SessionProvider, { client: c, nav: n }, createElement(Probe, { out: (v) => (seen = v) })))
+    expect(seen!.session.kind).toBe('kiosk')
+    const reads = () => log.filter((r) => r.method === 'GET' && r.path === '/kiosk/me').length
+    const before = reads()
+    await act(async () => {
+      await seen!.refresh()
+    })
+    await flush()
+    expect(reads()).toBe(before + 1)
+    expect(seen!.session.kind).toBe('kiosk')
+    ended = true
+    await act(async () => {
+      await seen!.refresh().catch(() => {})
+    })
+    await flush()
+    expect(reads()).toBe(before + 2)
+    expect(n.replace).toHaveBeenCalledWith('/login?locked=1')
+  })
+
   it('loadSession without the kiosk endpoints keeps today’s behaviour: KIOSK_SESSION rejects', async () => {
     const { fn } = kioskRoutes()
     await expect(loadSession(createMeApi(client(fn)))).rejects.toMatchObject({ code: 'KIOSK_SESSION' })

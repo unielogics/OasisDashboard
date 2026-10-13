@@ -18,6 +18,7 @@ import { createAuthApi, createKioskApi, createMeApi } from '@/data/http/endpoint
 import type { KioskApi, MeApi } from '@/data/http/endpoints'
 import { AUTH_CODES } from '@/data/http/auth-types'
 import { ApiError } from '@/data/http/problem'
+import { KioskRefused } from '@/data/http/kiosk'
 import { qk } from '@/data/query'
 import { toasts } from '@/data/toast'
 import { adoptServerTheme, applyDocumentTheme, clearThemeCache, persistTheme } from '@/data/theme'
@@ -32,13 +33,16 @@ import type { PermissionKey } from './permissions'
 
 /**
  * GET /me and the server clock (from /me when it carries one, else GET /meta/now), as one Session. On the shop's unlocked
- * kiosk /me answers 403 KIOSK_SESSION: the session is then GET /kiosk/me (which carries the server clock).
+ * kiosk /me answers 403 KIOSK_SESSION: the session is then GET /kiosk/me (which carries the server clock). On a refetch
+ * the client is already in kiosk mode and refuses /me itself (KioskRefused): that also means GET /kiosk/me.
  */
 export async function loadSession(me: MeApi, signal?: AbortSignal, kiosk?: KioskApi): Promise<Session> {
   const sent = serverClock.rawNow()
   const [m, now] = await Promise.all([
     me.get(signal).catch((e: unknown) => {
-      if (kiosk && e instanceof ApiError && e.code === AUTH_CODES.kioskSession) return null
+      // KIOSK_SESSION from the server, or the client (already in kiosk mode on a refetch) refusing /me locally (F2)
+      if (kiosk && (e instanceof KioskRefused || (e instanceof ApiError && e.code === AUTH_CODES.kioskSession)))
+        return null
       throw e
     }),
     me.now(signal).catch(() => null),
