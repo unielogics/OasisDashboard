@@ -1,0 +1,52 @@
+<sc-if value="{{ live.secActivity }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <sc-for list="{{ live.act.chips }}" as="c" hint-placeholder-count="5"><button sc-camel-on-click="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+    <div style="flex:1;"></div>
+    <div style="font-size:12.5px;font-weight:700;color:var(--ink3);">{{ live.act.rangeText }}</div>
+  </div>
+  <sc-if value="{{ live.act.custom }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">From</div><input type="date" title="From" value="{{ live.act.customFrom }}" sc-camel-on-input="{{ live.act.setFrom }}" style="height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"></div>
+      <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">To</div><input type="date" title="To" value="{{ live.act.customTo }}" sc-camel-on-input="{{ live.act.setTo }}" style="height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"></div>
+      <button sc-camel-on-click="{{ live.act.applyCustom }}" style="height:44px;padding:0 18px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">Show</button>
+      <sc-if value="{{ live.act.hasCustomError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:700;color:#C2410C;align-self:center;">{{ live.act.customError }}</div></sc-if>
+    </div>
+  </sc-if>
+  <sc-if value="{{ live.act.loading }}" hint-placeholder-val="{{ false }}"><div style="padding:26px 0;text-align:center;font-size:14px;font-weight:700;color:var(--ink3);">Loading the report…</div></sc-if>
+  <sc-if value="{{ live.act.notBuilt }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;font-size:13.5px;font-weight:700;color:var(--ink2);line-height:1.45;">Team activity isn’t ready yet. It fills in once the shop floor report is turned on.</div></sc-if>
+  <sc-if value="{{ live.act.failed }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;"><div style="flex:1;font-size:13.5px;font-weight:700;color:var(--ink2);">The report couldn’t load.</div><button sc-camel-on-click="{{ live.act.retry }}" style="height:40px;padding:0 16px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">Try again</button></div></sc-if>
+  <sc-if value="{{ live.act.ready }}" hint-placeholder-val="{{ false }}">
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:12px 18px;">
+      <div style="display:grid;grid-template-columns:minmax(170px,1.6fr) repeat(8,minmax(64px,1fr));gap:8px;padding:6px 0 10px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em;"><div>Employee</div><sc-for list="{{ live.act.headings }}" as="h" hint-placeholder-count="8"><div>{{ h.text }}</div></sc-for></div>
+      <sc-if value="{{ live.act.noRows }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;font-weight:600;color:var(--ink3);padding:14px 0;">Nobody did anything in this range.</div></sc-if>
+      <sc-for list="{{ live.act.rows }}" as="r" hint-placeholder-count="3">
+        <button sc-camel-on-click="{{ r.onClick }}" style="{{ r.style }}">
+          <span style="display:flex;align-items:center;gap:10px;min-width:0;"><span style="{{ r.avatarStyle }}">{{ r.initials }}</span><span style="min-width:0;"><span style="display:block;font-weight:800;font-size:13.5px;">{{ r.name }}</span><span style="display:block;font-size:11.5px;font-weight:600;color:var(--ink3);">{{ r.sub }}</span></span></span>
+          <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="8"><span style="font-size:13.5px;font-weight:700;">{{ c.text }}</span></sc-for>
+        </button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ live.act.detail.show }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:18px;background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;"><div style="flex:1;"><div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:19px;">{{ live.act.detail.name }}</div><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;">{{ live.act.detail.bayTime }} · {{ live.act.detail.payments }}</div></div><button sc-camel-on-click="{{ live.act.detail.close }}" style="height:38px;padding:0 13px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink);">Close</button></div>
+        <div style="font-weight:800;font-size:14px;margin-top:16px;">By day</div>
+        <sc-if value="{{ live.act.detail.noDays }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:6px;">No activity in this range.</div></sc-if>
+        <sc-for list="{{ live.act.detail.days }}" as="d" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:minmax(170px,1.6fr) repeat(8,minmax(64px,1fr));gap:8px;padding:8px 0;border-top:1px solid var(--line);margin-top:6px;font-size:13px;font-weight:700;"><div>{{ d.label }}</div><sc-for list="{{ d.cells }}" as="c" hint-placeholder-count="8"><div>{{ c.text }}</div></sc-for></div></sc-for>
+        <div style="font-weight:800;font-size:14px;margin-top:16px;">Cars</div>
+        <sc-if value="{{ live.act.detail.carsLoading }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:6px;">Loading…</div></sc-if>
+        <sc-if value="{{ live.act.detail.noCars }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:6px;">No cars in this range.</div></sc-if>
+        <sc-for list="{{ live.act.detail.cars }}" as="c" hint-placeholder-count="2">
+          <div style="padding:10px 0;border-top:1px solid var(--line);margin-top:6px;">
+            <div style="font-weight:800;font-size:13.5px;">{{ c.title }}</div>
+            <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ c.sub }}</div>
+            <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;"><sc-for list="{{ c.steps }}" as="s" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ink2);"><span style="{{ s.tagStyle }}">{{ s.tag }}</span><span>{{ s.text }}</span></div></sc-for></div>
+          </div>
+        </sc-for>
+        <div style="font-weight:800;font-size:14px;margin-top:16px;">Timeline</div>
+        <sc-if value="{{ live.act.detail.noEvents }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:6px;">Nothing recorded.</div></sc-if>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;"><sc-for list="{{ live.act.detail.events }}" as="e" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ink2);"><span style="{{ e.tagStyle }}">{{ e.tag }}</span><span>{{ e.line }}</span></div></sc-for></div>
+        <sc-if value="{{ live.act.detail.hasMore }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.act.detail.more }}" style="margin-top:10px;height:38px;padding:0 13px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink);">Show more</button></sc-if>
+      </div>
+    </sc-if>
+  </sc-if>
+</sc-if>

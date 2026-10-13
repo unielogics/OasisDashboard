@@ -7,7 +7,8 @@
 import * as React from 'react'
 import type { QueryClient } from '@tanstack/react-query'
 import type { LiveChrome } from '@/auth/chrome'
-import { can } from '@/auth/session-model'
+import { carOf } from '@/auth/kiosk-picker'
+import { can, isKiosk } from '@/auth/session-model'
 import type { Session } from '@/auth/session-model'
 import { Action } from '@/data/command'
 import { ApiError } from '@/data/http/problem'
@@ -141,6 +142,7 @@ import {
 } from '@/lib/operations/live/billing'
 import type { BillingActionKey } from '@/lib/operations/live/billing'
 import { OpsCommands } from './live/commands'
+import type { WhoAsk } from './live/commands'
 
 const THEME_KEY = 'oasis-theme'
 const TENDER_KEY = 'oasis-last-tender'
@@ -300,6 +302,22 @@ const WINDOW_OF: Record<RangeName, OpsWindow> = {
 
 const FIRST_NAME = (name: string): string => name.split(' ')[0] ?? name
 
+/** The picker's question for a car step, naming the car ("Who’s starting Maria’s Camry?"). */
+function stepTitle(step: OpsCard['next']['step'], car: string): string | undefined {
+  switch (step) {
+    case 'confirm':
+      return 'Who’s confirming ' + car + '?'
+    case 'arrive':
+      return 'Who’s checking in ' + car + '?'
+    case 'start':
+      return 'Who’s starting ' + car + '?'
+    case 'complete':
+      return 'Who finished ' + car + '?'
+    default:
+      return undefined
+  }
+}
+
 /** The file's card, visit, fee and billing confirmations, closed when another file opens. */
 const FILE_WALLET_RESET = {
   cardConfirm: null,
@@ -367,6 +385,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       learnProcessor: (p) => {
         this.learnedProcessor = p
       },
+      // kiosk mode (ADR 0180, DV-1005): the employee picker; a signed-in person is never asked
+      who: (ask) => this.whoAsk(ask),
     })
     this.state = {
       theme: deps.loadTheme(),
@@ -409,6 +429,35 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     return this.session()?.businessTz ?? DEFAULT_TZ
   }
   private can = (key: Parameters<typeof can>[1]): boolean => can(this.session(), key)
+  /** The shop's unlocked kiosk (ADR 0180): writes name the employee who taps. */
+  private onKiosk(): boolean {
+    return isKiosk(this.session())
+  }
+
+  private whoAsk(ask: WhoAsk): Promise<string | null | undefined> {
+    const c = this.deps.chrome()
+    if (!c || !this.onKiosk()) return Promise.resolve(undefined)
+    return c.picker.pick(ask)
+  }
+
+  /** The file closes: its sticky name ("As Marco R.") is forgotten (DV-1006). */
+  private closeFile(): void {
+    this.deps.chrome()?.picker.forget(this.state.selectedId)
+    this.setState({ selectedId: null })
+  }
+
+  /** "As Marco R. · Change" over the composer, the checklist and the add-ons of the open file, on a kiosk (DV-1006). */
+  private actingVals(fileId: string | null): VM {
+    const c = this.deps.chrome()
+    const p = fileId && c && this.onKiosk() ? c.picker.acting(fileId) : null
+    return {
+      show: !!p,
+      text: p ? 'As ' + p.name : '',
+      change: () => {
+        if (fileId && c) void c.picker.change(fileId)
+      },
+    }
+  }
   private today(): string {
     return businessToday(this.deps.now(), this.tz())
   }
@@ -506,6 +555,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     if (e.ctrlKey || e.metaKey || e.altKey) return
     const s = this.state
     if (e.key === 'Escape') {
+      if (this.state.newOpen) this.cmd.closeFlow(this.bookAction)
+      this.deps.chrome()?.picker.forget(this.state.selectedId)
       this.setState({ selectedId: null, newOpen: false })
       return
     }
@@ -655,6 +706,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       return
     }
     this.identityReadFor = null
+    if (this.state.selectedId && this.state.selectedId !== id) this.deps.chrome()?.picker.forget(this.state.selectedId)
     this.setState({
       selectedId: id,
       modalTab: tab,
@@ -859,7 +911,10 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       this.select(c.id, 'payments')
       return
     }
-    await this.cmd.advance({ id: c.id, status: c.status, step: c.next.step })
+    await this.cmd.advance(
+      { id: c.id, status: c.status, step: c.next.step },
+      stepTitle(c.next.step, carOf(c.customer.name, c.vehicleShort)),
+    )
   }
 
   private async advanceFile(f: AppointmentFile): Promise<void> {
@@ -867,13 +922,20 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       this.setTab('payments')
       return
     }
-    await this.cmd.advance({ id: f.id, status: f.status, step: f.next.step })
+    await this.cmd.advance(
+      { id: f.id, status: f.status, step: f.next.step },
+      stepTitle(f.next.step, carOf(f.customer.name, [f.vehicle?.make, f.vehicle?.model].filter(Boolean).join(' '))),
+    )
   }
 
   private async assignToBay(c: OpsCard, num: number): Promise<void> {
     const bay = this.snapshot()?.bays.find((b) => b.number === num)
     if (!bay) return
-    await this.cmd.assignBay(c.id, bay.id)
+    await this.cmd.assignBay(
+      c.id,
+      bay.id,
+      'Who’s putting ' + carOf(c.customer.name, c.vehicleShort) + ' in ' + bay.name + '?',
+    )
   }
 
   /** Dropping on an hour row keeps the minutes of the booking and moves the hour; the server checks capacity and hours. */
@@ -1215,7 +1277,10 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       viewTabs,
       openNew: () => this.openNew('New Appointment'),
       openWalkin: () => this.openNew('Walk-in Booking'),
-      closeNew: () => this.setState({ newOpen: false }),
+      closeNew: () => {
+        this.cmd.closeFlow(this.bookAction)
+        this.setState({ newOpen: false })
+      },
       newOpen: s.newOpen,
       newTitle: s.newTitle,
       newServices: nf.services,
@@ -1243,7 +1308,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       dateLabel: dateHeading(today),
       modalOpen,
       sel,
-      closeModal: () => this.setState({ selectedId: null }),
+      closeModal: () => this.closeFile(),
       stop: (e: { stopPropagation(): void }) => e.stopPropagation(),
       toast: s.toast,
       toastTitle: s.toast ? s.toast.title : '',
@@ -1253,7 +1318,11 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     }
     // calendar roots the template reads even outside the Calendar view
     for (const k of CAL_DEFAULTS) if (!(k in vals)) vals[k] = CAL_EMPTY[k]
-    vals.live = { ...(chrome ? chrome.vals() : {}), ...this.categoryVals(snap, catFilter) }
+    vals.live = {
+      ...(chrome ? chrome.vals() : {}),
+      ...this.categoryVals(snap, catFilter),
+      acting: this.actingVals(modalOpen ? s.selectedId : null),
+    }
     if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== s.theme)
       document.documentElement.setAttribute('data-theme', s.theme)
     return vals
@@ -1598,7 +1667,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const closed = isClosedVisit(f)
     const squareOn = this.processorOf(f) === 'square'
     const fees =
-      overview && closed && squareOn && (this.can('pay.collect') || this.can('sched.cancel'))
+      // not on the kiosk: charging, waiving and "Not charged" are a manager's (DV-1007)
+      overview && closed && squareOn && !this.onKiosk() && (this.can('pay.collect') || this.can('sched.cancel'))
         ? this.deps.store.read<FeeCharges>(qk.ops('fees', f.id), () => this.deps.port.feeCharges(f.id), {
             staleTimeMs: FRESH_MS,
           })

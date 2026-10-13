@@ -2,8 +2,17 @@
 // "is there a session cookie"; the session itself is validated by GET /api/v1/me in SessionProvider.
 import { isPublicPath, loginUrl } from '@/lib/url'
 
-/** Names the backend may set: `__Host-` prefixed in production behind TLS (api-spec 14.1), plain otherwise. */
-export const SESSION_COOKIE_NAMES = ['__Host-oasis_sid', 'oasis_sid'] as const
+/**
+ * Names the backend may set: `__Host-` prefixed in production behind TLS (api-spec 14.1), plain otherwise. The kiosk
+ * session (ADR 0180, api-spec 31.1) counts too: an unlocked tablet opens the board. The kiosk's DEVICE cookie
+ * (`oasis_kdev`) does not: a registered but locked tablet goes to the keypad.
+ */
+export const SESSION_COOKIE_NAMES = [
+  '__Host-oasis_sid',
+  'oasis_sid',
+  '__Host-oasis_ksid',
+  'oasis_ksid',
+] as const
 
 export interface MiddlewareInput {
   pathname: string

@@ -118,6 +118,9 @@ export const SECTION_META: Record<SectionKey, readonly [title: string, descripti
   memberships: ['Memberships', 'Tiers, what each includes, the member % off and the monthly price per size.'],
   // live variant only (DV-908)
   billing: ['Billing & integrations', 'Square, payment links, saved-card fees and how memberships billed by Square renew.'],
+  // live variant only (DV-1010, DV-1011)
+  kiosk: ['Kiosk', 'The shop tablet that opens with a code: kiosk mode, the shop code, the tablets and who shows on them.'],
+  activity: ['Team activity', 'Who checked in, washed, finished and handed over each car, and their payments, texts and bookings.'],
 }
 
 export const MON = [
@@ -186,4 +189,7 @@ export const SECTION_READ_PERMISSION: Partial<Record<SectionKey, string>> = {
   vip: 'cli.member',
   // live only (DV-908): GET /settings/billing needs it
   billing: 'set.billing',
+  // live only (DV-1010, DV-1011): GET /kiosk and the team activity report
+  kiosk: 'team.roles',
+  activity: 'team.edit',
 }

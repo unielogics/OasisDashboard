@@ -39,6 +39,9 @@ const SETTINGS_ALSO: Record<string, QueryKey[]> = {
   payments: [['settings', 'billing']],
   memberships: [['settings', 'billing']],
   fees: [['settings', 'billing']],
+  // kiosk mode (ADR 0180): who shows on the kiosk follows the team (Settings → Kiosk and the tablet's picker list,
+  // ['settings', 'kiosk', 'staff'])
+  employees: [['settings', 'kiosk']],
 }
 
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */

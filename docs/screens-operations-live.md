@@ -353,3 +353,33 @@ action until it succeeds, the server's toast or `Card removed`, `Card link texte
 
 Tests: `src/lib/operations/live/billing.test.ts`, `src/screens/operations/live-billing.test.ts` (view model, commands, permissions,
 the live template). End to end: `pnpm e2e:billing` (docs/screens-payments-live.md, "Running the end to end").
+
+## Kiosk mode (ADR 0180; DV-1004..DV-1007, DV-1013)
+
+On the shop's unlocked kiosk (docs/auth-ui.md "Kiosk mode") Operations is the only screen: no Payments or Settings tab and
+no "Manage" links (`wrap-if live.showAdminNav` on tpl 18, 19, 53, 351). Nobody is signed in, so **every write names the
+employee who taps their name** in the picker (`src/auth/kiosk-picker.ts`, partial `kiosk-picker.html`, the file modal's
+overlay at z-index 80 under the toast): a 88 px tile per name (avatar colour and initials, `Marco R.`, title), bay staff
+first, then by first name, nothing preselected; Cancel, a tap outside or Esc stops the action (no request, no toast); Tab
+stays in the dialog and the board's shortcuts (s, r, n, m, p, Esc) wait. The name goes in `X-Oasis-Employee`
+(`OpsCommands` passes `{idempotencyKey, actor}`; the ports pass it through). The picker opens **before** the request and
+before any optimistic change:
+
+| When                       | Commands                                                                                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| every time                 | `assignBay` (drag or menu: `Who’s putting Maria’s Toyota Camry in Bay 2?`), `advance` (swipe, the file's button, s/r: `Who’s starting …`, `Who finished …`), `arrive`, `prepBay`, `setPickup`, `notifyReady`, `reschedule`, the alert actions that do these |
+| once per flow              | a booking or walk-in (`Who’s making this booking?` / `Who’s checking in this walk-in?`; every try of the same sheet keeps the name; closing the sheet ends the flow), a collect (`Who’s taking Maria’s payment?`: the payment and its receipt), a payment link, a size change |
+| sticky per file, 2 minutes | texts (`Who’s texting Maria?`), add-ons, checklist (item and bulk), photos (presign and complete): the first asks, then the name sticks to the open file for 2 minutes of activity; `As Marco R. · Change` over the composer, the checklist header, the add-ons header and the photos (partials `ops-acting-chip*.html`); closing the file forgets it |
+| never                      | reads, opening a file, marking a thread read, the price preview                                                                                                |
+
+What the kiosk may not do says `Not on the kiosk · Ask a manager` and sends nothing (cancel, no-show, refunds, voids,
+membership actions, client edits, saved-card removal); a route that is not on the kiosk's list is refused by the API client
+before it is sent with the same words. A closed visit's fees (charge, waive, `Not charged`) are not read on a kiosk.
+
+The worker on a bay card, the History line `Today · Marco R.` and the Staff view's column for a worker who is not crew
+(DV-1013) come from the server (the attribution package, wave K1b): the dashboard renders the snapshot's `worker` and
+`staff` columns and the file's `activity[].actorName` as before.
+
+Tests: `src/screens/operations/live-kiosk.test.ts` (who is asked when, what each request carries, a signed-in person never
+asked, and through the real ApiClient that the client's fallback picker is never reached) and
+`LiveLogic.kiosk.render.test.ts` (the live template: hidden tabs, chip and menu, picker, acting chip, the admin bar).

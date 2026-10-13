@@ -9,6 +9,8 @@ export type JsonObject = { [k: string]: JsonValue }
 export interface CommandOptions {
   /** The Idempotency-Key generated when the user action started (see command()). */
   idempotencyKey?: string
+  /** Kiosk mode (ADR 0180): the employee doing this write (X-Oasis-Employee). */
+  actor?: string
 }
 
 export interface Cursor<T> {

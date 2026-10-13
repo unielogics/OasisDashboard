@@ -61,6 +61,22 @@ export interface MeResponse {
   businessTz?: string
   /** Optional runtime flags (the review asked for a source for `devTools`; absent means false). */
   config?: { devTools?: boolean }
+  /** ADR 0180: this person signed in on a registered kiosk device (a short session, with a bar); null elsewhere. */
+  kioskDevice?: { id: string; name: string } | null
+}
+
+// ---- kiosk mode (ADR 0180, api-spec 31) -----------------------------------------------------------------------------
+
+type Json<R> = R extends { content: { 'application/json': infer B } } ? B : never
+/** GET /kiosk/status (public): kiosk mode on or off, and this browser's kiosk state. */
+export type KioskStatus = Json<paths['/api/v1/kiosk/status']['get']['responses'][200]>
+/** GET /kiosk/me and the unlock answer: the unlocked kiosk (device, lock time, permissions, CSRF token, picker list). */
+export type KioskMe = Json<paths['/api/v1/kiosk/me']['get']['responses'][200]>
+/** One name of the employee picker: "Marco R.", bay staff first. */
+export type KioskPerson = KioskMe['staff'][number]
+export interface UnlockRequest {
+  /** Exactly 8 digits; never stored or logged by the dashboard. */
+  code: string
 }
 
 export interface SignedInResponse {
@@ -105,6 +121,11 @@ export interface AuthEndpoints {
   'PUT /me/preferences': { body: { theme: Theme }; response: { theme: Theme } | void }
   'POST /me/view-as': { body: { roleId: string | null }; response: MeResponse }
   'GET /meta/now': { body: undefined; response: NowResponse }
+  'GET /kiosk/status': { body: undefined; response: KioskStatus }
+  'POST /kiosk/unlock': { body: UnlockRequest; response: KioskMe }
+  'GET /kiosk/me': { body: undefined; response: KioskMe }
+  'GET /kiosk/staff': { body: undefined; response: { items: KioskPerson[] } }
+  'POST /kiosk/lock': { body: undefined; response: void }
 }
 
 /** Problem codes the identity module returns that the UI handles specifically. */
@@ -121,4 +142,16 @@ export const AUTH_CODES = {
   forbidden: 'FORBIDDEN',
   versionConflict: 'VERSION_CONFLICT',
   staleState: 'STALE_STATE',
+  // kiosk mode (ADR 0180)
+  kioskSession: 'KIOSK_SESSION',
+  kioskForbidden: 'KIOSK_FORBIDDEN',
+  notAKiosk: 'NOT_A_KIOSK',
+  kioskDeviceUnknown: 'KIOSK_DEVICE_UNKNOWN',
+  kioskOff: 'KIOSK_OFF',
+  kioskCodeNotSet: 'KIOSK_CODE_NOT_SET',
+  kioskCodeWrong: 'KIOSK_CODE_WRONG',
+  kioskThrottled: 'KIOSK_THROTTLED',
+  kioskLockedOut: 'KIOSK_LOCKED_OUT',
+  kioskEmployeeRequired: 'KIOSK_EMPLOYEE_REQUIRED',
+  kioskEmployeeInvalid: 'KIOSK_EMPLOYEE_INVALID',
 } as const

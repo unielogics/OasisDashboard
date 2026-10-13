@@ -48,6 +48,12 @@ all, see docs/security-headers.md), `OASIS_PHOTOS_ORIGINS` and `OASIS_PUBLIC_HOS
   and `CONCURRENT_UPDATE` (2 retries, 250 ms doubling, `Retry-After` honoured, capped at 10 s) with the same key, so a
   retried refund cannot apply twice. A caller that owns a longer-lived action (a sheet) passes its own key (`Action`).
   Public endpoints (login, invite, forgot, reset) send neither header and treat a 401 as an answer, not a sign-out.
+- Kiosk mode (ADR 0180): `pnpm gen:api` also writes `kiosk-routes.ts`, the routes a kiosk may call (every operation the
+  backend marks `x-oasis-kiosk: none|actor`, plus the public ones; `--check` covers both files). While the session is a kiosk
+  (`ApiClientConfig.kiosk`, set by `src/auth/session.tsx`), `request()` refuses any other route before it is sent
+  (`KioskRefused`: 403 `KIOSK_FORBIDDEN`, `Not on the kiosk · Ask a manager`), sends `X-Oasis-Employee` from
+  `RequestOptions.actor` on writes, and asks `resolveActor()` (the picker) for an `actor` write sent without one;
+  cancelling throws `KioskCancelled` (kind `aborted`, so `command()` stays silent). See `src/data/http/kiosk.ts`.
   A 403 `CSRF_INVALID` fetches a fresh token once and replays the request with the same key.
 - Errors are RFC 9457 `ApiError` (`problem.ts`): `status`, `code`, `title`, `detail`, `errors[]` (`fieldError('email')`),
   `requestId`, `meta` (`required` on a 403, `currentVersion` on a 412), `retryAfterMs`, `kind` (`http | network | aborted | parse`).

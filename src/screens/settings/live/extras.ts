@@ -68,12 +68,24 @@ import type { SectionKey } from '@/lib/settings/types'
 import { DEFAULT_TZ, businessClock, businessToday } from '@/lib/tz'
 import { serverNow } from '@/lib/clock'
 import { BillingSection } from './billing'
+import { KioskSection, KIOSK_PERMISSION } from './kiosk'
+import { ACTIVITY_PERMISSION, TeamActivitySection } from './team-activity'
+import type { KioskAdminApi, KioskOverview } from '@/data/ports/kiosk-api'
 import { MembershipSections } from './memberships'
 import { PricingSections } from './pricing'
 import { formError, saveButtonStyle, swatchButtonStyle } from './ui'
 import type { InputEvent, KeyEvent, RunOptions, RunResult, SectionCtx, Vals } from './ui'
 
-export type ExtraSection = 'catalog' | 'categories' | 'reminders' | 'sizes' | 'prices' | 'memberships' | 'billing'
+export type ExtraSection =
+  | 'catalog'
+  | 'categories'
+  | 'reminders'
+  | 'sizes'
+  | 'prices'
+  | 'memberships'
+  | 'billing'
+  | 'kiosk'
+  | 'activity'
 export const EXTRA_SECTIONS: readonly ExtraSection[] = [
   'catalog',
   'categories',
@@ -82,6 +94,9 @@ export const EXTRA_SECTIONS: readonly ExtraSection[] = [
   'prices',
   'memberships',
   'billing',
+  // Shop floor (ADR 0180, DV-1009..DV-1011)
+  'kiosk',
+  'activity',
 ]
 /**
  * Vehicle sizes, Prices by size, Memberships and Billing & integrations (DV-908): one nav button, tabs over the section
@@ -103,6 +118,10 @@ export interface ExtrasHost {
 
 export interface ExtrasDeps {
   api: SettingsApi
+  /** Settings → Shop floor (ADR 0180): the kiosk controls and the team activity report. */
+  kioskApi?: KioskAdminApi
+  /** Full-page navigation ("Make this a kiosk" while kiosk mode is on lands on the keypad). */
+  navigate?: (url: string) => void
   qc: QueryClient
   session: () => Session | null
   toast?: (t: ToastSpec) => void
@@ -113,6 +132,8 @@ export interface ExtrasDeps {
 const CATALOG_KEY = qk.settings('catalog')
 const REMINDERS_KEY = qk.settings('reminders')
 const BILLING_KEY = qk.settings('billing')
+/** GET /kiosk; under ['settings', 'kiosk'] so `settings.changed {section: kiosk}` (and employees) refetch it. */
+const KIOSK_KEY = qk.settings('kiosk', 'overview')
 const BILLING_DENY = 'set.billing' as const
 const FOREVER = { staleTimeMs: Infinity }
 const noop = (): void => {}
@@ -160,6 +181,10 @@ export class SettingsExtras {
   private readonly memberships: MembershipSections
   // Billing & integrations (ADR 0171, DV-908)
   private readonly billingSection: BillingSection
+  // Shop floor: Kiosk and Team activity (ADR 0180, DV-1009..DV-1011)
+  private readonly kioskApi: KioskAdminApi | null
+  private readonly kioskSection: KioskSection | null
+  private readonly activitySection: TeamActivitySection | null
   // categories
   private readonly cats = new DraftSet<CategoryDraft>(sameCategory)
   private catErrors: Record<string, string> = {}
@@ -227,6 +252,32 @@ export class SettingsExtras {
         return MONTHS_SHORT[m! - 1] + ' ' + day + ', ' + businessClock(ms, this.tz())
       },
     })
+    this.kioskApi = deps.kioskApi ?? null
+    const today = () => businessToday(serverNow(), this.tz())
+    const navigate = deps.navigate ?? ((url: string) => window.location.assign(url))
+    this.kioskSection = this.kioskApi
+      ? new KioskSection({
+          api: this.kioskApi,
+          run: (name, request, o = {}) =>
+            this.run(name, KIOSK_KEY, request, KIOSK_PERMISSION, o.invalidate ?? [], o.staleMessage, o.explain),
+          allowed: () => this.allowed(KIOSK_PERMISSION),
+          busy: (name) => this.busy.has(name),
+          changed: () => this.changed(),
+          flash: (t) => this.flash(t),
+          tz: () => this.tz(),
+          today,
+          navigate,
+        })
+      : null
+    this.activitySection = this.kioskApi
+      ? new TeamActivitySection({
+          api: this.kioskApi,
+          store: this.store,
+          changed: () => this.changed(),
+          tz: () => this.tz(),
+          today,
+        })
+      : null
   }
 
   private tz(): string {
@@ -316,8 +367,24 @@ export class SettingsExtras {
     return this.store.read<BillingRes>(BILLING_KEY, f, FOREVER)
   }
 
+  /** GET /kiosk (team.roles only). */
+  kioskOverview(): KioskOverview | undefined {
+    if (!this.kioskApi || !this.can(KIOSK_PERMISSION)) return undefined
+    const api = this.kioskApi
+    const f = () => api.overview()
+    this.watch('kiosk', KIOSK_KEY, f)
+    return this.store.read<KioskOverview>(KIOSK_KEY, f, FOREVER)
+  }
+
   /** What stands in for an extra section while its data is not here. */
   gate(sec: ExtraSection): 'locked' | 'loading' | 'failed' | null {
+    if (sec === 'kiosk') {
+      if (!this.kioskApi || !this.can(KIOSK_PERMISSION)) return 'locked'
+      if (this.kioskOverview()) return null
+      return this.store.status(KIOSK_KEY) === 'error' ? 'failed' : 'loading'
+    }
+    // the report says itself when it is loading, failed or not built yet
+    if (sec === 'activity') return this.kioskApi && this.can(ACTIVITY_PERMISSION) ? null : 'locked'
     if (sec === 'billing') {
       if (!this.can(BILLING_DENY)) return 'locked'
       if (this.billing()) return null
@@ -333,6 +400,7 @@ export class SettingsExtras {
     void this.qc.invalidateQueries({ queryKey: CATALOG_KEY })
     void this.qc.invalidateQueries({ queryKey: REMINDERS_KEY })
     void this.qc.invalidateQueries({ queryKey: BILLING_KEY })
+    void this.qc.invalidateQueries({ queryKey: KIOSK_KEY })
   }
 
   private async run<T>(
@@ -385,6 +453,8 @@ export class SettingsExtras {
         reminders: navStyle(sec, 'reminders'),
         // one nav button for the three pricing sections (the nav has no room for three at 1000 px: DV-322)
         pricing: navStyle(PRICING_SECTIONS.includes(sec) ? 'prices' : sec, 'prices'),
+        kiosk: navStyle(sec, 'kiosk'),
+        activity: navStyle(sec, 'activity'),
       },
       goCatalog: go('catalog'),
       goCategories: go('categories'),
@@ -396,6 +466,14 @@ export class SettingsExtras {
       },
       goMemberships: go('memberships'),
       goBilling: go('billing'),
+      // Shop floor (ADR 0180, DV-1009): shown to those who may open one of its sections
+      shopFloor: !!this.kioskApi && (this.can(KIOSK_PERMISSION) || this.can(ACTIVITY_PERMISSION)),
+      canKiosk: !!this.kioskApi && this.can(KIOSK_PERMISSION),
+      canActivity: !!this.kioskApi && this.can(ACTIVITY_PERMISSION),
+      goKiosk: go('kiosk'),
+      goActivity: go('activity'),
+      secKiosk: sec === 'kiosk' && open,
+      secActivity: sec === 'activity' && open,
       secBilling: sec === 'billing' && open,
       secCatalog: sec === 'catalog' && open,
       secCategories: sec === 'categories' && open,
@@ -437,6 +515,9 @@ export class SettingsExtras {
     out.prices = this.pricing.pricesVals(sec === 'prices' ? c : undefined)
     out.mem = this.memberships.vals(sec === 'memberships' ? c : undefined)
     out.bill = this.billingSection.vals(sec === 'billing' && open ? this.billing() : undefined, dark)
+    if (sec !== 'kiosk') this.unwatch('kiosk')
+    out.kio = this.kioskSection?.vals(sec === 'kiosk' && open ? this.kioskOverview() : undefined) ?? { has: false }
+    out.act = this.activitySection?.vals(sec === 'activity' && open) ?? {}
     return out
   }
 

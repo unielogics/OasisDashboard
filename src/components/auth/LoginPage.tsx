@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
 import { useRouter } from 'next/router'
-import { nextAfterLogin } from '@/auth/next'
-import { failureOf, validateEmail } from '@/auth/validation'
-import type { FormFailure } from '@/auth/validation'
 import type { AuthApi } from '@/data/http/endpoints'
 import { AuthFrame } from './Frame'
-import { Card, linkRowStyle } from './Card'
-import { Field } from './Field'
+import { EmailPasswordCard } from './EmailPasswordCard'
 import { Toast } from './Toast'
-import { errorTextStyle, primaryButtonStyle } from './styles'
 import { useAuthApi } from './useAuthApi'
 
 interface Props {
@@ -23,11 +17,6 @@ const go = (url: string): void => window.location.assign(url)
 export default function LoginPage({ auth: authProp, navigate = go }: Props) {
   const auth = useAuthApi(authProp)
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [fail, setFail] = useState<FormFailure | null>(null)
-  const [emailError, setEmailError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -37,60 +26,9 @@ export default function LoginPage({ auth: authProp, navigate = go }: Props) {
   }, [router.isReady, router.query.reset, router.query.expired])
   const clearToast = useCallback(() => setToast(null), [])
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (busy) return
-    const ee = validateEmail(email)
-    setEmailError(ee)
-    setFail(null)
-    if (ee) return
-    if (!password) return setFail({ field: 'password', message: 'Enter your password.' })
-    setBusy(true)
-    try {
-      await auth.login({ email: email.trim(), password })
-      navigate(nextAfterLogin(router.query.next, window.location.hash))
-    } catch (err) {
-      setFail(failureOf(err))
-      setBusy(false)
-    }
-  }
-
   return (
     <AuthFrame>
-      <Card title="Sign in" text="Use your Oasis staff email and password.">
-        <form onSubmit={submit} noValidate>
-          <Field
-            label="Email"
-            type="email"
-            name="email"
-            autoComplete="username"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={emailError}
-          />
-          <Field
-            label="Password"
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={fail?.field === 'password' ? fail.message : null}
-          />
-          {fail?.field === 'form' && (
-            <div role="alert" style={{ ...errorTextStyle, marginBottom: '10px' }}>
-              {fail.message}
-            </div>
-          )}
-          <button type="submit" disabled={busy} style={primaryButtonStyle(busy)}>
-            {busy ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-        <div style={linkRowStyle}>
-          <a href="/forgot">Forgot password?</a>
-        </div>
-      </Card>
+      <EmailPasswordCard auth={auth} next={router.query.next} navigate={navigate} />
       <Toast text={toast} onDone={clearToast} />
     </AuthFrame>
   )

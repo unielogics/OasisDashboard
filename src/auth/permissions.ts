@@ -149,3 +149,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'set.services': 'Services, pricing & checklists',
   'set.billing': 'Billing & integrations',
 }
+
+/**
+ * Kiosk mode (ADR 0180, DV-1007): what an action the kiosk may not do says on the shop's tablet. Nobody is signed in, so
+ * not "Your role can’t …": a manager does it.
+ */
+export const KIOSK_DENIED = { title: 'Not on the kiosk', desc: 'Ask a manager' } as const

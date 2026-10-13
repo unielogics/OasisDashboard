@@ -1,9 +1,13 @@
 // The fetch wrapper. Same-origin cookies, X-CSRF-Token and an Idempotency-Key on every mutation of a signed-in
 // caller, RFC 9457 errors as ApiError, 401 -> sign-in redirect, one CSRF refresh retry, bounded retries for
 // network failures that reuse the SAME Idempotency-Key (so a retried money action can never be applied twice).
+// In kiosk mode (ADR 0180) it also refuses, without sending them, the routes the kiosk may not call, and names the
+// acting employee of a write in X-Oasis-Employee (asking the fallback picker when a write forgot to).
 import { newIdempotencyKey } from '@/lib/id'
 import { serverNow } from '@/lib/clock'
 import { AUTH_CODES } from './auth-types'
+import { ACTOR_HEADER, KioskCancelled, KioskRefused, kioskRouteMode } from './kiosk'
+import type { KioskClientConfig } from './kiosk'
 import { ApiError, problemFromResponse } from './problem'
 
 export const API_PREFIX = '/api/v1'
@@ -25,6 +29,8 @@ export interface RequestOptions {
   responseType?: ResponseType
   /** Retries after a network failure or 502/503/504; default 2 (0 disables). */
   retries?: number
+  /** Kiosk mode: the employee doing this write (X-Oasis-Employee). Ignored on reads and public calls. */
+  actor?: string
 }
 
 export interface CsrfStore {
@@ -49,6 +55,8 @@ export interface ApiClientConfig {
   now?: () => number
   /** Backoff base for retries, milliseconds. */
   retryBaseMs?: number
+  /** Set while the page is an unlocked kiosk (src/auth/session.tsx); null or absent for a signed-in person. */
+  kiosk?: KioskClientConfig | null
 }
 
 const MUTATING = new Set<Method>(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -97,6 +105,7 @@ export class ApiClient {
 
   async request<T = unknown>(method: Method, path: string, opts: RequestOptions = {}): Promise<T> {
     const mutating = MUTATING.has(method)
+    if (this.cfg.kiosk && !opts.public) opts = await this.kioskGate(method, path, opts, this.cfg.kiosk)
     // One key per action, shared by every retry of this call.
     const key =
       mutating && !opts.public ? (opts.idempotencyKey ?? (this.cfg.newKey ?? newIdempotencyKey)()) : undefined
@@ -124,6 +133,24 @@ export class ApiClient {
         await (this.cfg.sleep ?? defaultSleep)(this.backoff(attempt, e))
       }
     }
+  }
+
+  /**
+   * Kiosk mode: a route the kiosk may not call is refused here (no request, no 403 noise); an `actor` write without its
+   * employee asks the fallback picker (cancelling throws KioskCancelled, which command() keeps silent).
+   */
+  private async kioskGate(
+    method: Method,
+    path: string,
+    opts: RequestOptions,
+    k: KioskClientConfig,
+  ): Promise<RequestOptions> {
+    const mode = (k.modeOf ?? kioskRouteMode)(method, path)
+    if (mode === null) throw new KioskRefused(method, path)
+    if (mode !== 'actor' || !MUTATING.has(method) || opts.actor) return opts
+    const actor = k.resolveActor ? await k.resolveActor({ method, path }) : null
+    if (!actor) throw new KioskCancelled()
+    return { ...opts, actor }
   }
 
   /** GET /auth/csrf and remember the token. */
@@ -154,6 +181,7 @@ export class ApiClient {
       const t = this.csrf.get()
       if (t) headers['X-CSRF-Token'] = t
       if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
+      if (opts.actor) headers[ACTOR_HEADER] = opts.actor
     }
     if (opts.ifMatch !== undefined) headers['If-Match'] = `"${opts.ifMatch}"`
 

@@ -94,6 +94,13 @@
       "tpl": 72,
       "expectTag": "button",
       "expectTextStarts": "Packages",
+      "htmlFile": "settings-nav-shopfloor.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 72,
+      "expectTag": "button",
+      "expectTextStarts": "Packages",
       "htmlFile": "settings-nav-assistant.html"
     },
     {
@@ -137,6 +144,18 @@
       "tpl": 444,
       "expectTag": "sc-if",
       "htmlFile": "settings-reminders-bar.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 6,
+      "expectTag": "header",
+      "htmlFile": "kiosk-admin-bar.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 415,
+      "expectTag": "sc-if",
+      "htmlFile": "settings-shopfloor.html"
     }
   ]
 }

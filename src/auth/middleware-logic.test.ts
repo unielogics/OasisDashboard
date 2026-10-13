@@ -14,6 +14,14 @@ describe('middleware decision', () => {
     for (const name of SESSION_COOKIE_NAMES) expect(d('/payments', [name])).toEqual({ action: 'next' })
     expect(d('/operations', ['other', 'oasis_sid'])).toEqual({ action: 'next' })
   })
+  it('kiosk mode (ADR 0180): the kiosk session cookie opens the board; the device cookie alone does not', () => {
+    expect(d('/operations', ['__Host-oasis_ksid'])).toEqual({ action: 'next' })
+    expect(d('/operations', ['oasis_ksid'])).toEqual({ action: 'next' })
+    // a registered but locked tablet: the keypad
+    expect(d('/operations', ['__Host-oasis_kdev'])).toEqual({ action: 'redirect', location: '/login' })
+    expect(d('/operations', ['oasis_kdev'])).toEqual({ action: 'redirect', location: '/login' })
+    expect(d('/settings', ['oasis_ksidx', 'xoasis_ksid'])).toMatchObject({ action: 'redirect' })
+  })
   it('redirects to /login?next=<path+query> without one, hash is not sent to the server', () => {
     expect(d('/payments')).toEqual({ action: 'redirect', location: '/login?next=%2Fpayments' })
     expect(d('/settings', [], '?x=1')).toEqual({

@@ -5,6 +5,7 @@ import { LIVE } from '@/data/env'
 import { getDataPort } from '@/data/default-port'
 import { api } from '@/data/http/client'
 import { createAssistantApi } from '@/data/ports/assistant-api'
+import { createKioskAdminApi } from '@/data/ports/kiosk-api'
 import { getQueryClient } from '@/data/query'
 import { DCHost } from '@/dc/DCHost'
 import { ScreenStyle } from '@/dc/ScreenStyle'
@@ -30,6 +31,7 @@ const extras = LIVE
       api: getDataPort().settings,
       qc: getQueryClient(),
       session: () => liveChrome.getSession(),
+      kioskApi: createKioskAdminApi(api),
     })
   : null
 const Logic = createSettingsLogic(data, extras)

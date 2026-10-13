@@ -2,10 +2,20 @@
 // do it gets "Your role can’t ..." and no request), then goes through command() with the Idempotency-Key of its action,
 // shows the server's own toast (its title and detail are the design's strings) and lets the touched queries refetch.
 // Money and booking commands never patch the cache; the checklist, pickup and add-on toggles may (applyChecklist).
+//
+// Kiosk mode (ADR 0180, design 6.5, DV-1005): on the shop's unlocked tablet every write names the employee doing it, who
+// taps their name in the picker BEFORE the request (and before any optimistic change):
+//   every time       the car steps: bay, arrive, start, complete, ready, pickup, prep, move (and the alerts that do them)
+//   once per flow    a booking or walk-in (one name for every try of the same sheet), a collect (payment and receipt),
+//                    a payment link, a size change
+//   sticky per file  texts, add-ons, checklist, photos: the first one asks, then the name sticks to the open file for 2
+//                    minutes of activity ("As Marco R. · Change")
+//   never            reads, marking a thread read, the price preview
+// Cancelling the picker stops the action silently. A signed-in person is never asked.
 import type { QueryClient } from '@tanstack/react-query'
 import type { Session } from '@/auth/session-model'
-import { can } from '@/auth/session-model'
-import { deniedTitle } from '@/auth/permissions'
+import { can, isKiosk } from '@/auth/session-model'
+import { KIOSK_DENIED, deniedTitle } from '@/auth/permissions'
 import type { PermissionKey } from '@/auth/permissions'
 import { Action, command } from '@/data/command'
 import type { CommandResult } from '@/data/command'
@@ -48,7 +58,21 @@ export interface CommandDeps {
   tz(): string
   /** F3: a collect's answer names the processor (its invoice's `processing`), also for roles without pay.reports. */
   learnProcessor?(p: 'squarespace' | 'square'): void
+  /**
+   * Kiosk mode: who is doing this write (the employee picker): the employee id, or null when the picker was cancelled.
+   * Undefined (or no `who` at all) for a signed-in person: nobody is asked.
+   */
+  who?(ask: WhoAsk): Promise<string | null | undefined>
 }
+
+/** What the picker asks ("Who’s putting Maria’s Camry in Bay 2?") and the open file a choice sticks to. */
+export interface WhoAsk {
+  title: string
+  sticky?: string
+}
+
+/** The employee a write is sent for: `{}` for a signed-in person, `{ actor }` on a kiosk. */
+type Who = { actor?: string }
 
 /** What a card or file tells a command about the appointment it acts on. */
 export interface Subject {
@@ -72,8 +96,31 @@ export class OpsCommands {
   allow(...keys: PermissionKey[]): boolean {
     const s = this.d.session()
     if (keys.some((k) => can(s, k))) return true
-    this.d.flash(deniedTitle(keys[0]!))
+    // the shop's kiosk: not "your role" (nobody is signed in) but what a manager must do (DV-1007)
+    if (isKiosk(s)) this.d.flash(KIOSK_DENIED.title, KIOSK_DENIED.desc)
+    else this.d.flash(deniedTitle(keys[0]!))
     return false
+  }
+
+  /** Kiosk: asks who is doing it (null = cancelled: the action stops). A signed-in person: nobody is asked. */
+  private async who(ask: WhoAsk): Promise<Who | null> {
+    if (!this.d.who || !isKiosk(this.d.session())) return {}
+    const id = await this.d.who(ask)
+    if (id === undefined) return {}
+    return id ? { actor: id } : null
+  }
+
+  /** Once per flow: the name asked for an Action stays with it until the action succeeds (renew). */
+  private flowWho = new Map<string, string>()
+  private async whoFor(action: Action, ask: WhoAsk): Promise<Who | null> {
+    const held = this.flowWho.get(action.key)
+    if (held && isKiosk(this.d.session())) return { actor: held }
+    const w = await this.who(ask)
+    if (w?.actor) this.flowWho.set(action.key, w.actor)
+    return w
+  }
+  private endFlow(action: Action): void {
+    this.flowWho.delete(action.key)
   }
 
   action(name: string): Action {
@@ -112,51 +159,59 @@ export class OpsCommands {
   // ---- lifecycle ---------------------------------------------------------------------------------------------------
 
   /** The next step of the status the screen showed (expectedStatus makes a stale screen a 409, never a skipped state). */
-  async advance(s: Subject): Promise<boolean> {
+  async advance(s: Subject, title?: string): Promise<boolean> {
     if (!s.step || s.step === 'collect') return false
     if (s.step === 'confirm' || s.step === 'arrive') {
       if (!this.allow('jobs.status', 'sched.edit')) return false
     } else if (!this.allow('jobs.status')) return false
+    const w = await this.who({ title: title ?? STEP_TITLE[s.step] })
+    if (!w) return false
     const a = this.action('advance:' + s.id + ':' + s.status)
     const r = await this.run({
       action: a,
-      request: (idem) => this.d.port.advance(s.id, s.status, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.advance(s.id, s.status, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'change job status',
     })
     return this.done(a, r)
   }
 
-  async assignBay(id: string, bayId: string): Promise<boolean> {
+  async assignBay(id: string, bayId: string, title = 'Who’s putting this car in the bay?'): Promise<boolean> {
     if (!this.allow('jobs.status')) return false
+    const w = await this.who({ title })
+    if (!w) return false
     const a = this.action('assign:' + id)
     const r = await this.run({
       action: a,
-      request: (idem) => this.d.port.assignBay(id, bayId, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.assignBay(id, bayId, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'change job status',
     })
     return this.done(a, r)
   }
 
-  async prepBay(id: string): Promise<boolean> {
+  async prepBay(id: string, title = 'Who’s preparing the bay?'): Promise<boolean> {
     if (!this.allow('jobs.status', 'sched.edit')) return false
+    const w = await this.who({ title })
+    if (!w) return false
     const a = this.action('prep:' + id)
     const r = await this.run({
       action: a,
-      request: (idem) => this.d.port.prepBay(id, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.prepBay(id, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'change job status',
     })
     return this.done(a, r)
   }
 
-  async arrive(id: string): Promise<boolean> {
+  async arrive(id: string, title = 'Who’s checking in this car?'): Promise<boolean> {
     if (!this.allow('jobs.status', 'sched.edit')) return false
+    const w = await this.who({ title })
+    if (!w) return false
     const a = this.action('arrive:' + id)
     const r = await this.run({
       action: a,
-      request: (idem) => this.d.port.arrive(id, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.arrive(id, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'change job status',
     })
@@ -167,12 +222,15 @@ export class OpsCommands {
     id: string,
     start: string,
     override?: { reason: string },
+    title = 'Who’s moving this booking?',
   ): Promise<CommandResult<CommandRes> | null> {
     if (!this.allow('sched.edit')) return null
+    const w = await this.who({ title })
+    if (!w) return null
     const a = this.action('move:' + id + ':' + start)
     const r = await this.run({
       action: a,
-      request: (idem) => this.d.port.reschedule(id, { start, override }, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.reschedule(id, { start, override }, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'edit appointments',
     })
@@ -180,24 +238,30 @@ export class OpsCommands {
     return r
   }
 
-  async setPickup(id: string, state: 'collected' | 'pending'): Promise<boolean> {
+  async setPickup(id: string, state: 'collected' | 'pending', title?: string): Promise<boolean> {
     if (!this.allow('jobs.status')) return false
+    const w = await this.who({
+      title: title ?? (state === 'collected' ? 'Who’s handing over this car?' : 'Who’s undoing the pickup?'),
+    })
+    if (!w) return false
     const a = this.action('pickup:' + id + ':' + state)
     const r = await this.run({
       action: a,
-      request: (idem) => this.d.port.pickup(id, state, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.pickup(id, state, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'change job status',
     })
     return this.done(a, r)
   }
 
-  async notifyReady(id: string): Promise<boolean> {
+  async notifyReady(id: string, title = 'Who’s telling the client the car is ready?'): Promise<boolean> {
     if (!this.allow('msg.send')) return false
+    const w = await this.who({ title })
+    if (!w) return false
     const a = this.action('notify:' + id)
     const r = await this.run({
       action: a,
-      request: (idem) => this.d.port.notifyReady(id, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.notifyReady(id, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'send messages',
     })
@@ -209,6 +273,8 @@ export class OpsCommands {
   /** One task. The toggle shows at once (the cache is patched) and is rolled back if the server refuses. */
   async checklistItem(fileId: string, itemId: string, done: boolean): Promise<boolean> {
     if (!this.allow('jobs.checklist')) return false
+    const w = await this.who({ title: 'Who’s working on the checklist?', sticky: fileId })
+    if (!w) return false
     const a = this.action('check:' + fileId + ':' + itemId + ':' + done)
     const r = await this.run({
       action: a,
@@ -216,7 +282,7 @@ export class OpsCommands {
         queryKey: qk.ops('file', fileId),
         apply: (cur: unknown) => applyChecklist(cur as AppointmentFile, [itemId], done),
       },
-      request: (idem) => this.d.port.checklistItem(fileId, itemId, done, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.checklistItem(fileId, itemId, done, { idempotencyKey: idem, ...w }),
       deny: 'update checklists',
     })
     return this.done(a, r)
@@ -225,6 +291,8 @@ export class OpsCommands {
   /** A section or "Check all". `quiet` is the section button, which the design does not toast. */
   async checklistBulk(fileId: string, ids: string[], done: boolean, quiet: boolean): Promise<boolean> {
     if (!this.allow('jobs.checklist') || ids.length === 0) return false
+    const w = await this.who({ title: 'Who’s working on the checklist?', sticky: fileId })
+    if (!w) return false
     const a = this.action('bulk:' + fileId + ':' + ids.length + ':' + done)
     const r = await this.run({
       action: a,
@@ -232,7 +300,7 @@ export class OpsCommands {
         queryKey: qk.ops('file', fileId),
         apply: (cur: unknown) => applyChecklist(cur as AppointmentFile, ids, done),
       },
-      request: (idem) => this.d.port.checklistBulk(fileId, ids, done, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.checklistBulk(fileId, ids, done, { idempotencyKey: idem, ...w }),
       onOk: () =>
         quiet
           ? undefined
@@ -248,11 +316,13 @@ export class OpsCommands {
   /** Add-on on or off. A removal that would overpay the invoice is a 409 whose toast is the server's. */
   async setAddon(fileId: string, serviceId: string, on: boolean): Promise<boolean> {
     if (!this.allow('sched.edit')) return false
+    const w = await this.who({ title: on ? 'Who’s adding the add-on?' : 'Who’s removing the add-on?', sticky: fileId })
+    if (!w) return false
     const a = this.action('addon:' + fileId + ':' + serviceId + ':' + on)
     const r = await this.run({
       action: a,
       invalidate: [qk.payments()],
-      request: (idem) => this.d.port.setAddon(fileId, serviceId, on, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.setAddon(fileId, serviceId, on, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'edit appointments',
     })
@@ -284,13 +354,21 @@ export class OpsCommands {
    * "Change size" on the file: the visit is priced again at that size (the server refuses a change that would leave the
    * invoice overpaid, PRICE_CHANGE_OVERPAID, with its own words) and the car on file takes the size.
    */
-  async setVisitSize(fileId: string, vehicleClass: string, version: number): Promise<boolean> {
+  async setVisitSize(
+    fileId: string,
+    vehicleClass: string,
+    version: number,
+    title = 'Who’s changing the size?',
+  ): Promise<boolean> {
     if (!this.allow('sched.edit')) return false
+    const w = await this.who({ title })
+    if (!w) return false
     const a = this.action('size:' + fileId + ':' + vehicleClass + ':' + version)
     const r = await this.run({
       action: a,
       invalidate: [qk.payments()],
-      request: (idem) => this.d.port.setVisitSize(fileId, vehicleClass, version, { idempotencyKey: idem }),
+      request: (idem) =>
+        this.d.port.setVisitSize(fileId, vehicleClass, version, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'edit appointments',
     })
@@ -344,29 +422,43 @@ export class OpsCommands {
   // ---- booking -----------------------------------------------------------------------------------------------------
 
   /** `action` is the sheet's: created when it opened and reused by every retry of the same booking. */
-  async book(body: BookingReq, action: Action) {
+  async book(body: BookingReq, action: Action, title?: string) {
     if (!this.allow('sched.edit')) return null
     if (body.override && !this.allow('sched.override')) return null
+    const w = await this.whoFor(action, {
+      title: title ?? (body.walkIn ? 'Who’s checking in this walk-in?' : 'Who’s making this booking?'),
+    })
+    if (!w) return null
     const r = await this.run({
       action,
-      request: (idem) => this.d.port.book(body, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.book(body, { idempotencyKey: idem, ...w }),
       onOk: toast,
       deny: 'edit appointments',
     })
-    if (r.ok) action.renew()
+    if (r.ok) {
+      this.endFlow(action)
+      action.renew()
+    }
     return r
+  }
+
+  /** The booking sheet closed: its next opening is a new flow (and asks again). */
+  closeFlow(action: Action): void {
+    this.endFlow(action)
   }
 
   // ---- messages ----------------------------------------------------------------------------------------------------
 
   async sendMessage(fileId: string, input: SendMessageReq, first: string) {
     if (!this.allow('msg.send')) return null
+    const w = await this.who({ title: 'Who’s texting ' + (first || 'the client') + '?', sticky: fileId })
+    if (!w) return null
     const a = this.action('msg:' + fileId + ':' + (input.templateKey ?? input.text))
     const r = await this.run({
       action: a,
       key: qk.messages(),
       invalidate: [qk.ops()],
-      request: (idem) => this.d.port.sendMessage(fileId, input, { idempotencyKey: idem }),
+      request: (idem) => this.d.port.sendMessage(fileId, input, { idempotencyKey: idem, ...w }),
       onOk: (m) => ({
         title: 'Message sent',
         desc: m.held
@@ -559,6 +651,8 @@ export class OpsCommands {
 
   async uploadPhoto(fileId: string, category: PhotoCategory, file: File): Promise<boolean> {
     if (!this.allow('jobs.checklist')) return false
+    const w = await this.who({ title: 'Who’s adding the photo?', sticky: fileId })
+    if (!w) return false
     const contentType = file.type || guessType(file.name)
     const a = this.action('photo:' + fileId + ':' + category + ':' + file.name + ':' + file.size)
     const slot = await this.run({
@@ -567,7 +661,7 @@ export class OpsCommands {
         this.d.port.presignPhoto(
           fileId,
           { category, contentType, bytes: file.size },
-          { idempotencyKey: idem },
+          { idempotencyKey: idem, ...w },
         ),
       deny: 'update checklists',
     })
@@ -582,7 +676,7 @@ export class OpsCommands {
       return false
     }
     const done = await this.run({
-      request: () => this.d.port.completePhoto(fileId, slot.data.photoId),
+      request: (idem) => this.d.port.completePhoto(fileId, slot.data.photoId, { idempotencyKey: idem, ...w }),
       onOk: () => ({ title: 'Photo added', desc: CATEGORY_LABEL[category] }),
       deny: 'update checklists',
     })
@@ -603,17 +697,21 @@ export class OpsCommands {
   ): Promise<boolean> {
     if (!this.allow('pay.collect')) return false
     const a = this.action('collect:' + invoiceId)
+    // one name for the payment and its receipt
+    const w = await this.whoFor(a, { title: 'Who’s taking ' + (who.first ? who.first + '’s' : 'the') + ' payment?' })
+    if (!w) return false
     const r = await this.run({
       action: a,
       invalidate: [qk.payments()],
-      request: (idem) => this.d.payments.collect(invoiceId, { method }, { idempotencyKey: idem }),
+      request: (idem) => this.d.payments.collect(invoiceId, { method }, { idempotencyKey: idem, ...w }),
       deny: 'collect payments',
     })
     if (!r.ok) return false
+    this.endFlow(a)
     a.renew()
     const learned = r.data?.invoice?.processing?.processor
     if (learned) this.d.learnProcessor?.(learned)
-    const receipt = await this.receipt(invoiceId)
+    const receipt = await this.receipt(invoiceId, w)
     const square = (learned ?? who.processor) === 'square'
     this.d.flash(
       method === 'card' ? (square ? 'Square reader payment recorded' : 'Card payment recorded') : 'Payment collected',
@@ -623,9 +721,9 @@ export class OpsCommands {
     return true
   }
 
-  private async receipt(invoiceId: string) {
+  private async receipt(invoiceId: string, w: Who) {
     try {
-      return await this.d.payments.sendReceipt(invoiceId)
+      return await this.d.payments.sendReceipt(invoiceId, w.actor ? { actor: w.actor } : undefined)
     } catch {
       return null
     }
@@ -635,6 +733,8 @@ export class OpsCommands {
   async sendLink(invoiceId: string, url: string): Promise<{ ok: boolean; error?: ApiError }> {
     if (!this.allow('pay.collect')) return { ok: false }
     const a = this.action('link:' + invoiceId)
+    const w = await this.whoFor(a, { title: 'Who’s sending the payment link?' })
+    if (!w) return { ok: false }
     const r = await this.run({
       action: a,
       invalidate: [qk.payments()],
@@ -642,7 +742,7 @@ export class OpsCommands {
         this.d.payments.collect(
           invoiceId,
           { method: 'payment_link', url: url.trim() || undefined },
-          { idempotencyKey: idem },
+          { idempotencyKey: idem, ...w },
         ),
       onOk: (c: CollectResult) => {
         const learned = c.invoice?.processing?.processor
@@ -651,7 +751,10 @@ export class OpsCommands {
       },
       deny: 'collect payments',
     })
-    if (r.ok) a.renew()
+    if (r.ok) {
+      this.endFlow(a)
+      a.renew()
+    }
     return r.ok ? { ok: true } : { ok: false, error: r.error }
   }
 
@@ -693,6 +796,15 @@ export class OpsCommands {
     })
     return this.done(a, r)
   }
+}
+
+/** The picker's question for each car step (the screen passes a fuller one naming the car when it can). */
+const STEP_TITLE: Record<Exclude<NextStepKey, null>, string> = {
+  confirm: 'Who’s confirming this booking?',
+  arrive: 'Who’s checking in this car?',
+  start: 'Who’s starting this car?',
+  complete: 'Who finished this car?',
+  collect: 'Who’s taking the payment?',
 }
 
 const CATEGORY_LABEL: Record<PhotoCategory, string> = {

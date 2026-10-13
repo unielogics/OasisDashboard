@@ -388,3 +388,43 @@ edit with the usual message, a 422 is said under the block. Memberships (DV-909)
 
 Tests: `src/lib/settings/billing.test.ts`, `src/screens/settings/live/billing.test.ts` (the section, the forms, permissions,
 Move members, the live template).
+
+## Shop floor: Kiosk and Team activity (live only; ADR 0180; DEVIATIONS DV-1009..DV-1012)
+
+A `Shop floor` group last in the nav (after Texting, so no design entry moves; at 1000 px the nav scrolls), shown to people
+with `team.roles` (`Kiosk`) or `team.edit` (`Team activity`). Both sections are live extras (`live/extras.ts` delegates to
+`live/kiosk.ts` and `live/team-activity.ts`; pure helpers in `src/lib/settings/kiosk.ts`; endpoints in
+`src/data/ports/kiosk-api.ts`, typed from the generated `schema.d.ts`).
+
+**Kiosk** (`GET /kiosk` under `['settings', 'kiosk', 'overview']`, refetched on `settings.changed {section: kiosk |
+employees}`; locked card without `team.roles`; `/settings#kiosk` opens it, the user menu's `Make this a kiosk…` goes there):
+
+- `Kiosk mode` switch → `PUT /kiosk/settings {enabled, version}`; turning it on without a code shows the server's
+  `A manager needs to set the shop code first` under the switch; off ends every kiosk session.
+- `Shop code`: `Set Oct 1 by Rafael M. · 12 days ago` (a nudge after 90 days). `Change code`: two masked 8-digit boxes
+  (digits only), checked here first (8 digits, not starting with 0218, the same twice), then `PUT /kiosk/code {code}`; the
+  server's rule (`KIOSK_CODE_REJECTED`, `errors[0].message`) shows under the form. `Generate a code` → `PUT /kiosk/code
+  {generate: true}`: the code is shown once, in two halves, until `Done`. `Changing the code locks every kiosk now.`
+- `This tablet`: a name (≤ 40) and `Make this a kiosk` → `POST /kiosk/devices {name}` (the answer sets the device cookie);
+  with kiosk mode on the manager's own session ends there and the page goes to the keypad (`signedOut`). A browser that is
+  a kiosk reads `This browser is the kiosk “Front desk tablet”.`
+- `Kiosk tablets` (removed ones are not listed): state (`Unlocked · locks 9:00 PM`, `Locked`, `Locked · 4 wrong codes`,
+  `Locked out · too many wrong codes`), `Last seen Oct 13, 2:14 PM · 100.64.1.7 · Chrome on Android`; `Rename` (`PATCH` with
+  the version), `Lock`, `Clear lockout`, `Remove` (asks first; `DELETE`); `Lock all kiosks` (asks first; `POST
+  /kiosk/lock-all`, `2 kiosks locked`).
+- `Who shows on the kiosk`: a switch per active or invited employee → `PUT /kiosk/staff/:id {listed}`.
+- `Recent kiosk events` from the same read.
+
+Every write goes through the extras' `run()` (Idempotency-Key, the "Your role can’t …" toast, the refetch; 422/409 inline,
+412 "changed meanwhile").
+
+**Team activity** (`team.edit`; reads only): chips `Today` `Yesterday` `This week` `Last week` (Sunday to Saturday, as the
+Operations calendar) `Custom` (two dates, at most 31 days, checked before the read); `GET /reports/employee-activity?from&to`
+under `['settings', 'activity', …]`: a row per employee with `Checked in`, `In bay`, `Finished`, `Picked up`, `Avg bay time`,
+`Payments` (`2 · $90.00`; the count only, and a note, without `pay.reports`), `Texts`, `Bookings` (walk-ins included). A row
+opens the person's days, the cars they touched (`?employeeId`: each step with who did it and a `Kiosk` / `Signed in` tag) and
+their timeline (`…/:employeeId/events`, `Show more` pages by cursor). Until the backend builds the report (wave K2b) it answers
+501 `NOT_BUILT` and the section reads `Team activity isn’t ready yet.`; another failure offers `Try again`.
+
+Tests: `src/lib/settings/kiosk.test.ts`, `src/screens/settings/live/shopfloor.test.ts` (fixtures in
+`shopfloor-fixtures.ts`), `shopfloor.render.test.ts` (the live template).

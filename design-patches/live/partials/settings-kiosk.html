@@ -1,0 +1,88 @@
+<sc-if value="{{ live.secKiosk }}" hint-placeholder-val="{{ false }}">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="display:flex;align-items:center;gap:14px;"><div style="flex:1;"><div style="font-weight:800;font-size:15px;">Kiosk mode</div><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">{{ live.kio.modeText }}</div></div><button sc-camel-on-click="{{ live.kio.modeToggle }}" title="Kiosk mode on or off" style="{{ live.kio.modeTrack }}"><span style="{{ live.kio.modeKnob }}"></span></button></div>
+        <sc-if value="{{ live.kio.hasModeError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.kio.modeError }}</div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Shop code</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">{{ live.kio.codeLine }}</div>
+        <sc-if value="{{ live.kio.codeOld }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#8A5A06;line-height:1.45;">{{ live.kio.codeOldText }}</div></sc-if>
+        <sc-if value="{{ live.kio.hasGenerated }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;padding:16px;background:var(--panel);border:1px solid var(--accentBrd);border-radius:14px;text-align:center;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--ink2);">The new shop code</div>
+            <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:34px;letter-spacing:0.08em;margin-top:6px;">{{ live.kio.generatedCode }}</div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:6px;line-height:1.45;">Write it down now. It isn’t shown again; every kiosk is locked until someone enters it.</div>
+            <button sc-camel-on-click="{{ live.kio.doneGenerated }}" style="margin-top:12px;height:42px;padding:0 18px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">Done</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ live.kio.codeClosed }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+            <button sc-camel-on-click="{{ live.kio.openCode }}" style="height:42px;padding:0 16px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">Change code</button>
+            <button sc-camel-on-click="{{ live.kio.generate }}" style="height:42px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;color:var(--ink2);">Generate a code</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ live.kio.codeOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
+            <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">New code (8 digits)</div><input type="password" title="New shop code" autocomplete="off" inputmode="numeric" value="{{ live.kio.code1 }}" sc-camel-on-input="{{ live.kio.setCode1 }}" style="width:100%;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:16px;font-weight:700;letter-spacing:0.2em;"></div>
+            <div><div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:7px;">Type it again</div><input type="password" title="The new shop code again" autocomplete="off" inputmode="numeric" value="{{ live.kio.code2 }}" sc-camel-on-input="{{ live.kio.setCode2 }}" style="width:100%;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:16px;font-weight:700;letter-spacing:0.2em;"></div>
+          </div>
+          <div style="font-size:12.5px;font-weight:700;color:#8A5A06;margin-top:10px;">{{ live.kio.codeWarn }}</div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button sc-camel-on-click="{{ live.kio.closeCode }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13px;">Cancel</button><button sc-camel-on-click="{{ live.kio.saveCode }}" style="{{ live.kio.saveCodeStyle }}">{{ live.kio.saveCodeLabel }}</button></div>
+        </sc-if>
+        <sc-if value="{{ live.kio.hasCodeError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.kio.codeError }}</div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">This tablet</div>
+        <sc-if value="{{ live.kio.isThisKiosk }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;font-weight:700;color:var(--ink2);margin-top:6px;line-height:1.45;">{{ live.kio.thisLine }}</div></sc-if>
+        <sc-if value="{{ live.kio.notThisKiosk }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 12px;line-height:1.45;">Open this page on the shop’s tablet, name it and make it the kiosk. Codes work only on a kiosk tablet.</div>
+          <div style="display:flex;gap:8px;"><input title="Tablet name" value="{{ live.kio.deviceName }}" sc-camel-on-input="{{ live.kio.setDeviceName }}" placeholder="Front desk tablet" style="flex:1;min-width:0;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"><button sc-camel-on-click="{{ live.kio.register }}" style="{{ live.kio.registerStyle }}">Make this a kiosk</button></div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:8px;line-height:1.45;">{{ live.kio.registerNote }}</div>
+          <sc-if value="{{ live.kio.hasRegisterError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.kio.registerError }}</div></sc-if>
+        </sc-if>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="display:flex;align-items:center;gap:12px;"><div style="flex:1;font-weight:800;font-size:15px;">Kiosk tablets</div>
+          <sc-if value="{{ live.kio.lockAllShow }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.kio.lockAll }}" style="height:38px;padding:0 13px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink);">Lock all kiosks</button></sc-if>
+        </div>
+        <sc-if value="{{ live.kio.lockAllConfirm }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;"><div style="flex:1;font-size:12.5px;font-weight:700;color:var(--ink2);">Lock every kiosk now? The shop code opens them again.</div><button sc-camel-on-click="{{ live.kio.lockAllNo }}" style="height:36px;padding:0 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;">Cancel</button><button sc-camel-on-click="{{ live.kio.lockAllYes }}" style="height:36px;padding:0 12px;border-radius:10px;background:var(--accent);color:#fff;font-weight:800;font-size:12.5px;">Lock all</button></div></sc-if>
+        <sc-if value="{{ live.kio.noDevices }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:8px;">No kiosk tablet yet.</div></sc-if>
+        <sc-for list="{{ live.kio.devices }}" as="d" hint-placeholder-count="2">
+          <div style="padding:12px 0;border-top:1px solid var(--line);margin-top:10px;">
+            <sc-if value="{{ d.notRenaming }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;min-width:0;font-weight:800;font-size:14px;">{{ d.name }}</div><span style="{{ d.stateStyle }}">{{ d.state }}</span></div></sc-if>
+            <sc-if value="{{ d.renaming }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;"><input title="Tablet name" value="{{ d.renameValue }}" sc-camel-on-input="{{ d.setRename }}" style="flex:1;min-width:0;height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"><button sc-camel-on-click="{{ d.cancelRename }}" style="{{ d.buttonStyle }}">Cancel</button><button sc-camel-on-click="{{ d.saveRename }}" style="height:38px;padding:0 13px;border-radius:10px;background:var(--accent);color:#fff;font-weight:800;font-size:12.5px;flex:none;">Save</button></div></sc-if>
+            <sc-if value="{{ d.hasRenameError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ d.renameError }}</div></sc-if>
+            <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:3px;">{{ d.seen }}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+              <sc-if value="{{ d.notRenaming }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ d.startRename }}" style="{{ d.buttonStyle }}">Rename</button></sc-if>
+              <sc-if value="{{ d.canLock }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ d.lock }}" style="{{ d.buttonStyle }}">Lock</button></sc-if>
+              <sc-if value="{{ d.canClear }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ d.clear }}" style="{{ d.buttonStyle }}">Clear lockout</button></sc-if>
+              <sc-if value="{{ d.showRevoke }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ d.revoke }}" style="{{ d.buttonStyle }}">Remove</button></sc-if>
+              <sc-if value="{{ d.confirming }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;font-weight:700;color:var(--ink2);align-self:center;">Remove this tablet? The code stops working there.</span><button sc-camel-on-click="{{ d.revokeNo }}" style="{{ d.buttonStyle }}">Keep</button><button sc-camel-on-click="{{ d.revokeYes }}" style="height:38px;padding:0 13px;border-radius:10px;background:#C2410C;color:#fff;font-weight:800;font-size:12.5px;flex:none;">Remove</button></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 18px 8px;">
+        <div style="font-weight:800;font-size:15px;padding-top:12px;">Who shows on the kiosk</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">The names staff tap on the kiosk to say who did each step.</div>
+        <sc-if value="{{ live.kio.noStaff }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);padding:12px 0;">No active employees yet.</div></sc-if>
+        <sc-for list="{{ live.kio.staff }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line);margin-top:8px;">
+            <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">{{ p.name }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ p.sub }}</div></div>
+            <button sc-camel-on-click="{{ p.toggle }}" title="Shows on the kiosk" style="{{ p.track }}"><span style="{{ p.knob }}"></span></button>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="font-weight:800;font-size:15px;">Recent kiosk events</div>
+        <sc-if value="{{ live.kio.noRecent }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:8px;">Nothing yet.</div></sc-if>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;"><sc-for list="{{ live.kio.recent }}" as="r" hint-placeholder-count="3"><div style="font-size:12.5px;font-weight:600;color:var(--ink2);line-height:1.45;">{{ r.line }}</div></sc-for></div>
+      </div>
+    </div>
+  </div>
+</sc-if>

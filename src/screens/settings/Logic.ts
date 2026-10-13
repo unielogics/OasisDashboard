@@ -129,6 +129,9 @@ const SECTION_PARTS: Record<SectionKey, SyncPartName[]> = {
   memberships: [],
   // live only (ADR 0171): Billing & integrations (live/billing.ts)
   billing: [],
+  // live only (ADR 0180): Shop floor → Kiosk and Team activity (live/kiosk.ts, live/team-activity.ts)
+  kiosk: [],
+  activity: [],
 }
 
 /** The sections the design does not have (live variant only, DV-317..DV-321, DV-322..DV-326). */
@@ -140,6 +143,8 @@ const EXTRA_SECTIONS: ReadonlySet<SectionKey> = new Set<SectionKey>([
   'prices',
   'memberships',
   'billing',
+  'kiosk',
+  'activity',
 ])
 
 export class SettingsLogic extends DCLogic<SettingsState> {
@@ -364,6 +369,8 @@ export class SettingsLogic extends DCLogic<SettingsState> {
     if (location.hash === '#emergency') this.setState({ section: 'emergency' })
     else if (this.data.live && location.hash === '#assistant') this.setState({ section: 'assistant' })
     else if (this.data.live && location.hash === '#billing') this.setState({ section: 'billing' })
+    // the user menu's "Make this a kiosk…" (ADR 0180, DV-1012)
+    else if (this.data.live && location.hash === '#kiosk') this.setState({ section: 'kiosk' })
     this.dataOff = this.data.subscribe(() => this.forceUpdate())
     if (this.extras) {
       this.extras.bind({

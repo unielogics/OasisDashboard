@@ -119,7 +119,7 @@ export type MembershipBilling = NonNullable<NonNullable<MembershipView['membersh
 export type TierList = ApiOk<'/api/v1/catalog/tiers', 'get'>
 export type TierOption = TierList['tiers'][number]
 
-type Opts = Pick<RequestOptions, 'idempotencyKey' | 'signal'>
+type Opts = Pick<RequestOptions, 'idempotencyKey' | 'signal' | 'actor'>
 
 export interface OperationsPort {
   // reads

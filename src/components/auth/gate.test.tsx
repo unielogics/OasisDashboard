@@ -9,7 +9,7 @@ const session = { current: null as any }
 const viewAs = vi.fn()
 vi.mock('@/auth/session', () => ({ useSession: () => ({ session: session.current, viewAs }) }))
 
-import { makeSession } from '@/auth/test-fixtures'
+import { makeKioskSession, makeSession } from '@/auth/test-fixtures'
 import { ErrorBoundary } from './ErrorBoundary'
 import { RouteGate } from './RouteGate'
 
@@ -30,6 +30,20 @@ afterEach(() => {
 const mount = (el: any) => act(async () => root.render(el))
 
 describe('<RouteGate>', () => {
+  it('kiosk mode (DV-1002): the kiosk opens Operations; any other screen goes there instead of a locked card', async () => {
+    session.current = makeKioskSession()
+    const replace = vi.fn()
+    await mount(createElement(RouteGate, { pathname: '/operations', replace }, createElement('div', { id: 'screen' })))
+    expect(container.querySelector('#screen')).not.toBeNull()
+    expect(replace).not.toHaveBeenCalled()
+    for (const p of ['/settings', '/payments', '/']) {
+      replace.mockClear()
+      await mount(createElement(RouteGate, { pathname: p, replace }, createElement('div', { id: 'screen' })))
+      expect(container.querySelector('#screen'), p).toBeNull()
+      expect(container.querySelector('h1'), p).toBeNull()
+      expect(replace, p).toHaveBeenCalledWith('/operations')
+    }
+  })
   it('renders the screen when the session may open it', async () => {
     session.current = makeSession({ role: 'mgmt' })
     await mount(createElement(RouteGate, { pathname: '/payments' }, createElement('div', { id: 'screen' })))

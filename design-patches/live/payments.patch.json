@@ -105,6 +105,12 @@
       "tpl": 140,
       "expectTag": "div",
       "htmlFile": "pay-fee.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 6,
+      "expectTag": "header",
+      "htmlFile": "kiosk-admin-bar.html"
     }
   ]
 }

@@ -385,6 +385,72 @@
       "tpl": 569,
       "expectTag": "div",
       "htmlFile": "ops-member-billing.html"
+    },
+    {
+      "op": "wrap-if",
+      "tpl": 18,
+      "expectTag": "a",
+      "expectTextStarts": "Payments",
+      "cond": "live.showAdminNav"
+    },
+    {
+      "op": "wrap-if",
+      "tpl": 19,
+      "expectTag": "a",
+      "expectTextStarts": "Settings",
+      "cond": "live.showAdminNav"
+    },
+    {
+      "op": "wrap-if",
+      "tpl": 53,
+      "expectTag": "a",
+      "expectTextStarts": "Manage",
+      "cond": "live.showAdminNav"
+    },
+    {
+      "op": "wrap-if",
+      "tpl": 351,
+      "expectTag": "a",
+      "expectTextStarts": "Manage hours",
+      "cond": "live.showAdminNav"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 6,
+      "expectTag": "header",
+      "htmlFile": "kiosk-admin-bar.html"
+    },
+    {
+      "op": "insert-before",
+      "tpl": 692,
+      "expectTag": "sc-if",
+      "htmlFile": "kiosk-picker.html"
+    },
+    {
+      "op": "insert-before",
+      "tpl": 465,
+      "expectTag": "button",
+      "htmlFile": "ops-acting-chip.html"
+    },
+    {
+      "op": "insert-before",
+      "tpl": 489,
+      "expectTag": "div",
+      "htmlFile": "ops-acting-chip.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 504,
+      "expectTag": "div",
+      "expectTextStarts": "Capture arrival",
+      "htmlFile": "ops-acting-chip-block.html"
+    },
+    {
+      "op": "insert-after",
+      "tpl": 523,
+      "expectTag": "div",
+      "expectTextStarts": "Conversation",
+      "htmlFile": "ops-acting-chip-block.html"
     }
   ]
 }

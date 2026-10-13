@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { LiveChrome, shortName } from './chrome'
-import { SUPER_OPTIONS, makeMe, makeSession } from './test-fixtures'
+import { SUPER_OPTIONS, makeKioskSession, makeMe, makeSession } from './test-fixtures'
 
 describe('shortName', () => {
   it('first name and last initial, like the designs’ chip', () => {
@@ -144,5 +144,108 @@ describe('LiveChrome store', () => {
     expect(c.vals().canViewAs).toBe(false)
     expect(c.vals().viewAs.options).toEqual([])
     expect(makeMe({ role: 'crew' }).viewAs.canViewAs).toBe(false)
+  })
+})
+
+describe('LiveChrome in kiosk mode (ADR 0180)', () => {
+  it('the chip names the tablet and its lock time; the menu says Lock kiosk and Manager sign-in (DV-1003)', () => {
+    const c = new LiveChrome()
+    c.setSession(makeKioskSession())
+    const v = c.vals()
+    expect(v.user).toEqual({
+      initials: 'K',
+      name: 'Front desk tablet',
+      short: 'Front desk tablet',
+      email: 'Unlocked 7:58 AM · locks 9:00 PM',
+      roleTitle: 'Locks at 9:00 PM',
+    })
+    expect(v.menu.signOutLabel).toBe('Lock kiosk')
+    expect(v.menu.isKiosk).toBe(true)
+    expect(v.menu.canMakeKiosk).toBe(false)
+    expect(v.showAdminNav).toBe(false)
+    expect(v.kiosk.on).toBe(true)
+    expect(v.adminKiosk.on).toBe(false)
+    expect(v.canViewAs).toBe(false)
+  })
+
+  it('Lock kiosk asks first; Lock locks (the session’s sign-out), Cancel keeps it open', () => {
+    const signOut = vi.fn()
+    const c = new LiveChrome()
+    c.bind({ signOut, viewAs: vi.fn() })
+    c.setSession(makeKioskSession())
+    c.toggleUserMenu()
+    c.vals().menu.signOut()
+    expect(signOut).not.toHaveBeenCalled()
+    expect(c.vals().menu.confirming).toBe(true)
+    expect(c.vals().menu.showSignOut).toBe(false)
+    c.vals().menu.cancelLock()
+    expect(c.vals().menu.confirming).toBe(false)
+    expect(c.vals().menu.showSignOut).toBe(true)
+    c.vals().menu.signOut()
+    c.vals().menu.confirmLock()
+    expect(signOut).toHaveBeenCalledTimes(1)
+    expect(c.vals().menu.open).toBe(false)
+  })
+
+  it('Manager sign-in opens the sign-in page with ?admin=1 (the email form stays behind 0218)', () => {
+    const navigate = vi.fn()
+    const c = new LiveChrome()
+    c.bind({ signOut: vi.fn(), viewAs: vi.fn(), navigate })
+    c.setSession(makeKioskSession())
+    c.vals().menu.managerSignIn()
+    expect(navigate).toHaveBeenCalledWith('/login?admin=1')
+  })
+
+  it('the picker list follows the session; a signed-in person has none', () => {
+    const c = new LiveChrome()
+    c.setSession(makeKioskSession())
+    expect(c.picker.people().map((p) => p.name)).toEqual(['Marco R.', 'Lena K.', 'Sofia P.'])
+    c.setSession(makeSession())
+    expect(c.picker.people()).toEqual([])
+    expect(c.vals().kiosk).toMatchObject({ on: false })
+    expect(c.vals().showAdminNav).toBe(true)
+    expect(c.vals().menu.signOutLabel).toBe('Sign out')
+  })
+
+  it('“Make this a kiosk…” for people who may manage kiosks (team.roles), opening Settings → Kiosk (DV-1012)', () => {
+    const navigate = vi.fn()
+    const c = new LiveChrome()
+    c.bind({ signOut: vi.fn(), viewAs: vi.fn(), navigate })
+    c.setSession(makeSession({ role: 'mgmt' }))
+    expect(c.vals().menu.canMakeKiosk).toBe(true)
+    c.vals().menu.makeKiosk()
+    expect(navigate).toHaveBeenCalledWith('/settings#kiosk')
+    c.setSession(makeSession({ role: 'crew' }))
+    expect(c.vals().menu.canMakeKiosk).toBe(false)
+  })
+
+  it('a person signed in on a kiosk tablet sees the bar; no “Make this a kiosk…” there (DV-1008)', () => {
+    const signOut = vi.fn()
+    const c = new LiveChrome()
+    c.bind({ signOut, viewAs: vi.fn() })
+    c.setSession(makeSession({ role: 'mgmt', kioskDevice: { id: 'dev-1', name: 'Front desk tablet' } }))
+    const v = c.vals()
+    expect(v.adminKiosk.on).toBe(true)
+    expect(v.adminKiosk.text).toBe(
+      'Signed in as Rafael M. on Front desk tablet · signs out after 15 minutes without use',
+    )
+    expect(v.menu.canMakeKiosk).toBe(false)
+    expect(v.showAdminNav).toBe(true)
+    v.adminKiosk.signOut()
+    expect(signOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('a picker question re-renders the screens (its values are under kiosk.picker)', async () => {
+    const c = new LiveChrome()
+    c.setSession(makeKioskSession())
+    const l = vi.fn()
+    c.subscribe(l)
+    const a = c.picker.pick({ title: 'Who’s starting Maria’s Camry?' })
+    expect(l).toHaveBeenCalled()
+    expect(c.vals().kiosk.picker.open).toBe(true)
+    expect(c.vals().kiosk.picker.title).toBe('Who’s starting Maria’s Camry?')
+    c.vals().kiosk.picker.tiles[0]!.onClick()
+    await expect(a).resolves.toBe('emp-marco')
+    expect(c.vals().kiosk.picker.open).toBe(false)
   })
 })

@@ -16,14 +16,17 @@ import { liveChrome } from './chrome'
 import {
   SessionProvider,
   loadSession,
+  lockAndLeave,
+  lockedUrl,
+  msUntil,
   redirectToLogin,
   signOutAndLeave,
   useCan,
   useLimit,
   useSession,
 } from './session'
-import { createMeApi } from '@/data/http/endpoints'
-import { SUPER_OPTIONS, makeMe } from './test-fixtures'
+import { createKioskApi, createMeApi } from '@/data/http/endpoints'
+import { SUPER_OPTIONS, makeKioskMe, makeMe } from './test-fixtures'
 
 ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -444,5 +447,135 @@ describe('redirectToLogin and signOutAndLeave', () => {
       { assign },
     )
     expect(assign).toHaveBeenCalledWith('/login')
+  })
+})
+
+describe('kiosk sessions (ADR 0180, DV-1002, DV-1014)', () => {
+  const kioskRoutes = (over: Route[] = []) =>
+    makeFetch([
+      ...over,
+      on('GET', '/me', () => problem(403, 'KIOSK_SESSION', 'This is the shop’s kiosk')),
+      on('GET', '/meta/now', () => json(NOW)),
+      on('GET', '/kiosk/me', () => json(makeKioskMe())),
+      on('GET', '/kiosk/staff', () => json({ items: makeKioskMe().staff })),
+      on('POST', '/kiosk/lock', () => new Response(null, { status: 204 })),
+    ])
+
+  it('loadSession: /me says KIOSK_SESSION, the session is GET /kiosk/me (and its server clock)', async () => {
+    const { fn, log } = kioskRoutes()
+    const c = client(fn)
+    const s = await loadSession(createMeApi(c), undefined, createKioskApi(c))
+    expect(s.kind).toBe('kiosk')
+    expect(s.kiosk).toMatchObject({ deviceName: 'Front desk tablet', locksAtLabel: '9:00 PM', rule: 'closing' })
+    expect(s.kiosk!.staff.map((p) => p.name)).toEqual(['Marco R.', 'Lena K.', 'Sofia P.'])
+    expect(s.user).toMatchObject({ initials: 'K', name: 'Front desk tablet' })
+    expect(s.roleTitle).toBe('Kiosk')
+    expect(s.permissions['sched.view']).toEqual({ on: true })
+    expect(s.permissions['pay.refund']).toEqual({ on: false })
+    expect(s.permissions['set.hours']).toEqual({ on: false })
+    expect(s.viewAs.canViewAs).toBe(false)
+    expect(c.csrf.get()).toBe('kiosk-csrf-1')
+    expect(serverClock.isSynced).toBe(true)
+    expect(log.map((r) => r.method + ' ' + r.path)).toContain('GET /kiosk/me')
+  })
+
+  it('loadSession without the kiosk endpoints keeps today’s behaviour: KIOSK_SESSION rejects', async () => {
+    const { fn } = kioskRoutes()
+    await expect(loadSession(createMeApi(client(fn)))).rejects.toMatchObject({ code: 'KIOSK_SESSION' })
+  })
+
+  it('a person’s /me still wins; kioskDevice comes through for the bar', async () => {
+    const { fn } = makeFetch([
+      on('GET', '/me', () => json(makeMe({ kioskDevice: { id: 'dev-1', name: 'Front desk tablet' } }))),
+      on('GET', '/meta/now', () => json(NOW)),
+    ])
+    const c = client(fn)
+    const s = await loadSession(createMeApi(c), undefined, createKioskApi(c))
+    expect(s.kind).toBe('user')
+    expect(s.kioskDevice).toEqual({ id: 'dev-1', name: 'Front desk tablet' })
+  })
+
+  it('the provider: kiosk chrome, the client refuses Settings writes locally, Lock kiosk posts /kiosk/lock', async () => {
+    const { fn, log } = kioskRoutes()
+    const c = client(fn)
+    const n = nav()
+    let seen: ReturnType<typeof useSession> | undefined
+    await mount(createElement(SessionProvider, { client: c, nav: n }, createElement(Probe, { out: (v) => (seen = v) })))
+    expect(container.querySelector('#app')!.textContent).toBe('hello Front desk tablet')
+    expect(seen!.session.kind).toBe('kiosk')
+    expect(liveChrome.vals().menu.signOutLabel).toBe('Lock kiosk')
+    expect(liveChrome.picker.people()).toHaveLength(3)
+    const before = log.length
+    await expect(c.put('/settings/hours', {})).rejects.toMatchObject({ code: 'KIOSK_FORBIDDEN' })
+    expect(log.length).toBe(before)
+    // the theme stays on the tablet: no PUT /me/preferences
+    liveChrome.themeChanged('dark', 'light')
+    await flush()
+    expect(log.some((r) => r.path === '/me/preferences')).toBe(false)
+    await act(async () => {
+      await seen!.signOut()
+    })
+    expect(log.some((r) => r.method === 'POST' && r.path === '/kiosk/lock')).toBe(true)
+    expect(n.assign).toHaveBeenCalledWith('/login?locked=1')
+  })
+
+  it('locks by itself at the lock time (server clock): the keypad with the time it locked', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const me = makeKioskMe({
+        serverTime: '2026-06-13T14:36:00.000Z',
+        lock: { unlockedAt: '2026-06-13T11:58:00.000Z', locksAt: '2026-06-13T14:46:00.000Z', locksAtLabel: '10:46 AM', rule: 'two_hours' },
+      })
+      const { fn } = makeFetch([
+        on('GET', '/me', () => problem(403, 'KIOSK_SESSION', 'x')),
+        on('GET', '/meta/now', () => json(NOW)),
+        on('GET', '/kiosk/me', () => json(me)),
+        on('GET', '/kiosk/staff', () => json({ items: me.staff })),
+      ])
+      const n = nav()
+      await act(async () =>
+        root.render(
+          createElement(
+            QueryClientProvider,
+            { client: qc },
+            createElement(SessionProvider, { client: client(fn), nav: n }, createElement('div', { id: 'x' })),
+          ),
+        ),
+      )
+      for (let i = 0; i < 10; i++) await act(async () => void (await vi.advanceTimersByTimeAsync(1)))
+      expect(n.replace).not.toHaveBeenCalled()
+      await act(async () => void (await vi.advanceTimersByTimeAsync(10 * 60_000)))
+      expect(n.replace).toHaveBeenCalledWith('/login?locked=1&at=10%3A46%20AM')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a kiosk whose session ended elsewhere (401) goes to the keypad, not to “session expired”', async () => {
+    let locked = false
+    const { fn } = kioskRoutes([
+      (req) => (locked && req.path === '/ops/snapshot' ? problem(401, 'UNAUTHENTICATED', 'Sign in') : undefined),
+      on('GET', '/ops/snapshot', () => json({})),
+    ])
+    const c = client(fn)
+    const n = nav()
+    await mount(createElement(SessionProvider, { client: c, nav: n }, createElement('div', { id: 'x' })))
+    locked = true
+    await c.get('/ops/snapshot').catch(() => undefined)
+    expect(n.replace).toHaveBeenCalledWith('/login?locked=1')
+  })
+
+  it('helpers: lockedUrl and msUntil', () => {
+    expect(lockedUrl()).toBe('/login?locked=1')
+    expect(lockedUrl('9:00 PM')).toBe('/login?locked=1&at=9%3A00%20PM')
+    expect(msUntil('2026-06-13T14:46:00.000Z', Date.parse('2026-06-13T14:36:00.000Z'))).toBe(600_000)
+    expect(msUntil('2026-06-13T14:00:00.000Z', Date.parse('2026-06-13T14:36:00.000Z'))).toBe(0)
+    expect(msUntil('nonsense', 0)).toBe(0)
+  })
+
+  it('lockAndLeave: a failed lock call still leaves for the keypad', async () => {
+    const assign = vi.fn()
+    await lockAndLeave({ lock: async () => Promise.reject(new ApiError({ status: 0, kind: 'network' })) }, undefined, { assign })
+    expect(assign).toHaveBeenCalledWith('/login?locked=1')
   })
 })
