@@ -7,7 +7,7 @@
 // taps their name in the picker BEFORE the request (and before any optimistic change):
 //   every time       the car steps: bay, arrive, start, complete, ready, pickup, prep, move (and the alerts that do them)
 //   once per flow    a booking or walk-in (one name for every try of the same sheet), a collect (payment and receipt),
-//                    a payment link, a size change
+//                    a payment link (a retry within 2 minutes on the same open file), a size change
 //   sticky per file  texts, add-ons, checklist, photos: the first one asks, then the name sticks to the open file for 2
 //                    minutes of activity ("As Marco R. · Change")
 //   never            reads, marking a thread read, the price preview
@@ -16,6 +16,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { Session } from '@/auth/session-model'
 import { can, isKiosk } from '@/auth/session-model'
 import { KIOSK_DENIED, deniedTitle } from '@/auth/permissions'
+import { STICKY_MS } from '@/auth/kiosk-picker'
 import type { PermissionKey } from '@/auth/permissions'
 import { Action, command } from '@/data/command'
 import type { CommandResult } from '@/data/command'
@@ -110,17 +111,30 @@ export class OpsCommands {
     return id ? { actor: id } : null
   }
 
-  /** Once per flow: the name asked for an Action stays with it until the action succeeds (renew). */
-  private flowWho = new Map<string, string>()
-  private async whoFor(action: Action, ask: WhoAsk): Promise<Who | null> {
+  /**
+   * Once per flow: the name asked for an Action (keyed by its idempotency key) stays with it until the action succeeds
+   * (renew). A payment flow (collect, payment link) keeps it only for a retry: STICKY_MS after the last try, and never
+   * past the open file (leaveFile), so a later payment of the same invoice asks again (F1).
+   */
+  private flowWho = new Map<string, { id: string; at: number; payment: boolean }>()
+  private async whoFor(action: Action, ask: WhoAsk, payment = false): Promise<Who | null> {
     const held = this.flowWho.get(action.key)
-    if (held && isKiosk(this.d.session())) return { actor: held }
+    if (held && held.payment && this.d.now() - held.at > STICKY_MS) this.flowWho.delete(action.key)
+    else if (held && isKiosk(this.d.session())) {
+      held.at = this.d.now()
+      return { actor: held.id }
+    }
     const w = await this.who(ask)
-    if (w?.actor) this.flowWho.set(action.key, w.actor)
+    if (w?.actor) this.flowWho.set(action.key, { id: w.actor, at: this.d.now(), payment })
     return w
   }
   private endFlow(action: Action): void {
     this.flowWho.delete(action.key)
+  }
+
+  /** The open file closed or another opened: a payment or link tried there and not done asks again next time (F1). */
+  leaveFile(): void {
+    for (const [k, v] of [...this.flowWho]) if (v.payment) this.flowWho.delete(k)
   }
 
   action(name: string): Action {
@@ -698,7 +712,11 @@ export class OpsCommands {
     if (!this.allow('pay.collect')) return false
     const a = this.action('collect:' + invoiceId)
     // one name for the payment and its receipt
-    const w = await this.whoFor(a, { title: 'Who’s taking ' + (who.first ? who.first + '’s' : 'the') + ' payment?' })
+    const w = await this.whoFor(
+      a,
+      { title: 'Who’s taking ' + (who.first ? who.first + '’s' : 'the') + ' payment?' },
+      true,
+    )
     if (!w) return false
     const r = await this.run({
       action: a,
@@ -733,7 +751,7 @@ export class OpsCommands {
   async sendLink(invoiceId: string, url: string): Promise<{ ok: boolean; error?: ApiError }> {
     if (!this.allow('pay.collect')) return { ok: false }
     const a = this.action('link:' + invoiceId)
-    const w = await this.whoFor(a, { title: 'Who’s sending the payment link?' })
+    const w = await this.whoFor(a, { title: 'Who’s sending the payment link?' }, true)
     if (!w) return { ok: false }
     const r = await this.run({
       action: a,

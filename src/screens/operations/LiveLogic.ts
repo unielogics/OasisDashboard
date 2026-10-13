@@ -442,8 +442,14 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
 
   /** The file closes: its sticky name ("As Marco R.") is forgotten (DV-1006). */
   private closeFile(): void {
-    this.deps.chrome()?.picker.forget(this.state.selectedId)
+    this.leaveFile()
     this.setState({ selectedId: null })
+  }
+
+  /** Leaving the open file: its sticky name and the name held for an unfinished payment or link go (DV-1006, F1). */
+  private leaveFile(): void {
+    this.deps.chrome()?.picker.forget(this.state.selectedId)
+    this.cmd.leaveFile()
   }
 
   /** "As Marco R. · Change" over the composer, the checklist and the add-ons of the open file, on a kiosk (DV-1006). */
@@ -556,7 +562,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     const s = this.state
     if (e.key === 'Escape') {
       if (this.state.newOpen) this.cmd.closeFlow(this.bookAction)
-      this.deps.chrome()?.picker.forget(this.state.selectedId)
+      this.leaveFile()
       this.setState({ selectedId: null, newOpen: false })
       return
     }
@@ -706,7 +712,7 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
       return
     }
     this.identityReadFor = null
-    if (this.state.selectedId && this.state.selectedId !== id) this.deps.chrome()?.picker.forget(this.state.selectedId)
+    if (this.state.selectedId && this.state.selectedId !== id) this.leaveFile()
     this.setState({
       selectedId: id,
       modalTab: tab,

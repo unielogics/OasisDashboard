@@ -135,6 +135,56 @@ describe('kiosk: once per flow', () => {
     expect(actorOf(last(payCalls(l, 'sendReceipt')))).toBe('emp-lena')
   })
 
+  it('a failed collect keeps its name for a retry of the same file', async () => {
+    const l = await kiosk()
+    l.logic.select(id('late'), 'payment')
+    l.payments.fail.set('collect', new ApiError({ status: 409, code: 'CONFLICT', title: 'Try again' }))
+    const first = await asked(l, () => l.logic.cmd.collect('inv-1', 'cash', { first: 'Maria' }), 'emp-lena')
+    expect(first.result).toBe(false)
+    l.payments.fail.delete('collect')
+    l.clock.now += 60_000
+    expect(await l.logic.cmd.collect('inv-1', 'cash', { first: 'Maria' })).toBe(true)
+    expect(payCalls(l, 'collect').map(actorOf)).toEqual(['emp-lena', 'emp-lena'])
+  })
+
+  it('a failed collect, then the file closes: the next collect asks again (F1)', async () => {
+    const l = await kiosk()
+    l.logic.select(id('late'), 'payment')
+    l.vals()
+    l.payments.fail.set('collect', new ApiError({ status: 409, code: 'CONFLICT', title: 'Try again' }))
+    await asked(l, () => l.logic.cmd.collect('inv-1', 'cash', { first: 'Maria' }), 'emp-lena')
+    l.payments.fail.delete('collect')
+    ;(l.vals().closeModal as () => void)()
+    const again = await asked(l, () => l.logic.cmd.collect('inv-1', 'cash', { first: 'Maria' }), 'emp-marco')
+    expect(again.result).toBe(true)
+    expect(actorOf(last(payCalls(l, 'collect')))).toBe('emp-marco')
+    expect(actorOf(last(payCalls(l, 'sendReceipt')))).toBe('emp-marco')
+  })
+
+  it('a failed payment link, then another file or Escape: the next link asks again (F1)', async () => {
+    const l = await kiosk()
+    l.logic.select(id('late'), 'payment')
+    l.payments.fail.set('collect', new ApiError({ status: 409, code: 'CONFLICT', title: 'Try again' }))
+    await asked(l, () => l.logic.cmd.sendLink('inv-1', ''), 'emp-lena')
+    l.logic.select(id('cleaning'), 'payment')
+    await asked(l, () => l.logic.cmd.sendLink('inv-1', ''), 'emp-sofia')
+    ;(l.logic as any).onKey({ key: 'Escape', target: document.body, preventDefault() {} })
+    l.payments.fail.delete('collect')
+    await asked(l, () => l.logic.cmd.sendLink('inv-1', ''), 'emp-marco')
+    expect(payCalls(l, 'collect').map(actorOf)).toEqual(['emp-lena', 'emp-sofia', 'emp-marco'])
+  })
+
+  it('a failed collect left open: after 2 quiet minutes the next collect asks again (F1)', async () => {
+    const l = await kiosk()
+    l.logic.select(id('late'), 'payment')
+    l.payments.fail.set('collect', new ApiError({ status: 409, code: 'CONFLICT', title: 'Try again' }))
+    await asked(l, () => l.logic.cmd.collect('inv-1', 'cash', { first: 'Maria' }), 'emp-lena')
+    l.payments.fail.delete('collect')
+    l.clock.now += 2 * 60_000 + 1
+    await asked(l, () => l.logic.cmd.collect('inv-1', 'cash', { first: 'Maria' }), 'emp-marco')
+    expect(payCalls(l, 'collect').map(actorOf)).toEqual(['emp-lena', 'emp-marco'])
+  })
+
   it('a payment link and a size change ask at their confirm', async () => {
     const l = await kiosk()
     await asked(l, () => l.logic.cmd.sendLink('inv-1', ''), 'emp-marco')
