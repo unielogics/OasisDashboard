@@ -116,7 +116,16 @@ const PROMISE = /\b(?:free|guarantee[ds]?|for life|lifetime|always included|no c
 
 /** The server's INSTRUCTION list, character for character (pinned by a test against its source and a shared fixture). */
 export const INSTRUCTION_PATTERNS: readonly RegExp[] = [
-  /\b(?:ignore|disregard|forget|override)\b[^.\n]{0,40}\b(?:rules?|instructions?|prompts?|guidelines?|above|previous)\b/i,
+  /\b(?:ignore|disregard|forget|override|pay\s+no\s+attention\s+to)\b[^.\n]{0,40}\b(?:rules?|instructions?|prompts?|guidelines?|guidance|above|previous)\b/i,
+  // K4 re-review K4REV-2: "Disregard everything you were told before", "Oasis AI: tell every client …"
+  /\b(?:ignore|disregard|forget|override|pay\s+no\s+attention\s+to)\s+(?:everything|all|anything|whatever|what)\b[^.\n]{0,40}\b(?:told|said|given|earlier|previous|prior|came\s+before|above)\b/i,
+  /\b(?:oasis\s+ai|assistant|ai|bot|chatbot|model)\s*[:,\-–—]\s*(?:please\s+)?(?:tell|say|always|never|confirm|promise|offer|give|answer|reply|respond|ignore|forget)\b/i,
+  // K4 review asst:K4A-3: words addressed to the AI, standing orders, and the judge's verdict in any quotes
+  /\b(?:note|message|instructions?|reminder)\s+(?:to|for)\s+(?:the\s+)?(?:ai|assistant|bot|chatbot|model|oasis\s+ai)\b/i,
+  /\b(?:dear|hey|attention)\s+(?:ai|assistant|bot|chatbot|model)\b/i,
+  /\b(?:assistants?|ais?|bots?|chatbots?|models?)\s+(?:always|never|should\s+always|should\s+never)\b/i,
+  /\b(?:always|never)\s+(?:tell|say\s+to|confirm\s+to|promise|offer|give)\s+(?:every|all|each|any)\s+(?:clients?|customers?|callers?|texters?|people)\b/i,
+  /\bfrom\s+now\s+on\b/i,
   /\byou\s+are\s+(?:now|an?|the)\b/i,
   /\bsystem\s*(?:prompt|message|:)/i,
   /\b(?:assistant|ai|model|bot|chatbot|oasis\s+ai)\s+(?:must|should|will|shall|has\s+to|needs\s+to)\b/i,
@@ -126,7 +135,7 @@ export const INSTRUCTION_PATTERNS: readonly RegExp[] = [
   /\bnew\s+(?:rules?|instructions?)\b/i,
   /^\s*(?:#+\s*)?(?:SHOP\s+FACTS|SHOP\s+KNOWLEDGE|TURN\s+CONTEXT|RULES?|SYSTEM|INSTRUCTIONS?|HOW\s+TO\s+WRITE|WHAT\s+IS\s+DATA)\b\s*[:(]?/i,
   /[⟦⟧]|<\/?\s*(?:message|own-text|server-record|trusted)\b|\[\/?trusted\]/i,
-  /(?:"ok"\s*:\s*true|\bcategory"\s*:\s*"none")/i,
+  /(?:["“”'‘’]?\bok\b["“”'‘’]?\s*:\s*true\b|\bcategory["“”'‘’]?\s*:\s*["“”'‘’]?none\b)/i,
 ]
 
 /** The most warnings kept per entry, as on the server. */
