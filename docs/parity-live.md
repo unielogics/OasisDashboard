@@ -364,6 +364,14 @@ Settings → Billing & integrations is the fourth tab of `Prices & memberships` 
 the cards, fees and billing blocks need data the design seeds do not have. Run on dashboard `ws/q3-dash` against backend
 `ws/q3-dashapi` (both commits in the package report): 38 runs, 152 steps, 0 unresolved.
 
+## Square item library and the sales tax (K3, ADR 0172 and ADR 0173)
+
+No new allow-list entry. The design seeds are 7% rounded half up (`taxDbp` 7000, `taxRounding` `half_up`), so the tax line
+still reads `Tax (7%)` and every figure is the server's as before (DV-213 now reads the rate from `taxDbp`); the Sales tax and
+Square item library blocks (DV-911, DV-914) are on Billing & integrations, which the scenarios never open, and the Prices by
+size dots (DV-912) and the Catalog word (DV-913) show only while the item sync is on, which the parity stacks never turn on.
+Run on dashboard `ws/k-items-dash` against backend `ws/k-items` (e194fc6): 38 runs, 152 steps, 0 failing.
+
 ## Triage of the Operations run: where every difference went
 
 Every difference of the first Operations runs went into exactly one bucket.

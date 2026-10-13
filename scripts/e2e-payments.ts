@@ -327,7 +327,8 @@ async function scrape(page: Page): Promise<View> {
           id: t(c[0]?.children[1]),
           client: t(c[1]?.children[0]),
           vehicle: t(c[1]?.children[1]),
-          items: t(c[2]),
+          // the items cell is wrapped with the row's category chip (pay-row-cat.html, live only): the design's cell is the last child
+          items: t(c[2]?.lastElementChild ?? c[2]),
           total: t(c[3]),
           status: t(pill),
           adj: t(c[4]).endsWith('ADJ'),
