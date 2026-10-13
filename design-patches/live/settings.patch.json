@@ -94,13 +94,6 @@
       "tpl": 72,
       "expectTag": "button",
       "expectTextStarts": "Packages",
-      "htmlFile": "settings-nav-shopfloor.html"
-    },
-    {
-      "op": "insert-after",
-      "tpl": 72,
-      "expectTag": "button",
-      "expectTextStarts": "Packages",
       "htmlFile": "settings-nav-assistant.html"
     },
     {

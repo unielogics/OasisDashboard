@@ -8,6 +8,9 @@
     <sc-if value="{{ live.menu.canMakeKiosk }}" hint-placeholder-val="{{ false }}">
       <button sc-camel-on-click="{{ live.menu.makeKiosk }}" style="display:flex;align-items:center;width:100%;padding:9px 10px;border-radius:10px;font-weight:700;font-size:13.5px;">Make this a kiosk…</button>
     </sc-if>
+    <sc-if value="{{ live.menu.canTeamActivity }}" hint-placeholder-val="{{ false }}">
+      <button sc-camel-on-click="{{ live.menu.teamActivity }}" style="display:flex;align-items:center;width:100%;padding:9px 10px;border-radius:10px;font-weight:700;font-size:13.5px;">Team activity…</button>
+    </sc-if>
     <sc-if value="{{ live.menu.isKiosk }}" hint-placeholder-val="{{ false }}">
       <button sc-camel-on-click="{{ live.menu.managerSignIn }}" style="display:flex;align-items:center;width:100%;padding:9px 10px;border-radius:10px;font-weight:700;font-size:13.5px;">Manager sign-in</button>
     </sc-if>

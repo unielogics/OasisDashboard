@@ -453,8 +453,6 @@ export class SettingsExtras {
         reminders: navStyle(sec, 'reminders'),
         // one nav button for the three pricing sections (the nav has no room for three at 1000 px: DV-322)
         pricing: navStyle(PRICING_SECTIONS.includes(sec) ? 'prices' : sec, 'prices'),
-        kiosk: navStyle(sec, 'kiosk'),
-        activity: navStyle(sec, 'activity'),
       },
       goCatalog: go('catalog'),
       goCategories: go('categories'),
@@ -466,14 +464,13 @@ export class SettingsExtras {
       },
       goMemberships: go('memberships'),
       goBilling: go('billing'),
-      // Shop floor (ADR 0180, DV-1009): shown to those who may open one of its sections
-      shopFloor: !!this.kioskApi && (this.can(KIOSK_PERMISSION) || this.can(ACTIVITY_PERMISSION)),
-      canKiosk: !!this.kioskApi && this.can(KIOSK_PERMISSION),
-      canActivity: !!this.kioskApi && this.can(ACTIVITY_PERMISSION),
+      // Shop floor (ADR 0180, DV-1009): no nav entry (the nav has no room at 1000 px, DV-322); the user menu opens
+      // /settings#kiosk or #activity, and a tab strip moves between the two sections for those who may open both
       goKiosk: go('kiosk'),
       goActivity: go('activity'),
       secKiosk: sec === 'kiosk' && open,
       secActivity: sec === 'activity' && open,
+      shopTabs: this.shopTabs(sec),
       secBilling: sec === 'billing' && open,
       secCatalog: sec === 'catalog' && open,
       secCategories: sec === 'categories' && open,
@@ -519,6 +516,19 @@ export class SettingsExtras {
     out.kio = this.kioskSection?.vals(sec === 'kiosk' && open ? this.kioskOverview() : undefined) ?? { has: false }
     out.act = this.activitySection?.vals(sec === 'activity' && open) ?? {}
     return out
+  }
+
+  /** Kiosk | Team activity over either Shop floor section, when this person may open both (DV-1009). */
+  private shopTabs(sec: SectionKey): Vals {
+    const tabs = (
+      [
+        ['kiosk', 'Kiosk', KIOSK_PERMISSION],
+        ['activity', 'Team activity', ACTIVITY_PERMISSION],
+      ] as const
+    )
+      .filter(([, , perm]) => !!this.kioskApi && this.can(perm))
+      .map(([k, label]) => ({ label, style: seg(sec === k), onClick: () => this.host?.go(k) }))
+    return { show: (sec === 'kiosk' || sec === 'activity') && tabs.length > 1, tabs }
   }
 
   // ---- Catalog ----------------------------------------------------------------------------------------------------

@@ -487,8 +487,10 @@ async function main(): Promise<void> {
 
     // ---------------------------------------------------------------------------------------------------------------
     section('Team activity')
-    await M.page.goto(`${stack.webUrl}/settings`)
-    await M.page.getByRole('button', { name: 'Team activity' }).click()
+    // the user menu's "Team activity…" (the Settings nav has no room for a Shop floor group, DV-1009)
+    await M.page.locator('[data-live-menu="user"] > div').first().click()
+    await M.page.getByRole('button', { name: 'Team activity…' }).click()
+    await M.page.waitForURL((u) => u.pathname === '/settings', { timeout: 15_000 })
     await until(async () => /isn’t ready yet|Avg bay time/.test(await text(M.page)), 10_000)
     const act = await text(M.page)
     if (act.includes('isn’t ready yet')) later(false, 'Team activity counts Marco’s steps (the report answers 501 until wave K2b)')

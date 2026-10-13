@@ -215,8 +215,15 @@ describe('LiveChrome in kiosk mode (ADR 0180)', () => {
     expect(c.vals().menu.canMakeKiosk).toBe(true)
     c.vals().menu.makeKiosk()
     expect(navigate).toHaveBeenCalledWith('/settings#kiosk')
+    // Team activity… for team.edit (DV-1009: the Settings nav has no room for a Shop floor group)
+    expect(c.vals().menu.canTeamActivity).toBe(true)
+    c.vals().menu.teamActivity()
+    expect(navigate).toHaveBeenCalledWith('/settings#activity')
     c.setSession(makeSession({ role: 'crew' }))
     expect(c.vals().menu.canMakeKiosk).toBe(false)
+    expect(c.vals().menu.canTeamActivity).toBe(false)
+    c.setSession(makeKioskSession())
+    expect(c.vals().menu.canTeamActivity).toBe(false)
   })
 
   it('a person signed in on a kiosk tablet sees the bar; no “Make this a kiosk…” there (DV-1008)', () => {

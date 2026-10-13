@@ -107,20 +107,39 @@ function make(role: 'mgmt' | 'crew' | 'super' | 'support' | 'acct' = 'mgmt', api
 }
 
 describe('Settings live template: Shop floor', () => {
-  it('the nav group last in the nav (no design entry moves), with Kiosk and Team activity, for a manager', () => {
+  it('no nav entry (the nav has no room at 1000 px, DV-1009): the design nav is unchanged', () => {
     const { logic } = make('mgmt')
     const html = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
-    expect(html).toContain('>Shop floor<')
-    expect(html.indexOf('Oasis AI assistant')).toBeLessThan(html.indexOf('>Shop floor<'))
-    expect(html.indexOf('Prices &amp; memberships')).toBeLessThan(html.indexOf('>Shop floor<'))
-    expect(html.indexOf('>Shop floor<')).toBeLessThan(html.indexOf('>Kiosk<'))
-    expect(html).toContain('>Team activity<')
+    expect(html).not.toContain('Shop floor')
+    expect(html).not.toContain('>Team activity<')
+    expect(html).not.toContain('>Kiosk<')
   })
 
-  it('no Shop floor for a role without team.roles or team.edit', () => {
-    const { logic } = make('acct')
-    const html = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
-    expect(html).not.toContain('>Shop floor<')
+  it('the Kiosk | Team activity tabs over either section, for a person who may open both', async () => {
+    const { logic } = make('mgmt')
+    logic.renderVals().live.goKiosk()
+    await vi.waitFor(() => expect(logic.renderVals().live.secKiosk).toBe(true))
+    const v = logic.renderVals()
+    expect(v.live.shopTabs.show).toBe(true)
+    expect(v.live.shopTabs.tabs.map((t: any) => t.label)).toEqual(['Kiosk', 'Team activity'])
+    const html = renderToStaticMarkup(render(v, { name: 'settings' }))
+    expect(html).toContain('>Team activity<')
+    v.live.shopTabs.tabs[1].onClick()
+    await vi.waitFor(() => expect(logic.renderVals().live.secActivity).toBe(true))
+    // elsewhere in Settings: no tabs
+    logic.setState({ section: 'hours' })
+    expect(logic.renderVals().live.shopTabs.show).toBe(false)
+  })
+
+  it('a role with Team activity only (no team.roles) gets the report and no tabs; Kiosk is locked', async () => {
+    const { logic } = make('mgmt')
+    const s = (logic as any).data.sessionOf()
+    s.permissions['team.roles'] = { on: false }
+    logic.setState({ section: 'activity' })
+    await vi.waitFor(() => expect(logic.renderVals().live.secActivity).toBe(true))
+    expect(logic.renderVals().live.shopTabs.show).toBe(false)
+    logic.setState({ section: 'kiosk' })
+    expect(logic.renderVals().live.secKiosk).toBe(false)
   })
 
   it('the Kiosk section from GET /kiosk', async () => {
@@ -180,11 +199,15 @@ describe('Settings live template: Shop floor', () => {
     )
   })
 
-  it('#kiosk opens the Kiosk section (the user menu’s “Make this a kiosk…”)', () => {
+  it('#kiosk and #activity open the sections (the user menu’s entries), also while Settings is open', async () => {
     location.hash = '#kiosk'
     try {
       const { logic } = make('mgmt')
       expect(logic.state.section).toBe('kiosk')
+      location.hash = '#activity'
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+      expect(logic.state.section).toBe('activity')
+      logic.componentWillUnmount()
     } finally {
       location.hash = ''
     }

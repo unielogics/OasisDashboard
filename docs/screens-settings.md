@@ -391,13 +391,16 @@ Move members, the live template).
 
 ## Shop floor: Kiosk and Team activity (live only; ADR 0180; DEVIATIONS DV-1009..DV-1012)
 
-A `Shop floor` group last in the nav (after Texting, so no design entry moves; at 1000 px the nav scrolls), shown to people
-with `team.roles` (`Kiosk`) or `team.edit` (`Team activity`). Both sections are live extras (`live/extras.ts` delegates to
+No nav entry (DV-1009): the design's nav is full at 1000 px (DV-322), and a group under it turned the nav into a scrolling
+box, which changed how Chromium drew the whole screen (live parity: anti-aliasing pixels on every Settings step). The two
+sections open from the user menu on every screen (`Make this a kiosk…` → `/settings#kiosk` for `team.roles`; `Team
+activity…` → `/settings#activity` for `team.edit`; the hash is followed while Settings is open too), and a `Kiosk` / `Team
+activity` tab strip moves between them for a person who may open both. Both sections are live extras (`live/extras.ts` delegates to
 `live/kiosk.ts` and `live/team-activity.ts`; pure helpers in `src/lib/settings/kiosk.ts`; endpoints in
 `src/data/ports/kiosk-api.ts`, typed from the generated `schema.d.ts`).
 
 **Kiosk** (`GET /kiosk` under `['settings', 'kiosk', 'overview']`, refetched on `settings.changed {section: kiosk |
-employees}`; locked card without `team.roles`; `/settings#kiosk` opens it, the user menu's `Make this a kiosk…` goes there):
+employees}`; locked card without `team.roles`):
 
 - `Kiosk mode` switch → `PUT /kiosk/settings {enabled, version}`; turning it on without a code shows the server's
   `A manager needs to set the shop code first` under the switch; off ends every kiosk session.

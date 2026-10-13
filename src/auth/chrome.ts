@@ -47,6 +47,9 @@ export interface LiveVals {
     /** A person who may manage kiosks (team.roles), not already on one: "Make this a kiosk…" opens Settings → Kiosk. */
     canMakeKiosk: boolean
     makeKiosk: () => void
+    /** "Team activity…" (team.edit) opens Settings → Team activity (the Settings nav has no room for it, DV-1009). */
+    canTeamActivity: boolean
+    teamActivity: () => void
   }
   /** Payments, Settings and the "Manage" links; false on a kiosk (DV-1004). */
   showAdminNav: boolean
@@ -246,6 +249,12 @@ export class LiveChrome {
           this.userMenuOpen = false
           this.invalidate()
           this.navigate('/settings#kiosk')
+        },
+        canTeamActivity: !k && !!s && can(s, 'team.edit'),
+        teamActivity: () => {
+          this.userMenuOpen = false
+          this.invalidate()
+          this.navigate('/settings#activity')
         },
       },
       showAdminNav: !k,

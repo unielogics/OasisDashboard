@@ -152,6 +152,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
   /** Catalog, Categories and Reminders & texts (live only; null in the fixture build). */
   private readonly extras: SettingsExtras | null
   private extrasOff: (() => void) | null = null
+  private hashOff: (() => void) | null = null
   private toastTimer: ReturnType<typeof setTimeout> | undefined
   private liveOff: (() => void) | null = null
   private dataOff: (() => void) | null = null
@@ -369,8 +370,13 @@ export class SettingsLogic extends DCLogic<SettingsState> {
     if (location.hash === '#emergency') this.setState({ section: 'emergency' })
     else if (this.data.live && location.hash === '#assistant') this.setState({ section: 'assistant' })
     else if (this.data.live && location.hash === '#billing') this.setState({ section: 'billing' })
-    // the user menu's "Make this a kiosk…" (ADR 0180, DV-1012)
-    else if (this.data.live && location.hash === '#kiosk') this.setState({ section: 'kiosk' })
+    // the user menu's "Make this a kiosk…" and "Team activity…" (ADR 0180, DV-1009, DV-1012), also while Settings is open
+    else if (this.data.live) this.shopFloorHash()
+    if (this.data.live && typeof window !== 'undefined') {
+      const onHash = () => this.shopFloorHash()
+      window.addEventListener('hashchange', onHash)
+      this.hashOff = () => window.removeEventListener('hashchange', onHash)
+    }
     this.dataOff = this.data.subscribe(() => this.forceUpdate())
     if (this.extras) {
       this.extras.bind({
@@ -391,7 +397,15 @@ export class SettingsLogic extends DCLogic<SettingsState> {
     }
   }
 
+  /** #kiosk and #activity open Settings → Shop floor (ADR 0180). */
+  private shopFloorHash(): void {
+    if (location.hash === '#kiosk') this.setState({ section: 'kiosk' })
+    else if (location.hash === '#activity') this.setState({ section: 'activity' })
+  }
+
   componentWillUnmount(): void {
+    this.hashOff?.()
+    this.hashOff = null
     this.dataOff?.()
     this.dataOff = null
     this.extrasOff?.()

@@ -157,7 +157,8 @@ kiosk's permission set, no money limits, no view-as, the server clock from `serv
 keypad, where 0218 reveals the form, and `Back to the board`) and `Lock kiosk`, which asks first (`Lock the kiosk now? The shop
 code opens it again.` `Lock` / `Cancel`) → `POST /kiosk/lock` → the keypad. Payments, Settings and the "Manage" links are not
 rendered (`live.showAdminNav`). For everyone else the menu reads `Sign out` as before, plus `Make this a kiosk…` for people
-with `team.roles` (→ `/settings#kiosk`). A person signed in on a kiosk tablet (the short session of ADR 0180: 15 minutes idle,
+with `team.roles` (→ `/settings#kiosk`) and `Team activity…` for `team.edit` (→ `/settings#activity`; the Settings nav has no
+room for a Shop floor group, DV-1009). A person signed in on a kiosk tablet (the short session of ADR 0180: 15 minutes idle,
 4 hours at most; `/me` `kioskDevice`) sees a bar on all three screens: `Signed in as Rafael M. on Front desk tablet · signs
 out after 15 minutes without use` and `Sign out`.
 
