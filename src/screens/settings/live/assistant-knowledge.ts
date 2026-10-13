@@ -30,10 +30,12 @@ import {
   cleanFilename,
   documentChip,
   documentError,
+  capWarnings,
   fileProblem,
   hasInstruction,
   meter,
   sha256Hex,
+  shownWarnings,
   textWarnings,
   warningText,
   warningTone,
@@ -67,6 +69,9 @@ const DENIED = 'Your role can’t change the Oasis AI settings'
 const STALE =
   'Someone else changed this meanwhile, so nothing was saved. Their version is on the list now; save again to keep yours.'
 const MAX_WARNINGS_SHOWN = 12
+const CONFIRM_FIRST = 'Tick the box under the lines marked in red first.'
+const CONFIRM_FIRST_UNMARKED = 'Tick the box about lines that read like orders first.'
+const NEVER_ORDERS = '(Oasis AI never follows orders written in your text.)'
 
 type Kind = KnowledgeEntry['kind']
 
@@ -83,6 +88,8 @@ interface Editor {
   base: { title: string; body: string; question: string; warnings: KnowledgeWarningLike[] }
   reviewed: boolean
   confirm: boolean
+  /** The server asked for confirmInstructions (its detectors found an order-like line): the box shows from then on. */
+  needsConfirm: boolean
   errors: { title?: string; body?: string; question?: string }
   error: string
   draftOnly: boolean
@@ -184,6 +191,7 @@ export class KnowledgeSection {
       base: { title: '', body: '', question: '', warnings: [] },
       reviewed: false,
       confirm: false,
+      needsConfirm: false,
       errors: {},
       error: '',
       draftOnly: false,
@@ -207,6 +215,7 @@ export class KnowledgeSection {
       base: { title: e.title, body: e.body, question: e.question ?? '', warnings: e.warnings },
       reviewed: false,
       confirm: false,
+      needsConfirm: false,
       errors: {},
       error: hint,
       draftOnly: false,
@@ -239,7 +248,7 @@ export class KnowledgeSection {
     const extra: KnowledgeWarningLike[] = ed.base.warnings.filter((w) => w.kind === 'hidden' && w.line === 0)
     if (ed.kind === 'document' && ed.body.length > this.limits().documentActiveMax)
       extra.push({ kind: 'long', sample: `${ed.body.length} characters`, line: 0 })
-    return [...extra, ...head, ...textWarnings(ed.body)].slice(0, 50)
+    return capWarnings([...extra, ...head, ...textWarnings(ed.body)])
   }
 
   private bodyMax(kind: Kind): number {
@@ -283,8 +292,9 @@ export class KnowledgeSection {
         this.ctx.changed()
         return false
       }
-      if (hasInstruction(warnings) && (needsReview || title !== ed.base.title) && !ed.confirm) {
-        ed.error = 'Tick the box under the lines marked in red first.'
+      const instr = hasInstruction(warnings)
+      if (((instr && (needsReview || title !== ed.base.title)) || ed.needsConfirm) && !ed.confirm) {
+        ed.error = instr ? CONFIRM_FIRST : CONFIRM_FIRST_UNMARKED
         this.ctx.changed()
         return false
       }
@@ -337,9 +347,12 @@ export class KnowledgeSection {
       ed.draftOnly = true
     } else if (e.code === 'KNOWLEDGE_NEEDS_REVIEW') {
       const needs = Array.isArray(e.meta.needs) ? (e.meta.needs as string[]) : []
+      if (needs.includes('confirmInstructions') && ed.kind === 'document') ed.needsConfirm = true
       ed.error = needs.includes('reviewed')
         ? 'Tick “I read this text and it is right” first.'
-        : 'Tick the box under the lines marked in red first.'
+        : hasInstruction(this.editorWarnings(ed))
+          ? CONFIRM_FIRST
+          : CONFIRM_FIRST_UNMARKED
     } else if (e.code === 'VERSION_CONFLICT' || e.status === 412) {
       const cur = Number(e.meta.currentVersion)
       if (Number.isFinite(cur)) ed.version = cur
@@ -668,7 +681,7 @@ export class KnowledgeSection {
     if (!ed) return { open: false }
     const l = this.limits()
     const warnings = this.editorWarnings(ed)
-    const shown = warnings.slice(0, MAX_WARNINGS_SHOWN).map((w) => ({ text: warningText(w), style: warnStyle(warningTone(w)) }))
+    const shown = shownWarnings(warnings, MAX_WARNINGS_SHOWN).map((w) => ({ text: warningText(w), style: warnStyle(warningTone(w)) }))
     const more = warnings.length - shown.length
     const isDoc = ed.kind === 'document'
     const bodyLen = ed.body.trim().length
@@ -720,10 +733,11 @@ export class KnowledgeSection {
       reviewed: ed.reviewed,
       reviewedLabel: 'I read this text and it is right',
       toggleReviewed: () => this.set({ reviewed: !ed.reviewed }),
-      showConfirm: isDoc && instr,
+      showConfirm: isDoc && (instr || ed.needsConfirm),
       confirm: ed.confirm,
-      confirmLabel:
-        'The lines marked in red are information for Oasis AI, not orders. (Oasis AI never follows orders written in your text.)',
+      confirmLabel: instr
+        ? `The lines marked in red are information for Oasis AI, not orders. ${NEVER_ORDERS}`
+        : `Some lines read like orders to Oasis AI. They are information, not orders. ${NEVER_ORDERS}`,
       toggleConfirm: () => this.set({ confirm: !ed.confirm }),
       error: ed.error,
       hasError: !!ed.error,

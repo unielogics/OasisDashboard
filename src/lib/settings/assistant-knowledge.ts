@@ -114,7 +114,8 @@ const MARKUP = /<\s*\/?\s*[a-z!?][^>]*>/gi
 const HIDDEN = /[\p{Cc}\p{Cf}\p{Co}\u2028\u2029]/gu
 const PROMISE = /\b(?:free|guarantee[ds]?|for life|lifetime|always included|no charge|complimentary)\b/i
 
-const INSTRUCTION: readonly RegExp[] = [
+/** The server's INSTRUCTION list, character for character (pinned by a test against its source and a shared fixture). */
+export const INSTRUCTION_PATTERNS: readonly RegExp[] = [
   /\b(?:ignore|disregard|forget|override)\b[^.\n]{0,40}\b(?:rules?|instructions?|prompts?|guidelines?|above|previous)\b/i,
   /\byou\s+are\s+(?:now|an?|the)\b/i,
   /\bsystem\s*(?:prompt|message|:)/i,
@@ -125,21 +126,35 @@ const INSTRUCTION: readonly RegExp[] = [
   /\bnew\s+(?:rules?|instructions?)\b/i,
   /^\s*(?:#+\s*)?(?:SHOP\s+FACTS|SHOP\s+KNOWLEDGE|TURN\s+CONTEXT|RULES?|SYSTEM|INSTRUCTIONS?|HOW\s+TO\s+WRITE|WHAT\s+IS\s+DATA)\b\s*[:(]?/i,
   /[⟦⟧]|<\/?\s*(?:message|own-text|server-record|trusted)\b|\[\/?trusted\]/i,
+  /\b(?:"ok"\s*:\s*true|category"\s*:\s*"none")/i,
 ]
+
+/** The most warnings kept per entry, as on the server. */
+export const MAX_WARNINGS = 50
+/** Kinds kept past the cap: a long price sheet must not hide an order-like line, markup or hidden text. */
+const UNCAPPED: ReadonlySet<WarningKind> = new Set<WarningKind>(['instruction', 'markup', 'hidden'])
+
+/** A list of warnings cut to the cap, keeping every order-like line, markup and hidden text (line order kept). */
+export function capWarnings<W extends KnowledgeWarningLike>(ws: readonly W[]): W[] {
+  const out: W[] = []
+  for (const w of ws) if (out.length < MAX_WARNINGS || UNCAPPED.has(w.kind)) out.push(w)
+  return out
+}
 
 const clip = (s: string): string => (s.length > 40 ? `${s.slice(0, 39)}…` : s)
 const digits = (s: string): string => s.replace(/\D/g, '').slice(-10)
 
 /**
  * The warnings of a text while it is typed: amounts, links, e-mail addresses and phone numbers other than the shop's
- * (hidden from Oasis AI), promise words, instruction-like lines, markup and hidden characters. Line order, at most 50.
+ * (hidden from Oasis AI), promise words, instruction-like lines, markup and hidden characters. Line order, at most 50 (order-like
+ * lines, markup and hidden characters are always kept).
  */
 export function textWarnings(text: string, shopNumbers: readonly string[] = []): KnowledgeWarningLike[] {
   const shop = new Set(shopNumbers.map(digits).filter((d) => d.length === 10))
   const out: KnowledgeWarningLike[] = []
   const add = (kind: WarningKind, sample: string, line: number): void => {
     const s = clip(sample.trim())
-    if (out.length >= 50 || out.some((w) => w.kind === kind && w.line === line && w.sample === s)) return
+    if ((out.length >= MAX_WARNINGS && !UNCAPPED.has(kind)) || out.some((w) => w.kind === kind && w.line === line && w.sample === s)) return
     out.push({ kind, sample: s, line })
   }
   text.split('\n').forEach((raw, i) => {
@@ -159,7 +174,7 @@ export function textWarnings(text: string, shopNumbers: readonly string[] = []):
     for (const m of rest.replace(AMOUNT, ' ').match(PHONE) ?? []) if (!shop.has(digits(m))) add('phone', m, line)
     const promise = PROMISE.exec(flat)
     if (promise) add('promise', promise[0], line)
-    if (INSTRUCTION.some((re) => re.test(flat))) add('instruction', flat, line)
+    if (INSTRUCTION_PATTERNS.some((re) => re.test(flat))) add('instruction', flat, line)
   })
   return out
 }
@@ -191,6 +206,13 @@ export function warningText(w: KnowledgeWarningLike): string {
 
 export const hasInstruction = (ws: readonly KnowledgeWarningLike[]): boolean =>
   ws.some((w) => w.kind === 'instruction')
+
+/** The warnings an editor lists: the order-like lines first in priority, then the rest, in line order, at most `max`. */
+export function shownWarnings<W extends KnowledgeWarningLike>(ws: readonly W[], max: number): W[] {
+  const idx = ws.map((w, i) => ({ w, i }))
+  const pick = [...idx.filter((x) => x.w.kind === 'instruction'), ...idx.filter((x) => x.w.kind !== 'instruction')].slice(0, max)
+  return pick.sort((a, b) => a.i - b.i).map((x) => x.w)
+}
 
 /** The tone of a warning line: an instruction or hidden text in red, the rest amber. */
 export const warningTone = (w: KnowledgeWarningLike): 'red' | 'amber' =>

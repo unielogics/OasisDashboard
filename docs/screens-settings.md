@@ -265,7 +265,12 @@ Rules:
   (the next Save carries the server's version, so overwriting is the owner's deliberate choice). A 422 `KNOWLEDGE_BUDGET`
   names how many characters are over and offers `Save as a draft`; nothing is ever cut. Turning an unread PDF on from the
   list opens its review instead. The warnings shown are the server's while the text is as saved and the browser's copy
-  of the same detectors once it is edited (the server computes them again on save).
+  of the same detectors once it is edited (the server computes them again on save). The copy's order patterns are the
+  server's character for character (`INSTRUCTION_PATTERNS`, pinned by `src/lib/settings/__fixtures__/knowledge-instruction-lines.json`
+  and, with `OASIS_BACKEND_PATH` set, against the backend's `sanitize.ts`). At most 50 warnings are kept, but order-like
+  lines, markup and hidden text are always kept, and the 12 listed put order-like lines first. When a save gets 422
+  `KNOWLEDGE_NEEDS_REVIEW` with `confirmInstructions` the box shows anyway (`Some lines read like orders to Oasis AI. …`;
+  `Tick the box about lines that read like orders first.`), so the owner is never asked for a box that is not there.
 - **PDFs.** Checked in the browser (PDF, 10 MB), hashed (WebCrypto SHA-256) so a file already in the knowledge is refused
   before any byte is sent (409 `DUPLICATE_DOCUMENT`: `“guide.pdf” is already in your knowledge.`), uploaded to the presigned
   POST with XMLHttpRequest (fields first, then the file; `Uploading 45%`), completed (202: `Reading the PDF…`; 200 `failed`:
