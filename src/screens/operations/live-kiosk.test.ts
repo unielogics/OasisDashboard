@@ -237,6 +237,29 @@ describe('kiosk: sticky per open file for 2 minutes (DV-1006)', () => {
     await asked(l, () => l.logic.cmd.checklistItem(id('cleaning'), 'item-1', true), 'emp-sofia')
   })
 
+  it('a text sent from a board alert (no file open) holds no name: the next person to open that file is asked (attr:K4A-1)', async () => {
+    const l = await kiosk()
+    const f = id('late')
+    const p = (l.logic as any).alertAction({ action: { type: 'send_reminder', appointmentId: f } }) as Promise<void>
+    await tick()
+    expect(l.chrome.picker.isOpen).toBe(true)
+    l.chrome.picker.choose('emp-marco')
+    await p
+    expect(actorOf(last(calls(l, 'sendMessage')))).toBe('emp-marco')
+    expect(l.chrome.picker.acting(f)).toBeNull()
+    clock += 30_000
+    l.logic.select(f, 'messages')
+    l.vals()
+    await l.settle()
+    expect(l.vals().live.acting.show).toBe(false)
+    await asked(l, () => l.logic.cmd.sendMessage(f, { text: 'On our way' } as any, 'Maria'), 'emp-lena')
+    expect(actorOf(last(calls(l, 'sendMessage')))).toBe('emp-lena')
+    // a write for another car while this file is open asks too, and holds nothing for that car
+    await asked(l, () => l.logic.cmd.checklistItem(id('cleaning'), 'item-1', true), 'emp-sofia')
+    expect(l.chrome.picker.acting(id('cleaning'))).toBeNull()
+    expect(l.chrome.picker.acting(f)?.id).toBe('emp-lena')
+  })
+
   it('never asked: opening a file, marking a thread read', async () => {
     const l = await kiosk()
     l.logic.select(id('late'), 'overview')

@@ -437,7 +437,10 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
   private whoAsk(ask: WhoAsk): Promise<string | null | undefined> {
     const c = this.deps.chrome()
     if (!c || !this.onKiosk()) return Promise.resolve(undefined)
-    return c.picker.pick(ask)
+    // a name sticks only to the file that is OPEN: a text sent from a board alert (no file open) or for another car asks and
+    // holds nothing, so the next person to open that car's file is asked too (K4 review attr:K4A-1)
+    const sticky = ask.sticky && ask.sticky === this.state.selectedId ? ask.sticky : undefined
+    return c.picker.pick(sticky ? { title: ask.title, sticky } : { title: ask.title })
   }
 
   /** The file closes: its sticky name ("As Marco R.") is forgotten (DV-1006). */
