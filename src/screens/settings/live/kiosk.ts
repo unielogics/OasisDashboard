@@ -85,6 +85,11 @@ export class KioskSection {
       this.edit(() => (this.modeError = r.message))
       return
     }
+    // this browser is a kiosk: the switch signed the manager out here (K4 review kiosk:F1), the keypad is next
+    if (r.data.signedOut) {
+      this.ctx.navigate('/login')
+      return
+    }
     this.ctx.flash(next ? 'Kiosk mode is on · the tablet shows the keypad' : 'Kiosk mode is off · every kiosk locked')
   }
 

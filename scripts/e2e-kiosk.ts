@@ -242,19 +242,19 @@ async function main(): Promise<void> {
     ok((await text(tablet)).includes('This browser is the kiosk “Front desk tablet”.'), 'Make this a kiosk registers this browser')
     const cookies = (await T.ctx.cookies()).map((c) => c.name)
     ok(cookies.some((n) => /oasis_kdev$/.test(n)), 'the device cookie is set', cookies)
-    await tablet.locator('button[title="Kiosk mode on or off"]').click()
-    await until(async () => (await api(tablet, 'GET', '/kiosk')).body.enabled === true)
-    const overview = (await api(tablet, 'GET', '/kiosk')).body
-    ok(overview.enabled === true, 'kiosk mode is on')
-    const deviceId: string = overview.thisDeviceId
-    ok(!!deviceId, 'GET /kiosk names this browser', overview.thisDeviceId)
+    // the manager's session on this browser is tied to the tablet now: short, with the bar (K4 review kiosk:F1)
+    const me = (await api(tablet, 'GET', '/me')).body
+    ok(me.kioskDevice?.name === 'Front desk tablet', 'the manager signed in on the tablet is on a short kiosk session', me.kioskDevice)
+    const deviceId: string = me.kioskDevice?.id
     await shot(tablet, '01-settings-kiosk')
+    await tablet.locator('button[title="Kiosk mode on or off"]').click()
 
     // ---------------------------------------------------------------------------------------------------------------
     section('the keypad and the hidden email form')
-    await tablet.locator('[data-live-menu="user"] > div').first().click()
-    await tablet.getByRole('button', { name: 'Sign out' }).click()
+    // turning kiosk mode on from the tablet signs the manager out there: the tablet goes straight to the keypad
     await tablet.waitForURL((u) => u.pathname === '/login', { timeout: 15_000 })
+    ok((await api(tablet, 'GET', '/kiosk/status')).body.enabled === true, 'kiosk mode is on')
+    ok(!!deviceId, 'the tablet is a registered kiosk device', deviceId)
     await tablet.waitForSelector('text=Enter the shop code', { timeout: 15_000 })
     ok((await text(tablet)).includes('Front desk tablet'), 'the keypad names the tablet')
     ok((await tablet.locator('input[name=email]').count()) === 0, 'no email field on the keypad')

@@ -22,7 +22,7 @@ function fakeApi(): KioskAdminApi & { calls: any[][] } {
   return {
     calls,
     overview: step('overview', () => overviewFixture()),
-    setMode: step('setMode', (enabled: boolean, version: number) => ({ enabled, version: version + 1 })),
+    setMode: step('setMode', (enabled: boolean, version: number) => ({ enabled, version: version + 1, signedOut: false })),
     setCode: step('setCode', (body: any) => (body.generate ? { setAt: 'x', code: '24681357' } : { setAt: 'x' })),
     register: step('register', (name: string) => ({ device: { ...overviewFixture().devices[0]!, name }, signedOut: false })),
     rename: step('rename', () => overviewFixture().devices[0]),
@@ -100,6 +100,15 @@ describe('Settings → Kiosk (DV-1010)', () => {
     await flush()
     expect(api.calls.find((c) => c[0] === 'setMode')!.slice(1, 3)).toEqual([true, 3])
     expect(flashes).toEqual(['Kiosk mode is on · the tablet shows the keypad'])
+  })
+
+  it('turned on from the tablet itself: the manager is signed out there and the browser goes to the keypad (K4 review kiosk:F1)', async () => {
+    const { api, section, flashes, nav } = kioskSection()
+    api.setMode = (async () => ({ enabled: true, version: 4, signedOut: true })) as any
+    ;(section.vals(overviewFixture()) as any).modeToggle()
+    await flush()
+    expect(nav).toHaveBeenCalledWith('/login')
+    expect(flashes).toEqual([])
   })
 
   it('turning it on without a code shows the server’s words under the switch', async () => {

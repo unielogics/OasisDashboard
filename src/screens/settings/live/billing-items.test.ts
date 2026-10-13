@@ -66,7 +66,7 @@ describe('Sales tax (ADR 0173, DV-914)', () => {
     expect(page).toContain('Rounded half up, once per invoice.')
   })
 
-  it('a typed rate is a draft; a rate the server would refuse is said before sending; Save sends it with the version, never the rounding', async () => {
+  it('a typed rate is a draft; a rate the server would refuse is said before sending; Save sends it with the version and Square’s rounding', async () => {
     const t = makeExtrasLogic('super')
     await openBilling(t.logic)
     call(t.logic, 'live.bill.tax.setPercent', '6.6255')

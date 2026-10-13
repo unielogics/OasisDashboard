@@ -52,7 +52,7 @@ describe('the Settings API: Billing & integrations, Move members, the sales tax 
     await api.testSquare(o)
     await api.syncSquareCatalog(o)
     await api.moveMembers('gold', { notice: 30 }, o)
-    await api.saveSalesTax({ percent: '6.625', version: 4 }, o)
+    await api.saveSalesTax({ percent: '6.625', rounding: 'half_even', version: 4 }, o)
     await api.squareItems()
     await api.syncSquareItems(o)
     await api.setSquareItemsTax({ mode: 'adopt', squareTaxId: 'TAX1', version: 2 }, o)
@@ -66,7 +66,7 @@ describe('the Settings API: Billing & integrations, Move members, the sales tax 
       ['POST /api/v1/integrations/square/test', {}],
       ['POST /api/v1/integrations/square/catalog/sync', {}],
       ['POST /api/v1/catalog/tiers/gold/move-members', { notice: 30 }],
-      ['PUT /api/v1/settings/billing/sales-tax', { percent: '6.625', version: 4 }],
+      ['PUT /api/v1/settings/billing/sales-tax', { percent: '6.625', rounding: 'half_even', version: 4 }],
       ['GET /api/v1/integrations/square/items', undefined],
       ['POST /api/v1/integrations/square/items/sync', {}],
       ['PUT /api/v1/integrations/square/items/tax', { mode: 'adopt', squareTaxId: 'TAX1', version: 2 }],
