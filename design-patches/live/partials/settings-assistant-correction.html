@@ -1,0 +1,28 @@
+<sc-if value="{{ live.asst.corr.open }}" hint-placeholder-val="{{ false }}">
+  <div sc-camel-on-click="{{ live.asst.corr.cancel }}" style="position:fixed;inset:0;z-index:72;background:rgba(8,12,10,.55);display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div sc-camel-on-click="{{ live.asst.corr.stop }}" style="width:100%;max-width:560px;max-height:calc(100vh - 48px);overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:26px;box-shadow:var(--shadowLg);">
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.02em;">{{ live.asst.corr.title }}</div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--ink2);margin-top:6px;line-height:1.5;">{{ live.asst.corr.sub }}</div>
+      <sc-if value="{{ live.asst.corr.hasWrong }}" hint-placeholder-val="{{ false }}"><div style="margin-top:14px;padding:10px 14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);"><div style="font-size:11.5px;font-weight:800;color:var(--ink3);margin-bottom:4px;">What Oasis AI said</div><div style="font-size:13px;font-weight:600;color:var(--ink2);line-height:1.45;white-space:pre-wrap;">{{ live.asst.corr.wrong }}</div></div></sc-if>
+      <div style="display:flex;align-items:baseline;gap:10px;margin:16px 0 7px;"><span style="font-size:12.5px;font-weight:700;color:var(--ink2);">What the client asked (you can make it general)</span><span style="{{ live.asst.corr.questionCountStyle }}">{{ live.asst.corr.questionCount }}</span></div>
+      <input value="{{ live.asst.corr.question }}" sc-camel-on-input="{{ live.asst.corr.setQuestion }}" placeholder="Do you have a waiting room?" autocomplete="off" style="{{ live.asst.corr.questionStyle }}">
+      <sc-if value="{{ live.asst.corr.hasQuestionError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.corr.questionError }}</div></sc-if>
+      <div style="display:flex;align-items:baseline;gap:10px;margin:14px 0 7px;"><span style="font-size:12.5px;font-weight:700;color:var(--ink2);">The right answer</span><span style="{{ live.asst.corr.answerCountStyle }}">{{ live.asst.corr.answerCount }}</span></div>
+      <textarea value="{{ live.asst.corr.answer }}" sc-camel-on-input="{{ live.asst.corr.setAnswer }}" placeholder="Yes! Our lounge has wifi and coffee while you wait." style="{{ live.asst.corr.answerStyle }}"></textarea>
+      <sc-if value="{{ live.asst.corr.hasAnswerError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.corr.answerError }}</div></sc-if>
+      <sc-for list="{{ live.asst.corr.warnings }}" as="w" hint-placeholder-count="1"><div style="margin-top:6px;"><span style="{{ w.style }}">{{ w.text }}</span></div></sc-for>
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 0 0;">
+        <div style="flex:1;"><div style="font-weight:700;font-size:14px;">{{ live.asst.corr.activeLabel }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ live.asst.corr.activeSub }}</div></div>
+        <button sc-camel-on-click="{{ live.asst.corr.toggleActive }}" style="{{ live.asst.corr.activeTrack }}"><span style="{{ live.asst.corr.activeKnob }}"></span></button>
+      </div>
+      <sc-if value="{{ live.asst.corr.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:13px;font-weight:700;color:#C2410C;line-height:1.45;">{{ live.asst.corr.error }}</div></sc-if>
+      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+        <button sc-camel-on-click="{{ live.asst.corr.cancel }}" style="height:48px;padding:0 18px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:14px;">Cancel</button>
+        <span style="flex:1;"></span>
+        <sc-if value="{{ live.asst.corr.canReplace }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.asst.corr.replace }}" style="height:48px;padding:0 18px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:800;font-size:14px;">Replace the earlier one</button></sc-if>
+        <sc-if value="{{ live.asst.corr.canDraft }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.asst.corr.draft }}" style="height:48px;padding:0 18px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:800;font-size:14px;">Save as a draft</button></sc-if>
+        <button sc-camel-on-click="{{ live.asst.corr.save }}" style="height:48px;padding:0 20px;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;font-size:14px;">{{ live.asst.corr.saveLabel }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>

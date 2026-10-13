@@ -35,6 +35,7 @@ describe('route access', () => {
       'team.roles',
       'cli.member',
       'set.billing',
+      'set.assistant',
     ])
       expect(only(k), k).toBe(true)
     for (const k of ['sched.edit', 'pay.reports', 'msg.send']) expect(only(k), k).toBe(false)
@@ -46,6 +47,6 @@ describe('route access', () => {
   })
   it('has a design label for every permission key', () => {
     for (const k of PERMISSION_KEYS) expect(PERMISSION_LABELS[k], k).toBeTruthy()
-    expect(Object.keys(PERMISSION_LABELS)).toHaveLength(27)
+    expect(Object.keys(PERMISSION_LABELS)).toHaveLength(28)
   })
 })

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The LIVE Settings template (with the live patches) rendered with the view model on LiveData: the "Oasis AI assistant"
-// nav entry (a Texting group after the last one), the section (status strip, switches, stage, pause, test numbers, questions and answers)
-// and its own save bar (ADR 0160, DV-705..707). Every binding of the section exists in the values the view model gives.
+// nav entry (a Texting group after the last one), the section's tab strip and its Status & switches tab (status strip,
+// switches, stage, pause, test numbers) and its own save bar (ADR 0160, DV-705..707; ADR 0174 DV-708). Every binding of
+// the section exists in the values the view model gives. The other tabs: assistant-tabs.render.test.ts.
 import fs from 'node:fs'
 import path from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -93,9 +94,9 @@ describe('live Settings template: Oasis AI assistant', () => {
     logic.renderVals().live.asst.go()
     await vi.waitFor(() => expect(logic.renderVals().live.secAssistant).toBe(true))
     const vals = logic.renderVals()
-    // every handler the template binds under live.asst exists
+    // every handler the template binds under live.asst exists (the tabs' own: assistant-tabs.render.test.ts)
     for (const h of bindings.handlers as string[]) {
-      if (!h.startsWith('live.asst.')) continue
+      if (!h.startsWith('live.asst.') || /^live\.asst\.(kn|pr|rv|lim|corr)\./.test(h)) continue
       const parts = h.split('[]')
       if (parts.length === 1) {
         expect(typeof atPath(vals, h), h).toBe('function')
@@ -117,13 +118,15 @@ describe('live Settings template: Oasis AI assistant', () => {
       '12 hours',
       '(201) 555-0142',
       'Add number',
-      'Questions &amp; answers',
-      'value="Do you take walk-ins?"',
-      'Yes, any time we are open.',
-      '1 of 40',
-      'Add question',
+      '>Status &amp; switches<',
+      '>Knowledge<',
+      '>Practice<',
+      '>Limits &amp; tone<',
+      '>Conversations<',
     ])
       expect(html, s).toContain(s)
+    // the Q&A moved to the Knowledge tab (DV-709)
+    expect(html).not.toContain('Questions &amp; answers')
     expect(html).not.toContain('Unsaved changes to the assistant')
     vals.live.asst.toggles[0].toggle()
     html = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))

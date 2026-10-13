@@ -1,64 +1,60 @@
 <sc-if value="{{ live.secAssistant }}" hint-placeholder-val="{{ false }}">
-  <div style="{{ live.asst.statusStyle }}">{{ live.asst.statusText }}</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start;">
-    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
-      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 18px 18px;">
-        <sc-for list="{{ live.asst.toggles }}" as="o" hint-placeholder-count="2">
-          <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);">
-            <div style="flex:1;"><div style="font-weight:700;font-size:14px;">{{ o.label }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;line-height:1.45;">{{ o.sub }}</div></div>
-            <button sc-camel-on-click="{{ o.toggle }}" style="{{ o.track }}"><span style="{{ o.knob }}"></span></button>
+  <div style="display:flex;gap:4px;padding:4px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;margin-bottom:18px;max-width:820px;overflow-x:auto;"><sc-for list="{{ live.asst.tabs }}" as="b" hint-placeholder-count="5"><button sc-camel-on-click="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</button></sc-for></div>
+  <sc-if value="{{ live.asst.tabStatus }}" hint-placeholder-val="{{ true }}">
+    <div style="{{ live.asst.statusStyle }}">{{ live.asst.statusText }}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+        <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 18px 18px;">
+          <sc-for list="{{ live.asst.toggles }}" as="o" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);">
+              <div style="flex:1;"><div style="font-weight:700;font-size:14px;">{{ o.label }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;line-height:1.45;">{{ o.sub }}</div></div>
+              <button sc-camel-on-click="{{ o.toggle }}" style="{{ o.track }}"><span style="{{ o.knob }}"></span></button>
+            </div>
+          </sc-for>
+          <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin:16px 0 7px;">Who it answers</div>
+          <div style="display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;"><sc-for list="{{ live.asst.stages }}" as="o" hint-placeholder-count="3"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+          <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:8px;line-height:1.45;">{{ live.asst.stageText }}</div>
+          <sc-if value="{{ live.asst.hasStageError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.stageError }}</div></sc-if>
+        </div>
+        <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 18px;">
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 0;">
+            <div style="flex:1;"><div style="font-weight:700;font-size:14px;">Pause after a staff reply</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;line-height:1.45;">When someone on the team texts a client, Oasis AI stays quiet on that chat this long.</div></div>
+            <button sc-camel-on-click="{{ live.asst.pauseDec }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">−</button>
+            <span style="min-width:72px;text-align:center;font-weight:800;font-size:14px;">{{ live.asst.pauseVal }}</span>
+            <button sc-camel-on-click="{{ live.asst.pauseInc }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">+</button>
+          </div>
+          <sc-if value="{{ live.asst.hasPauseError }}" hint-placeholder-val="{{ false }}"><div style="padding-bottom:12px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.pauseError }}</div></sc-if>
+        </div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:800;font-size:15px;">Test numbers</div><span style="font-size:12px;font-weight:800;color:var(--ink3);">{{ live.asst.numbersCount }}</span></div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 10px;line-height:1.45;">{{ live.asst.numbersNote }}</div>
+        <sc-for list="{{ live.asst.numbers }}" as="n" hint-placeholder-count="2">
+          <div style="padding:10px 0;border-top:1px solid var(--line);">
+            <div style="display:flex;align-items:center;gap:12px;"><span style="flex:1;font-weight:700;font-size:14px;">{{ n.label }}</span><button sc-camel-on-click="{{ n.remove }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Remove</button></div>
+            <sc-if value="{{ n.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ n.error }}</div></sc-if>
           </div>
         </sc-for>
-        <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin:16px 0 7px;">Who it answers</div>
-        <div style="display:flex;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;"><sc-for list="{{ live.asst.stages }}" as="o" hint-placeholder-count="3"><button sc-camel-on-click="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
-        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:8px;line-height:1.45;">{{ live.asst.stageText }}</div>
-        <sc-if value="{{ live.asst.hasStageError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.stageError }}</div></sc-if>
-      </div>
-      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 18px;">
-        <div style="display:flex;align-items:center;gap:14px;padding:14px 0;">
-          <div style="flex:1;"><div style="font-weight:700;font-size:14px;">Pause after a staff reply</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;line-height:1.45;">When someone on the team texts a client, Oasis AI stays quiet on that chat this long.</div></div>
-          <button sc-camel-on-click="{{ live.asst.pauseDec }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">−</button>
-          <span style="min-width:72px;text-align:center;font-weight:800;font-size:14px;">{{ live.asst.pauseVal }}</span>
-          <button sc-camel-on-click="{{ live.asst.pauseInc }}" style="width:40px;height:44px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:800;">+</button>
+        <sc-if value="{{ live.asst.noNumbers }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 0;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink3);">No numbers yet. Add your own phone to try Oasis AI first.</div></sc-if>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input value="{{ live.asst.numberNew }}" sc-camel-on-input="{{ live.asst.numberSet }}" sc-camel-on-key-down="{{ live.asst.numberKeys }}" placeholder="(201) 555-0142" inputmode="tel" autocomplete="off" style="flex:1;min-width:0;height:44px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;">
+          <button sc-camel-on-click="{{ live.asst.numberAdd }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">Add number</button>
         </div>
-        <sc-if value="{{ live.asst.hasPauseError }}" hint-placeholder-val="{{ false }}"><div style="padding-bottom:12px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.pauseError }}</div></sc-if>
+        <sc-if value="{{ live.asst.hasNumberError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.numberError }}</div></sc-if>
       </div>
     </div>
-    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:800;font-size:15px;">Test numbers</div><span style="font-size:12px;font-weight:800;color:var(--ink3);">{{ live.asst.numbersCount }}</span></div>
-      <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin:3px 0 10px;line-height:1.45;">{{ live.asst.numbersNote }}</div>
-      <sc-for list="{{ live.asst.numbers }}" as="n" hint-placeholder-count="2">
-        <div style="padding:10px 0;border-top:1px solid var(--line);">
-          <div style="display:flex;align-items:center;gap:12px;"><span style="flex:1;font-weight:700;font-size:14px;">{{ n.label }}</span><button sc-camel-on-click="{{ n.remove }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Remove</button></div>
-          <sc-if value="{{ n.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ n.error }}</div></sc-if>
-        </div>
-      </sc-for>
-      <sc-if value="{{ live.asst.noNumbers }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 0;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink3);">No numbers yet. Add your own phone to try Oasis AI first.</div></sc-if>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <input value="{{ live.asst.numberNew }}" sc-camel-on-input="{{ live.asst.numberSet }}" sc-camel-on-key-down="{{ live.asst.numberKeys }}" placeholder="(201) 555-0142" inputmode="tel" autocomplete="off" style="flex:1;min-width:0;height:44px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;">
-        <button sc-camel-on-click="{{ live.asst.numberAdd }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;">Add number</button>
-      </div>
-      <sc-if value="{{ live.asst.hasNumberError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.numberError }}</div></sc-if>
-    </div>
-  </div>
-  <div style="margin-top:18px;background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
-    <div style="display:flex;align-items:flex-start;gap:12px;">
-      <div style="flex:1;"><div style="font-weight:800;font-size:15px;">Questions &amp; answers</div><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">Oasis AI answers from these and from your Settings (hours, services, starting prices, memberships). Write each answer the way you would text a client.</div></div>
-      <span style="font-size:12px;font-weight:800;color:var(--ink3);">{{ live.asst.faqCount }}</span>
-    </div>
-    <sc-for list="{{ live.asst.faq }}" as="p" hint-placeholder-count="2">
-      <div style="display:flex;gap:12px;padding-top:14px;margin-top:14px;border-top:1px solid var(--line);">
-        <div style="width:28px;height:28px;border-radius:9px;background:var(--panel3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:var(--ink2);flex:none;">{{ p.num }}</div>
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;">
-          <input value="{{ p.q }}" sc-camel-on-input="{{ p.setQ }}" placeholder="Question, as a client would ask it" autocomplete="off" style="width:100%;height:44px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;">
-          <sc-if value="{{ p.hasQError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:700;color:#C2410C;">{{ p.qError }}</div></sc-if>
-          <textarea value="{{ p.a }}" sc-camel-on-input="{{ p.setA }}" placeholder="The answer Oasis AI texts back" rows="3" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;line-height:1.5;resize:vertical;"></textarea>
-          <div style="display:flex;align-items:center;gap:10px;"><sc-if value="{{ p.hasAError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:700;color:#C2410C;">{{ p.aError }}</div></sc-if><span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ink3);">{{ p.count }}</span></div>
-        </div>
-        <button sc-camel-on-click="{{ p.remove }}" title="Remove this question" style="width:40px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--ink3);flex:none;">✕</button>
-      </div>
-    </sc-for>
-    <sc-if value="{{ live.asst.noFaq }}" hint-placeholder-val="{{ false }}"><div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink3);">No questions yet. Add the ones clients ask most.</div></sc-if>
-    <div style="margin-top:16px;"><button sc-camel-on-click="{{ live.asst.faqAdd }}" style="{{ live.asst.faqAddStyle }}">Add question</button></div>
-  </div>
+  </sc-if>
+  <sc-if value="{{ live.asst.tabKnowledge }}" hint-placeholder-val="{{ false }}">
+@include(settings-assistant-knowledge.html)
+  </sc-if>
+  <sc-if value="{{ live.asst.tabPractice }}" hint-placeholder-val="{{ false }}">
+@include(settings-assistant-practice.html)
+  </sc-if>
+  <sc-if value="{{ live.asst.tabLimits }}" hint-placeholder-val="{{ false }}">
+@include(settings-assistant-limits.html)
+  </sc-if>
+  <sc-if value="{{ live.asst.tabConversations }}" hint-placeholder-val="{{ false }}">
+@include(settings-assistant-conversations.html)
+  </sc-if>
+@include(settings-assistant-correction.html)
 </sc-if>

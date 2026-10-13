@@ -1,0 +1,145 @@
+<sc-if value="{{ live.asst.kn.locked }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;border-radius:14px;background:var(--panel2);border:1px solid var(--line);margin-bottom:18px;font-size:13.5px;font-weight:700;color:var(--ink2);line-height:1.45;">{{ live.asst.kn.lockedText }}</div></sc-if>
+<sc-if value="{{ live.asst.kn.loading }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;border-radius:14px;background:var(--panel2);border:1px solid var(--line);margin-bottom:18px;font-size:13.5px;font-weight:700;color:var(--ink3);">Reading what Oasis AI knows…</div></sc-if>
+<sc-if value="{{ live.asst.kn.failed }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:12px;padding:16px;border-radius:14px;background:var(--panel2);border:1px solid var(--line);margin-bottom:18px;"><span style="flex:1;font-size:13.5px;font-weight:700;color:var(--ink2);">What Oasis AI knows could not be read.</span><button sc-camel-on-click="{{ live.asst.kn.retry }}" style="height:40px;padding:0 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;">Try again</button></div></sc-if>
+<sc-if value="{{ live.asst.kn.ready }}" hint-placeholder-val="{{ true }}">
+  <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:18px;">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;"><div style="flex:1;font-weight:800;font-size:15px;">What Oasis AI reads</div><span style="font-size:13.5px;font-weight:800;">{{ live.asst.kn.meterText }}</span></div>
+    <div style="height:10px;border-radius:6px;background:var(--panel3);margin-top:10px;overflow:hidden;"><span style="{{ live.asst.kn.meterFill }}"></span></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink3);"><span style="flex:1;">{{ live.asst.kn.meterParts }}</span><span>{{ live.asst.kn.meterLeft }}</span></div>
+    <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:6px;line-height:1.45;">{{ live.asst.kn.meterExplain }}</div>
+  </div>
+  <sc-if value="{{ live.asst.kn.hasNotice }}" hint-placeholder-val="{{ false }}"><div style="{{ live.asst.kn.noticeStyle }}">{{ live.asst.kn.notice }}</div></sc-if>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="flex:1;"><div style="font-weight:800;font-size:15px;">Notes</div><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">Things Oasis AI should know, in your words: the waiting area, what a service includes, care after a coating.</div></div>
+          <button sc-camel-on-click="{{ live.asst.kn.addNote }}" style="height:44px;padding:0 16px;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;flex:none;">New note</button>
+        </div>
+        <sc-for list="{{ live.asst.kn.notes }}" as="n" hint-placeholder-count="2">
+          <div style="padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;">{{ n.title }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ n.sub }}</div></div>
+              <button sc-camel-on-click="{{ n.toggle }}" title="On: Oasis AI reads it" style="{{ n.track }}"><span style="{{ n.knob }}"></span></button>
+            </div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--ink2);margin-top:6px;line-height:1.45;white-space:pre-line;">{{ n.preview }}</div>
+            <sc-if value="{{ n.confirming }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:10px 12px;border-radius:11px;background:rgba(194,65,12,.08);border:1px solid rgba(194,65,12,.3);"><span style="flex:1;font-size:12.5px;font-weight:700;color:#C2410C;">Delete this note?</span><button sc-camel-on-click="{{ n.keep }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;">Keep it</button><button sc-camel-on-click="{{ n.remove }}" style="height:36px;padding:0 12px;border-radius:9px;background:#C2410C;color:#fff;font-weight:800;font-size:12px;">Delete</button></div></sc-if>
+            <div style="display:flex;gap:8px;margin-top:8px;"><button sc-camel-on-click="{{ n.edit }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Edit</button><button sc-camel-on-click="{{ n.askRemove }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Delete</button></div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ live.asst.kn.noNotes }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink3);">No notes yet.</div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="flex:1;"><div style="font-weight:800;font-size:15px;">Questions &amp; answers</div><div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">Oasis AI answers from these and from your Settings (hours, services, starting prices, memberships). Write each answer the way you would text a client. Saved with the bar at the bottom.</div></div>
+          <span style="font-size:12px;font-weight:800;color:var(--ink3);">{{ live.asst.faqCount }}</span>
+        </div>
+        <sc-for list="{{ live.asst.faq }}" as="p" hint-placeholder-count="2">
+          <div style="display:flex;gap:12px;padding-top:14px;margin-top:14px;border-top:1px solid var(--line);">
+            <div style="width:28px;height:28px;border-radius:9px;background:var(--panel3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:var(--ink2);flex:none;">{{ p.num }}</div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;">
+              <input value="{{ p.q }}" sc-camel-on-input="{{ p.setQ }}" placeholder="Question, as a client would ask it" autocomplete="off" style="width:100%;height:44px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;">
+              <sc-if value="{{ p.hasQError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:700;color:#C2410C;">{{ p.qError }}</div></sc-if>
+              <textarea value="{{ p.a }}" sc-camel-on-input="{{ p.setA }}" placeholder="The answer Oasis AI texts back" rows="3" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;line-height:1.5;resize:vertical;"></textarea>
+              <div style="display:flex;align-items:center;gap:10px;"><sc-if value="{{ p.hasAError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;font-weight:700;color:#C2410C;">{{ p.aError }}</div></sc-if><span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ink3);">{{ p.count }}</span></div>
+            </div>
+            <button sc-camel-on-click="{{ p.remove }}" title="Remove this question" style="width:40px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--ink3);flex:none;">✕</button>
+          </div>
+        </sc-for>
+        <sc-if value="{{ live.asst.noFaq }}" hint-placeholder-val="{{ false }}"><div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink3);">No questions yet. Add the ones clients ask most.</div></sc-if>
+        <div style="margin-top:16px;"><button sc-camel-on-click="{{ live.asst.faqAdd }}" style="{{ live.asst.faqAddStyle }}">Add question</button></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;">
+        <div style="font-weight:800;font-size:15px;">PDFs</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">Price sheets, care guides, policies. Oasis AI learns services and policies from them; prices still come only from Settings → Prices.</div>
+        <div style="position:relative;margin-top:12px;padding:22px 16px;border:1.5px dashed var(--line);border-radius:14px;background:var(--panel);text-align:center;">
+          <div style="font-weight:800;font-size:14px;">{{ live.asst.kn.dropTitle }}</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:4px;line-height:1.45;">{{ live.asst.kn.dropSub }}</div>
+          <input type="file" accept="application/pdf,.pdf" multiple="{{ live.asst.kn.ready }}" sc-camel-on-change="{{ live.asst.kn.onFiles }}" title="Add PDFs" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+        </div>
+        <sc-if value="{{ live.asst.kn.hasUploadErrors }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:10px;padding:10px 12px;border-radius:11px;background:rgba(194,65,12,.08);border:1px solid rgba(194,65,12,.3);">
+            <sc-for list="{{ live.asst.kn.uploadErrors }}" as="u" hint-placeholder-count="1"><div style="font-size:12.5px;font-weight:700;color:#C2410C;line-height:1.45;">{{ u.text }}</div></sc-for>
+            <button sc-camel-on-click="{{ live.asst.kn.clearUploadErrors }}" style="margin-top:6px;height:32px;padding:0 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">OK</button>
+          </div>
+        </sc-if>
+        <sc-for list="{{ live.asst.kn.uploadRows }}" as="u" hint-placeholder-count="1">
+          <div style="padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
+            <div style="display:flex;align-items:center;gap:10px;"><span style="flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ u.name }}</span><span style="{{ u.chipStyle }}">{{ u.chip }}</span></div>
+            <div style="height:6px;border-radius:6px;background:var(--panel3);margin-top:8px;overflow:hidden;"><span style="{{ u.barStyle }}"></span></div>
+          </div>
+        </sc-for>
+        <sc-for list="{{ live.asst.kn.docs }}" as="d" hint-placeholder-count="2">
+          <div style="padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ d.name }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:2px;">{{ d.sub }}</div></div>
+              <span style="{{ d.chipStyle }}">{{ d.chip }}</span>
+              <sc-if value="{{ d.hasToggle }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ d.toggle }}" title="On: Oasis AI reads it" style="{{ d.track }}"><span style="{{ d.knob }}"></span></button></sc-if>
+            </div>
+            <sc-if value="{{ d.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;line-height:1.45;">{{ d.error }}</div></sc-if>
+            <sc-if value="{{ d.confirming }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:10px 12px;border-radius:11px;background:rgba(194,65,12,.08);border:1px solid rgba(194,65,12,.3);"><span style="flex:1;font-size:12.5px;font-weight:700;color:#C2410C;">{{ d.confirmText }}</span><button sc-camel-on-click="{{ d.keep }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;">Keep it</button><button sc-camel-on-click="{{ d.remove }}" style="height:36px;padding:0 12px;border-radius:9px;background:#C2410C;color:#fff;font-weight:800;font-size:12px;">Delete</button></div></sc-if>
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+              <sc-if value="{{ d.canReview }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ d.review }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:800;font-size:12px;color:var(--accentInk);">{{ d.reviewLabel }}</button></sc-if>
+              <sc-if value="{{ d.canRetry }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ d.retry }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Try again</button></sc-if>
+              <sc-if value="{{ d.canDownload }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ d.download }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Download</button></sc-if>
+              <sc-if value="{{ d.canRemove }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ d.askRemove }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Delete</button></sc-if>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ live.asst.kn.noDocs }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:13px;font-weight:600;color:var(--ink3);">No PDFs yet.</div></sc-if>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;">
+        <div style="font-weight:800;font-size:15px;">Corrections</div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--ink3);margin-top:3px;line-height:1.45;">Right answers you gave Oasis AI in Practice or Conversations. It reads them as a question and its answer.</div>
+        <sc-for list="{{ live.asst.kn.corrections }}" as="c" hint-placeholder-count="1">
+          <div style="padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13.5px;line-height:1.45;">“{{ c.q }}”</div><div style="font-size:13px;font-weight:600;color:var(--ink2);margin-top:4px;line-height:1.45;">{{ c.a }}</div><div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:4px;">{{ c.sub }}</div></div>
+              <button sc-camel-on-click="{{ c.toggle }}" title="On: Oasis AI reads it" style="{{ c.track }}"><span style="{{ c.knob }}"></span></button>
+            </div>
+            <sc-if value="{{ c.confirming }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:10px 12px;border-radius:11px;background:rgba(194,65,12,.08);border:1px solid rgba(194,65,12,.3);"><span style="flex:1;font-size:12.5px;font-weight:700;color:#C2410C;">Delete this correction?</span><button sc-camel-on-click="{{ c.keep }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;">Keep it</button><button sc-camel-on-click="{{ c.remove }}" style="height:36px;padding:0 12px;border-radius:9px;background:#C2410C;color:#fff;font-weight:800;font-size:12px;">Delete</button></div></sc-if>
+            <div style="display:flex;gap:8px;margin-top:8px;"><button sc-camel-on-click="{{ c.edit }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Edit</button><button sc-camel-on-click="{{ c.askRemove }}" style="height:36px;padding:0 12px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Delete</button></div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ live.asst.kn.noCorrections }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:13px;font-weight:600;color:var(--ink3);">No corrections yet. Correct a wrong answer in Practice or Conversations.</div></sc-if>
+      </div>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ live.asst.kn.ed.open }}" hint-placeholder-val="{{ false }}">
+  <div sc-camel-on-click="{{ live.asst.kn.ed.cancel }}" style="position:fixed;inset:0;z-index:70;background:rgba(8,12,10,.55);display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div sc-camel-on-click="{{ live.asst.kn.ed.stop }}" style="width:100%;max-width:760px;max-height:calc(100vh - 48px);overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:26px;box-shadow:var(--shadowLg);">
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.02em;">{{ live.asst.kn.ed.heading }}</div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--ink2);margin-top:6px;line-height:1.5;">{{ live.asst.kn.ed.intro }}</div>
+      <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin:16px 0 7px;">{{ live.asst.kn.ed.titleLabel }}</div>
+      <input value="{{ live.asst.kn.ed.title }}" sc-camel-on-input="{{ live.asst.kn.ed.setTitle }}" placeholder="Waiting area" autocomplete="off" style="{{ live.asst.kn.ed.titleStyle }}">
+      <sc-if value="{{ live.asst.kn.ed.hasTitleError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.kn.ed.titleError }}</div></sc-if>
+      <sc-if value="{{ live.asst.kn.ed.isCorrection }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12.5px;font-weight:700;color:var(--ink2);margin:14px 0 7px;">What the client asks</div>
+        <input value="{{ live.asst.kn.ed.question }}" sc-camel-on-input="{{ live.asst.kn.ed.setQuestion }}" placeholder="Do you have a waiting room?" autocomplete="off" style="{{ live.asst.kn.ed.questionStyle }}">
+        <sc-if value="{{ live.asst.kn.ed.hasQuestionError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.kn.ed.questionError }}</div></sc-if>
+      </sc-if>
+      <div style="display:flex;align-items:baseline;gap:10px;margin:14px 0 7px;"><span style="font-size:12.5px;font-weight:700;color:var(--ink2);">{{ live.asst.kn.ed.bodyLabel }}</span><span style="{{ live.asst.kn.ed.countStyle }}">{{ live.asst.kn.ed.count }}</span></div>
+      <textarea value="{{ live.asst.kn.ed.body }}" sc-camel-on-input="{{ live.asst.kn.ed.setBody }}" style="{{ live.asst.kn.ed.bodyStyle }}"></textarea>
+      <sc-if value="{{ live.asst.kn.ed.hasBodyError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;font-size:12.5px;font-weight:700;color:#C2410C;">{{ live.asst.kn.ed.bodyError }}</div></sc-if>
+      <sc-if value="{{ live.asst.kn.ed.hasWarnings }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px;">
+          <sc-for list="{{ live.asst.kn.ed.warnings }}" as="w" hint-placeholder-count="2"><div style="{{ w.style }}">{{ w.text }}</div></sc-for>
+          <sc-if value="{{ live.asst.kn.ed.hasMoreWarnings }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;font-weight:700;color:var(--ink3);">{{ live.asst.kn.ed.moreWarnings }}</div></sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ live.asst.kn.ed.showReviewed }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;font-size:13.5px;font-weight:700;line-height:1.45;cursor:pointer;"><input type="checkbox" checked="{{ live.asst.kn.ed.reviewed }}" sc-camel-on-change="{{ live.asst.kn.ed.toggleReviewed }}" style="width:20px;height:20px;margin-top:1px;flex:none;accent-color:var(--accent);"><span>{{ live.asst.kn.ed.reviewedLabel }}</span></label></sc-if>
+      <sc-if value="{{ live.asst.kn.ed.showConfirm }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:flex-start;gap:10px;margin-top:10px;font-size:13.5px;font-weight:700;line-height:1.45;color:#C2410C;cursor:pointer;"><input type="checkbox" checked="{{ live.asst.kn.ed.confirm }}" sc-camel-on-change="{{ live.asst.kn.ed.toggleConfirm }}" style="width:20px;height:20px;margin-top:1px;flex:none;accent-color:#C2410C;"><span>{{ live.asst.kn.ed.confirmLabel }}</span></label></sc-if>
+      <sc-if value="{{ live.asst.kn.ed.hasError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:13px;font-weight:700;color:#C2410C;line-height:1.45;">{{ live.asst.kn.ed.error }}</div></sc-if>
+      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+        <button sc-camel-on-click="{{ live.asst.kn.ed.cancel }}" style="height:48px;padding:0 18px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:14px;">Cancel</button>
+        <span style="flex:1;"></span>
+        <sc-if value="{{ live.asst.kn.ed.canDraft }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.asst.kn.ed.draft }}" style="height:48px;padding:0 18px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:14px;">Save as a draft</button></sc-if>
+        <button sc-camel-on-click="{{ live.asst.kn.ed.save }}" style="height:48px;padding:0 18px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:800;font-size:14px;">{{ live.asst.kn.ed.saveLabel }}</button>
+        <sc-if value="{{ live.asst.kn.ed.canTurnOn }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ live.asst.kn.ed.turnOn }}" style="height:48px;padding:0 20px;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;font-size:14px;">{{ live.asst.kn.ed.turnOnLabel }}</button></sc-if>
+      </div>
+    </div>
+  </div>
+</sc-if>

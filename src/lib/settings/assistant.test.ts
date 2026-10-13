@@ -13,6 +13,19 @@ import {
   pauseLabel,
   stageOf,
   toE164,
+  ALWAYS_ON,
+  BEHAVIOR_LISTS,
+  CAPABILITIES,
+  DEFAULT_BEHAVIOR,
+  DEFAULT_CAPABILITIES,
+  LIMITS_APPLIED,
+  TONES,
+  answerOnlyCapabilities,
+  behaviorProblems,
+  isAnswerOnly,
+  listItemProblem,
+  signOffProblem,
+  styleNotesProblem,
 } from './assistant'
 import type { AssistantFields } from './assistant'
 
@@ -87,7 +100,16 @@ describe('changed fields', () => {
     allowlist: ['+12015550142'],
     staffPauseHours: 12,
     faq: [{ q: 'Q', a: 'A' }],
+    capabilities: { ...DEFAULT_CAPABILITIES },
+    behavior: { ...DEFAULT_BEHAVIOR, avoidWords: [], avoidTopics: [], handoffTopics: [] },
   }
+  it('limits and tone compare whole, whatever the key order', () => {
+    const reordered = Object.fromEntries(Object.entries(server.behavior).reverse()) as typeof server.behavior
+    expect(changedFields(server, { behavior: reordered, capabilities: { ...server.capabilities } })).toEqual({})
+    expect(changedFields(server, { behavior: { ...server.behavior, tone: 'warm' } })).toEqual({
+      behavior: { ...server.behavior, tone: 'warm' },
+    })
+  })
   it('only what differs from the server, lists compared whole', () => {
     expect(changedFields(server, {})).toEqual({})
     expect(changedFields(server, { enabled: false, allowlist: ['+12015550142'] })).toEqual({})
@@ -112,5 +134,80 @@ describe('the status strip', () => {
       'Oasis AI is switched on here but still off on the server, so it answers nobody yet. Texts reach the team as today.',
     )
     expect(assistantStatus({ enabled: false, active: false, server: server(false) }).on).toBe(false)
+  })
+})
+
+describe('limits and tone (ADR 0174 §3)', () => {
+  const b = () => ({ ...DEFAULT_BEHAVIOR, avoidWords: [] as string[], avoidTopics: [] as string[], handoffTopics: [] as string[] })
+
+  it('the defaults are today: every capability on, friendly, standard, Spanish answered, no lists, no sign-off', () => {
+    expect(Object.values(DEFAULT_CAPABILITIES).every(Boolean)).toBe(true)
+    expect(CAPABILITIES.map((c) => c.key)).toEqual(['availability', 'bookingLinks', 'membershipLinks', 'paymentLinks', 'accountInfo'])
+    expect(DEFAULT_BEHAVIOR).toEqual({
+      tone: 'friendly',
+      length: 'standard',
+      styleNotes: '',
+      spanish: 'on',
+      avoidWords: [],
+      avoidTopics: [],
+      handoffTopics: [],
+      signOff: '',
+    })
+    // the turn applies them from the policy wave on; until then the tab says so
+    expect(LIMITS_APPLIED).toBe(false)
+  })
+
+  it('"Answer questions only" is every capability and booking by text off', () => {
+    expect(isAnswerOnly(answerOnlyCapabilities(), false)).toBe(true)
+    expect(isAnswerOnly(answerOnlyCapabilities(), true)).toBe(false)
+    expect(isAnswerOnly({ ...answerOnlyCapabilities(), accountInfo: true }, false)).toBe(false)
+    expect(isAnswerOnly({ ...DEFAULT_CAPABILITIES }, false)).toBe(false)
+  })
+
+  it('four tones, each with a static example reply; the always-on rules in plain words', () => {
+    expect(TONES.map((t) => t.key)).toEqual(['friendly', 'professional', 'warm', 'concise'])
+    for (const t of TONES) expect(t.example.length).toBeLessThan(160)
+    expect(ALWAYS_ON.join(' ')).toMatch(/Settings → Prices/)
+    expect(ALWAYS_ON.join(' ')).toMatch(/STOP always works/)
+  })
+
+  it('a word or topic: plain, its length, once (case and spaces ignored), never in both topic lists, a maximum', () => {
+    const x = b()
+    expect(listItemProblem(x, 'avoidWords', ' ')).toBe('Type a word first.')
+    expect(listItemProblem(x, 'avoidTopics', '')).toBe('Type a topic first.')
+    expect(listItemProblem(x, 'avoidWords', 'a')).toBe('Use 2 to 40 characters.')
+    expect(listItemProblem(x, 'avoidTopics', 'ab')).toBe('Use 3 to 80 characters.')
+    expect(listItemProblem(x, 'avoidWords', 'cheap<b>')).toBe('Use plain text.')
+    expect(listItemProblem(x, 'avoidWords', 'che\u200bap')).toBe('Use plain text.')
+    x.avoidWords = ['Cheap  deal']
+    expect(listItemProblem(x, 'avoidWords', ' cheap deal ')).toBe('That’s already in the list.')
+    x.handoffTopics = ['Insurance claim']
+    expect(listItemProblem(x, 'avoidTopics', 'insurance claim')).toBe(
+      'That topic is already in “Always hand to the team”. A topic is either avoided or handed to the team.',
+    )
+    x.avoidTopics = ['competitors']
+    expect(listItemProblem(x, 'handoffTopics', 'Competitors')).toMatch(/already in “Topics to avoid”/)
+    x.avoidWords = Array.from({ length: 30 }, (_, i) => 'word' + i)
+    expect(listItemProblem(x, 'avoidWords', 'dude')).toBe('The list holds 30 at most.')
+    expect(listItemProblem(b(), 'avoidWords', 'dude')).toBeNull()
+    expect(BEHAVIOR_LISTS.map((l) => [l.key, l.most])).toEqual([
+      ['avoidWords', 30],
+      ['avoidTopics', 15],
+      ['handoffTopics', 15],
+    ])
+  })
+
+  it('the sign-off: 24 characters, no amount, number, link or promise; style notes 400', () => {
+    expect(signOffProblem('')).toBeNull()
+    expect(signOffProblem('– Oasis Auto Spa')).toBeNull()
+    expect(signOffProblem('x'.repeat(25))).toBe('24 characters at most (now 25).')
+    for (const t of ['$5 off today', 'Call 555', 'oasis.com', 'Free wash!', '10% off'])
+      expect(signOffProblem(t), t).toBe('The sign-off cannot hold an amount, a number, a link or a promise.')
+    expect(styleNotesProblem('x'.repeat(400))).toBeNull()
+    expect(styleNotesProblem('x'.repeat(401))).toBe('400 characters at most (now 401).')
+    expect(behaviorProblems({ ...b(), signOff: 'Free!', styleNotes: 'x'.repeat(401) })).toEqual({
+      'behavior.styleNotes': '400 characters at most (now 401).',
+      'behavior.signOff': 'The sign-off cannot hold an amount, a number, a link or a promise.',
+    })
   })
 })

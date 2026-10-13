@@ -93,6 +93,9 @@ import {
 import type { ArrivalPart, ClosuresPart, EmergencyPart, HoursPart, ServicesPart, VipPart } from './mapping'
 import { ASSISTANT_KEY, AssistantSection } from './assistant'
 import type { AssistantApi } from '@/data/ports/assistant-api'
+import type { AssistantKnowledgeApi } from '@/data/ports/assistant-knowledge-api'
+import type { AssistantPracticeApi, AssistantReviewApi } from '@/data/ports/assistant-practice-api'
+import type { Timers } from './assistant-ctx'
 import type { EmployeesRes, RolesRes } from '@/data/ports/settings-api'
 
 /** The bundle query lives outside the realtime families: SSE never refetches it; the sections it seeds are the live ones. */
@@ -112,6 +115,12 @@ export interface LiveDataDeps {
   debounceMs?: { preview?: number; checklist?: number; closure?: number }
   /** Settings → Oasis AI assistant (ADR 0160); without it the section never loads. */
   assistantApi?: AssistantApi
+  /** Its tabs (ADR 0174): knowledge and PDFs, the practice chat, corrections and the review of real chats. */
+  assistantAi?: { knowledge?: AssistantKnowledgeApi; practice?: AssistantPracticeApi; review?: AssistantReviewApi }
+  /** Timers of the tabs' polling (tests pass manual ones). */
+  assistantTimers?: Timers
+  /** Opens a download (tests record it). */
+  assistantOpen?: (url: string) => void
 }
 
 interface Preview {
@@ -196,6 +205,18 @@ export class LiveData implements SettingsData {
         can: (key) => this.access().can(key as PermissionKey),
         emit: (t) => this.emit(t),
         changed: () => this.notify(),
+        ...(deps.assistantAi ? { ai: deps.assistantAi } : {}),
+        query: {
+          read: <T>(key: readonly unknown[], fetcher: () => Promise<T>): T | undefined => {
+            this.watch(key, fetcher)
+            return this.store.read<T>(qk.settings(...key), fetcher, FOREVER)
+          },
+          status: (key) => this.store.status(qk.settings(...key)),
+          error: (key) => this.store.error(qk.settings(...key)),
+        },
+        tz: () => this.tz(),
+        ...(deps.assistantTimers ? { timers: deps.assistantTimers } : {}),
+        ...(deps.assistantOpen ? { open: deps.assistantOpen } : {}),
       })
   }
 
@@ -328,15 +349,17 @@ export class LiveData implements SettingsData {
    * saying something changed) then refetches at once and cancels a fetch that is already on its way. Without an observer
    * the fetch that finishes first would clear an invalidation that arrived meanwhile and the section would keep stale data.
    */
-  private watch<T>(name: string, fetcher: () => Promise<T>): void {
-    if (!this.listeners.size || this.observers.has(name)) return
+  private watch<T>(name: string | readonly unknown[], fetcher: () => Promise<T>): void {
+    const key = typeof name === 'string' ? qk.settings(name) : qk.settings(...name)
+    const id = typeof name === 'string' ? name : JSON.stringify(name)
+    if (!this.listeners.size || this.observers.has(id)) return
     const observer = new QueryObserver<T>(this.qc, {
-      queryKey: qk.settings(name),
+      queryKey: key,
       queryFn: fetcher,
       staleTime: Infinity,
     })
     this.observers.set(
-      name,
+      id,
       observer.subscribe(() => {}),
     )
   }

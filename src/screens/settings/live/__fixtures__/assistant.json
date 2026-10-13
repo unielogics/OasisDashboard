@@ -5,6 +5,23 @@
   "allowlist": [],
   "staffPauseHours": 12,
   "faq": [],
+  "capabilities": {
+    "availability": true,
+    "bookingLinks": true,
+    "membershipLinks": true,
+    "paymentLinks": true,
+    "accountInfo": true
+  },
+  "behavior": {
+    "tone": "friendly",
+    "length": "standard",
+    "styleNotes": "",
+    "spanish": "on",
+    "avoidWords": [],
+    "avoidTopics": [],
+    "handoffTopics": [],
+    "signOff": ""
+  },
   "server": { "aiEnabled": false, "actionsEnabled": false },
   "active": false,
   "version": 0

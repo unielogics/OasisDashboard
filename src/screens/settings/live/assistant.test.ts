@@ -24,7 +24,7 @@ beforeEach(() => {
 })
 afterEach(() => vi.restoreAllMocks())
 
-const FIELDS = ['enabled', 'actionsEnabled', 'stage', 'allowlist', 'staffPauseHours', 'faq'] as const
+const FIELDS = ['enabled', 'actionsEnabled', 'stage', 'allowlist', 'staffPauseHours', 'faq', 'capabilities', 'behavior'] as const
 
 /** The server: one version for the section, raised by every changed setting; 412 on a stale version; 422 like api-spec 15.6b. */
 function fakeAssistant() {
@@ -402,9 +402,9 @@ describe('the version, like Working hours', () => {
 })
 
 describe('roles', () => {
-  it('a role without set.hours reads the section but every change is the design toast and no request', async () => {
+  it('a role without set.assistant reads the section but every change is the design toast and no request', async () => {
     const a = fakeAssistant()
-    // the server masks the numbers for a reader without set.hours
+    // the server masks the numbers for a reader without set.assistant
     a.state.view.allowlist = ['+1******0142']
     const m = make('support', a)
     const s = await open(m)
@@ -420,5 +420,199 @@ describe('roles', () => {
     expect(asst(m.logic).dirty).toBe(false)
     expect(asst(m.logic).numbers).toHaveLength(1)
     expect(saves(m)).toHaveLength(0)
+  })
+})
+
+describe('the tabs (ADR 0174, DV-708)', () => {
+  it('five tabs over the section; #assistant/<tab> is remembered; the status tab is today’s content', async () => {
+    const m = make()
+    const s = await open(m)
+    expect(s.tabs.map((t: any) => [t.label, t.style.background])).toEqual([
+      ['Status & switches', 'var(--accent)'],
+      ['Knowledge', 'transparent'],
+      ['Practice', 'transparent'],
+      ['Limits & tone', 'transparent'],
+      ['Conversations', 'transparent'],
+    ])
+    expect([s.tabStatus, s.tabKnowledge, s.tabLimits]).toEqual([true, false, false])
+    s.tabs[3].onClick()
+    expect(asst(m.logic).tabLimits).toBe(true)
+    expect(location.hash).toBe('#assistant/limits')
+    asst(m.logic).tabs[0].onClick()
+    expect(location.hash).toBe('#assistant')
+  })
+
+  it('#assistant/limits opens that tab; an unknown tab opens Status & switches', async () => {
+    location.hash = '#assistant/limits'
+    const a = make()
+    expect(a.logic.state.section).toBe('assistant')
+    expect((await open(a)).tabLimits).toBe(true)
+    location.hash = '#assistant/nope'
+    const b = make()
+    expect((await open(b)).tabStatus).toBe(true)
+  })
+})
+
+describe('Limits & tone (ADR 0174 §3, DV-712)', () => {
+  const lim = (m: any) => asst(m.logic).lim
+
+  it('the defaults: every capability on, friendly, standard, Spanish answered; the always-on rules; the pending note', async () => {
+    const m = make()
+    await open(m)
+    const l = lim(m)
+    expect(l.toggles.map((t: any) => [t.label, t.on])).toEqual([
+      ['Look up open times', true],
+      ['Text booking links', true],
+      ['Text a link to join a membership', true],
+      ['Text a link to pay', true],
+      ['Answer account questions', true],
+      ['Book, move and cancel by text', false],
+    ])
+    expect(l.toggles[5].sub).toContain('It is also off on the server for now.')
+    expect(l.tones.map((t: any) => [t.label, t.style.border])).toEqual([
+      ['Friendly', '1.5px solid var(--accent)'],
+      ['Professional', '1.5px solid var(--line)'],
+      ['Warm', '1.5px solid var(--line)'],
+      ['Concise', '1.5px solid var(--line)'],
+    ])
+    expect(l.tones[3].example).toBe('“Open until 6 today. Want a booking link?”')
+    expect(l.lengths.map((x: any) => x.style.background)).toEqual(['transparent', 'var(--accent)'])
+    expect(l.spanish.map((x: any) => x.label)).toEqual(['Answer in Spanish', 'Answer in English', 'Hand to the team'])
+    expect(l.lists.map((x: any) => [x.label, x.count, x.empty])).toEqual([
+      ['Words to avoid', '0 of 30', true],
+      ['Topics to avoid', '0 of 15', true],
+      ['Always hand to the team', '0 of 15', true],
+    ])
+    expect([l.styleNotesCount, l.signOffCount]).toEqual(['0 / 400', '0 / 24'])
+    expect(l.alwaysOn.length).toBeGreaterThan(5)
+    expect([l.pending, l.pendingText]).toEqual([
+      true,
+      'Oasis AI starts following these limits and this tone with its next update. You can set them now.',
+    ])
+  })
+
+  it('edits save with the section: capabilities and behavior as whole objects', async () => {
+    const m = make()
+    await open(m)
+    lim(m).toggles[1].toggle()
+    lim(m).tones[2].onClick()
+    lim(m).lengths[0].onClick()
+    lim(m).spanish[2].onClick()
+    lim(m).lists[0].set(ev('cheap'))
+    lim(m).lists[0].add()
+    lim(m).lists[2].set(ev('insurance claim'))
+    lim(m).lists[2].keys(ev('', 'Enter'))
+    lim(m).setStyleNotes(ev('Call cars by their model name.'))
+    lim(m).setSignOff(ev('– Oasis Auto Spa'))
+    expect(asst(m.logic).dirty).toBe(true)
+    expect(lim(m).lists[0].items.map((i: any) => i.text)).toEqual(['cheap'])
+    asst(m.logic).save()
+    await vi.waitFor(() => expect(asst(m.logic).dirty).toBe(false))
+    expect(saves(m)[0]![1]).toEqual({
+      capabilities: { availability: true, bookingLinks: false, membershipLinks: true, paymentLinks: true, accountInfo: true },
+      behavior: {
+        tone: 'warm',
+        length: 'short',
+        styleNotes: 'Call cars by their model name.',
+        spanish: 'handoff',
+        avoidWords: ['cheap'],
+        avoidTopics: [],
+        handoffTopics: ['insurance claim'],
+        signOff: '– Oasis Auto Spa',
+      },
+      version: 0,
+    })
+  })
+
+  it('"Answer questions only" turns every capability and booking by text off; again, back on', async () => {
+    const a = fakeAssistant()
+    a.state.view.actionsEnabled = true
+    const m = make('mgmt', a)
+    await open(m)
+    lim(m).answerOnly()
+    expect(lim(m).toggles.every((t: any) => !t.on)).toBe(true)
+    expect(lim(m).answerOnlyStyle.background).toBe('var(--accentSoft)')
+    expect(lim(m).answerOnlySub).toMatch(/^On: Oasis AI only answers questions\./)
+    lim(m).answerOnly()
+    expect(lim(m).toggles.slice(0, 5).every((t: any) => t.on)).toBe(true)
+    // booking by text stays off: the owner switches it on deliberately
+    expect(lim(m).toggles[5].on).toBe(false)
+  })
+
+  it('the lists and the sign-off are checked before the server; its 422 lands under the field', async () => {
+    const a = fakeAssistant()
+    const m = make('mgmt', a)
+    await open(m)
+    lim(m).lists[1].set(ev('ab'))
+    lim(m).lists[1].add()
+    expect(lim(m).lists[1].error).toBe('Use 3 to 80 characters.')
+    lim(m).lists[1].set(ev('competitors'))
+    expect(lim(m).lists[1].hasError).toBe(false)
+    lim(m).lists[1].add()
+    lim(m).lists[2].set(ev('Competitors'))
+    lim(m).lists[2].add()
+    expect(lim(m).lists[2].error).toMatch(/^That topic is already in “Topics to avoid”\./)
+    lim(m).lists[1].items[0].remove()
+    expect(lim(m).lists[1].empty).toBe(true)
+    lim(m).setSignOff(ev('Free wash!'))
+    asst(m.logic).save()
+    expect(saves(m)).toHaveLength(0)
+    expect(lim(m).signOffError).toBe('The sign-off cannot hold an amount, a number, a link or a promise.')
+    expect(asst(m.logic).saveTitle).toBe('Fix what is marked in red in Limits & tone, then save.')
+    lim(m).setSignOff(ev('Thanks'))
+    expect(lim(m).hasSignOffError).toBe(false)
+    a.fail.set(
+      'save',
+      new ApiError({
+        status: 422,
+        code: 'VALIDATION_FAILED',
+        title: 'Check the form',
+        detail: 'Use plain text.',
+        errors: [{ path: 'body.behavior.avoidWords.0', message: 'Use plain text.' }],
+      }),
+    )
+    lim(m).lists[0].set(ev('dude'))
+    lim(m).lists[0].add()
+    asst(m.logic).save()
+    await vi.waitFor(() => expect(lim(m).lists[0].hasError).toBe(true))
+    expect(lim(m).lists[0].error).toBe('Use plain text.')
+  })
+
+  it('a role without set.assistant: every edit is the toast and nothing is sent', async () => {
+    const m = make('support')
+    await open(m)
+    lim(m).toggles[0].toggle()
+    expect(m.toasts.at(-1)).toEqual({ title: 'Your role can’t change the assistant settings' })
+    lim(m).tones[1].onClick()
+    lim(m).lists[0].set(ev('cheap'))
+    lim(m).lists[0].add()
+    expect(asst(m.logic).dirty).toBe(false)
+  })
+})
+
+describe('the Q&A against the knowledge budget (ADR 0174 §1c)', () => {
+  it('a 422 KNOWLEDGE_BUDGET says how much is over in the save bar', async () => {
+    const a = fakeAssistant()
+    const m = make('mgmt', a)
+    await open(m)
+    asst(m.logic).faqAdd()
+    asst(m.logic).faq[0].setQ(ev('Do you have wifi?'))
+    asst(m.logic).faq[0].setA(ev('Yes, in the lounge.'))
+    a.fail.set(
+      'save',
+      new ApiError({
+        status: 422,
+        code: 'KNOWLEDGE_BUDGET',
+        title: 'Knowledge is full',
+        detail: 'This would go over what Oasis AI can read. Turn something off or shorten it first',
+        meta: { usedChars: 20000, maxChars: 20000, needed: 36 },
+      }),
+    )
+    asst(m.logic).save()
+    await vi.waitFor(() => expect(asst(m.logic).hasSaveError).toBe(true))
+    expect(asst(m.logic).saveTitle).toBe(
+      'The questions and answers: knowledge is full, this needs 36 more characters than are left. Turn something off or shorten it first.',
+    )
+    expect(asst(m.logic).dirty).toBe(true)
   })
 })

@@ -1,5 +1,5 @@
-// The 27 permission keys (Settings "Roles & permissions"), the default role grants and the wording of the
-// "Your role can’t …" toast. Keys match the backend catalog (backend design 6.1).
+// The 28 permission keys (Settings "Roles & permissions"; `set.assistant` appended last by backend ADR 0174), the default
+// role grants and the wording of the "Your role can’t …" toast. Keys match the backend catalog (backend design 6.1).
 
 export const PERMISSION_KEYS = [
   'sched.view',
@@ -29,6 +29,8 @@ export const PERMISSION_KEYS = [
   'set.emergency',
   'set.services',
   'set.billing',
+  // backend ADR 0174 D3 (migration 20261016200000): Settings → Oasis AI, given to every role that held set.hours
+  'set.assistant',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -73,6 +75,7 @@ export const PERMISSION_VERBS: Record<PermissionKey, string> = {
   'set.emergency': 'use emergency closing',
   'set.services': 'edit packages and checklists',
   'set.billing': 'manage integrations',
+  'set.assistant': 'change the Oasis AI settings',
 }
 
 /** The toast title for a permission the role lacks: "Your role can’t issue refunds" (U+2019 apostrophe). */
@@ -148,4 +151,5 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'set.emergency': 'Emergency closing',
   'set.services': 'Services, pricing & checklists',
   'set.billing': 'Billing & integrations',
+  'set.assistant': 'Oasis AI assistant',
 }
