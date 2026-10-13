@@ -204,7 +204,7 @@
       "id": "L-payments-16",
       "screen": "payments",
       "kind": "wiring",
-      "reason": "DV-215/DV-802/DV-901: the sheet's view model carries the payment-link URL field and its error (needsUrl, urlRaw, setUrl, urlError, hasUrlError), the Square link with Copy (hasSentLink, sentLink, copyLink) and the saved card's step (sc*: the client's OK box, the decline and waiting lines); only the Collect sheet's Payment link mode, or its Saved card tender, renders them.",
+      "reason": "DV-215/DV-802/DV-901/DV-910: the sheet's view model carries the payment-link URL field and its error (needsUrl, urlRaw, setUrl, urlError, hasUrlError), the Square link with Copy (hasSentLink, sentLink, copyLink) and the saved card's step (sc*: the client's OK box, the decline and waiting lines, DV-910's Not charged); only the Collect sheet's Payment link mode, or its Saved card tender, renders them.",
       "scope": {
         "checks": ["vals"]
       },

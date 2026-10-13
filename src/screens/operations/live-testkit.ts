@@ -426,6 +426,10 @@ export function stubPayments(): StubPayments {
     chargeCard: step('chargeCard', () => ({})),
     invoiceCharges: step('invoiceCharges', () => ({ items: [] })),
     chargeFee: step('chargeFee', () => ({})),
+    notCharged: step('notCharged', (_invoiceId: string, chargeId: string) => ({
+      charge: { id: chargeId, purpose: 'no_show_fee', state: 'declined', amountCents: 1500, card: null },
+      invoice: null,
+    })),
     waiveFee: step('waiveFee', () => ({})),
   }
   return p as unknown as StubPayments

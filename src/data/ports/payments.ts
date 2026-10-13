@@ -513,6 +513,14 @@ export interface PaymentsPort {
   invoiceCharges(id: string): Promise<{ items: CardCharge[] }>
   /** POST /appointments/:id/fee-charges/:chargeId/charge (pay.collect): a proposed or declined fee, after a confirm. */
   chargeFee(appointmentId: string, chargeId: string, o?: CommandOptions): Promise<CardChargeResult>
+  /**
+   * POST /invoices/:id/card-charges/:chargeId/not-charged (pay.collect; ADR 0171 Q4 H1-R1): "Not charged (checked Square)",
+   * the way out of a saved-card charge (a balance or a fee) Square never answered. The server looks the payment up at Square:
+   * found, it is recorded (`charge.state` charged); none, the charge closes declined (NOT_SENT) and the invoice can be
+   * collected again. 409 CARD_CHARGE_IN_PROGRESS (Square may still be answering), 409 CARD_CHARGE_NOT_WAITING, 503
+   * SQUARE_UNAVAILABLE (nothing changes).
+   */
+  notCharged(invoiceId: string, chargeId: string, o?: CommandOptions): Promise<CardChargeResult>
   /** POST /appointments/:id/fee-charges/:chargeId/waive (pay.collect): nothing is charged; the reason is kept. */
   waiveFee(
     appointmentId: string,
@@ -577,6 +585,8 @@ export function createLivePaymentsPort(c: ApiClient): PaymentsPort {
     invoiceCharges: (id) => c.get(`/invoices/${enc(id)}/card-charges`),
     chargeFee: (appointmentId, chargeId, o) =>
       c.post(`/appointments/${enc(appointmentId)}/fee-charges/${enc(chargeId)}/charge`, {}, o),
+    notCharged: (id, chargeId, o) =>
+      c.post(`/invoices/${enc(id)}/card-charges/${enc(chargeId)}/not-charged`, {}, o),
     waiveFee: (appointmentId, chargeId, reason, o) =>
       c.post(`/appointments/${enc(appointmentId)}/fee-charges/${enc(chargeId)}/waive`, { reason }, o),
     async exportCsv(q) {

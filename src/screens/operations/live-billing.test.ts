@@ -8,6 +8,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeMe } from '@/auth/test-fixtures'
+import { toSession } from '@/auth/session-model'
+import { ApiError } from '@/data/http/problem'
 import type { CustomerCards, FeeCharges, MembershipView, TierList } from '@/data/ports/operations'
 import { compileScreens } from '../../../tools/dc-compile/compile'
 import { root } from '../../../tools/dc-compile/tests/original-runtime'
@@ -357,6 +360,98 @@ describe('the visit: cancel, no-show and the fee (DV-904)', () => {
     v.sel.vsCancel()
     expect(open.vals().sel.vsCancelling).toBe(false)
     expect(open.vals().toastTitle).toBe('Your role can’t cancel appointments')
+  })
+})
+
+describe('Not charged (checked Square) on a fee waiting for Square (DV-910)', () => {
+  const SETTLING = 'Square may still be answering this charge. Check again in a few minutes.'
+
+  it('asks first, then sends it on the fee’s invoice with a key; a refusal is the server’s words, on the row too', async () => {
+    const port = stubPort()
+    const f = squareFile(port, 'no_show')
+    port.feesOf.set(f.id, FEES('unknown'))
+    const l = await boot(port)
+    let v = await openFile(l, f.id)
+    expect(v.sel.feeRows[0]).toMatchObject({
+      line: 'Waiting for Square: it is recorded as soon as Square answers, never twice.',
+      canDecide: false,
+      ncShow: true,
+      ncLabel: 'Not charged (checked Square)',
+      ncConfirming: false,
+    })
+    const page = html(l)
+    expect(page).toContain('Not charged (checked Square)')
+    expect(page).not.toContain('Only if Square shows no payment for this charge.')
+    v.sel.feeRows[0].ncOpen()
+    v = l.vals()
+    expect(v.sel.feeRows[0].ncConfirming).toBe(true)
+    expect(html(l)).toContain('Only if Square shows no payment for this charge.')
+    expect(payCalls(l, 'notCharged')).toHaveLength(0)
+    l.payments.fail.set(
+      'notCharged',
+      new ApiError({
+        status: 409,
+        code: 'CARD_CHARGE_IN_PROGRESS',
+        title: 'A charge is still going',
+        detail: SETTLING,
+      }),
+    )
+    v.sel.feeRows[0].ncConfirm()
+    await flushed(l)
+    const first = payCalls(l, 'notCharged')[0]!
+    expect(first.slice(1, 3)).toEqual(['inv-1', 'ch-1'])
+    expect((first[3] as any).idempotencyKey).toBeTruthy()
+    v = l.vals()
+    expect(v.toastTitle).toBe('A charge is still going')
+    expect(v.toastDesc).toBe(SETTLING)
+    expect(v.sel.feeRows[0].ncConfirming).toBe(false)
+    expect(v.sel.feeRows[0].ncNote).toBe(SETTLING)
+    expect(html(l)).toContain(SETTLING)
+    // a few minutes later: Square has none, the fee is closed as not charged
+    l.payments.fail.delete('notCharged')
+    l.vals().sel.feeRows[0].ncOpen()
+    l.vals().sel.feeRows[0].ncConfirm()
+    await flushed(l)
+    const second = payCalls(l, 'notCharged')[1]!
+    expect((second[3] as any).idempotencyKey).toBe((first[3] as any).idempotencyKey)
+    v = l.vals()
+    expect(v.toastTitle).toBe('Nothing was charged')
+    expect(v.toastDesc).toBe('Charge the fee again or waive it')
+    expect(v.sel.feeRows[0].ncHasNote).toBe(false)
+  })
+
+  it('without pay.collect the waiting fee reads, but Not charged is not offered and nothing is sent', async () => {
+    const port = stubPort()
+    const f = squareFile(port, 'no_show')
+    port.feesOf.set(f.id, FEES('unknown'))
+    const me = makeMe({ role: 'mgmt' })
+    me.permissions['pay.collect'] = { on: false }
+    const l = makeLive(
+      toSession(me, { serverTime: '2026-06-13T14:36:00.000Z', businessTz: 'America/New_York' }),
+      port,
+      stubPayments(),
+    )
+    l.vals()
+    await l.settle()
+    const v = await openFile(l, f.id)
+    expect(v.sel.feeRows[0].line).toMatch(/^Waiting for Square:/)
+    expect(v.sel.feeRows[0].ncShow).toBe(false)
+    expect(html(l)).not.toContain('Not charged (checked Square)')
+    v.sel.feeRows[0].ncOpen()
+    v.sel.feeRows[0].ncConfirm()
+    await flushed(l)
+    expect(l.vals().sel.feeRows[0].ncConfirming).toBe(false)
+    expect(payCalls(l, 'notCharged')).toHaveLength(0)
+  })
+
+  it('a proposed or decided fee offers no Not charged', async () => {
+    const port = stubPort()
+    const f = squareFile(port, 'no_show')
+    port.feesOf.set(f.id, FEES('proposed'))
+    const l = await boot(port)
+    const v = await openFile(l, f.id)
+    expect(v.sel.feeRows[0].ncShow).toBe(false)
+    expect(html(l)).not.toContain('Not charged (checked Square)')
   })
 })
 

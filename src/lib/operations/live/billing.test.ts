@@ -24,7 +24,12 @@ import {
   feeChargeToast,
   feeRows,
   isClosedVisit,
+  isWaitingCharge,
   monthly,
+  NOT_CHARGED_CONFIRM,
+  NOT_CHARGED_LABEL,
+  notChargedNote,
+  notChargedToast,
   purposesText,
   removeCardText,
 } from './billing'
@@ -213,6 +218,64 @@ describe('the visit and its fee (DV-904)', () => {
       desc: '$15 on Visa ••4242',
     })
     expect(feeChargeToast(charge({ state: 'unknown' })).title).toBe('Waiting for Square')
+  })
+})
+
+describe('Not charged (checked Square) (DV-910)', () => {
+  it('a charge waiting for Square is marked waiting with its invoice; a balance is listed only while it waits', () => {
+    expect(isWaitingCharge({ state: 'unknown' })).toBe(true)
+    expect(isWaitingCharge({ state: 'charging' })).toBe(true)
+    for (const st of ['proposed', 'charged', 'declined', 'waived'] as const)
+      expect(isWaitingCharge({ state: st })).toBe(false)
+    const rows = feeRows(
+      [
+        charge({ id: 'ch-1', state: 'unknown' }),
+        charge({ id: 'ch-2', purpose: 'balance', state: 'unknown', amountCents: 4280 }),
+        charge({ id: 'ch-3', purpose: 'balance', state: 'charging', amountCents: 4280, invoiceId: null }),
+        charge({ id: 'ch-4', purpose: 'balance', state: 'declined', amountCents: 4280 }),
+        charge({ id: 'ch-5', purpose: 'balance', state: 'charged', amountCents: 4280 }),
+        charge({ id: 'ch-6', state: 'proposed' }),
+      ],
+      TZ,
+      TODAY,
+    )
+    expect(rows.map((r) => [r.id, r.title, r.waiting, r.invoiceId, r.canDecide])).toEqual([
+      ['ch-1', 'No-show fee · $15 on Visa ••4242', true, 'inv-1', false],
+      ['ch-2', 'Balance · $42.80 on Visa ••4242', true, 'inv-1', false],
+      ['ch-3', 'Balance · $42.80 on Visa ••4242', true, null, false],
+      ['ch-6', 'No-show fee · $15 on Visa ••4242', false, 'inv-1', true],
+    ])
+    expect(rows[1]!.line).toBe('Waiting for Square: it is recorded as soon as Square answers, never twice.')
+  })
+  it('the words: the button, the confirm, the outcome, and the server’s own words for a refusal', () => {
+    expect(NOT_CHARGED_LABEL).toBe('Not charged (checked Square)')
+    expect(NOT_CHARGED_CONFIRM).toBe('Only if Square shows no payment for this charge.')
+    expect(notChargedToast(charge({ purpose: 'balance', state: 'charged', amountCents: 4280 }))).toEqual({
+      title: 'Square had the payment',
+      desc: '$42.80 on Visa ••4242 is recorded',
+    })
+    expect(notChargedToast(charge({ purpose: 'balance', state: 'declined' }))).toEqual({
+      title: 'Nothing was charged',
+      desc: 'Collect the balance another way',
+    })
+    expect(notChargedToast(charge({ state: 'declined' })).desc).toBe('Charge the fee again or waive it')
+    const settling = 'Square may still be answering this charge. Check again in a few minutes.'
+    expect(
+      notChargedNote({ code: 'CARD_CHARGE_IN_PROGRESS', title: 'A charge is still going', detail: settling }),
+    ).toBe(settling)
+    expect(notChargedNote({ code: 'CARD_CHARGE_NOT_WAITING', title: 'Already handled', detail: null })).toBe(
+      'Already handled',
+    )
+    expect(
+      notChargedNote({
+        code: 'SQUARE_UNAVAILABLE',
+        title: 'Square is not answering',
+        detail: 'Square did not answer. Try again in a minute.',
+      }),
+    ).toBe('Square did not answer. Try again in a minute.')
+    // anything else is only the toast (never internals on the row)
+    expect(notChargedNote({ code: 'INTERNAL', title: 'Something went wrong', detail: 'stack' })).toBeNull()
+    expect(notChargedNote({ code: null, title: 'Connection lost', detail: null })).toBeNull()
   })
 })
 

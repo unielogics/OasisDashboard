@@ -326,6 +326,7 @@ export function stubPort(): StubPort {
       return { items: p.charges.get(id) ?? [] }
     },
     chargeFee: (aid, cid, o) => cmd<CardChargeResult>('chargeFee', [aid, cid], o),
+    notCharged: (id, cid, o) => cmd<CardChargeResult>('notCharged', [id, cid], o),
     waiveFee: (aid, cid, reason, o) => cmd<{ charge: CardCharge; invoice?: InvoiceDetail | null }>('waiveFee', [aid, cid, reason], o),
     async exportCsv(q) {
       calls.push({ op: 'exportCsv', args: [q] })

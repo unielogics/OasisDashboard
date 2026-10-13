@@ -132,6 +132,8 @@ import {
   feeLineStyle,
   feeRows,
   isClosedVisit,
+  NOT_CHARGED_CONFIRM,
+  NOT_CHARGED_LABEL,
   noShowText,
   plainButtonStyle,
   removeCardText,
@@ -199,6 +201,10 @@ export interface LiveState {
   feeConfirm: string | null
   feeWaive: string | null
   waiveReason: string
+  /** DV-910: the fee waiting for Square whose "Not charged (checked Square)" asks first, and the server's words for a
+   * refused one (per charge). */
+  ncConfirm: string | null
+  ncNotes: Record<string, string>
   /** DV-907: the billing action that asks first, and the "Change tier or size" chooser. */
   billConfirm: string | null
   changeOpen: boolean
@@ -302,6 +308,8 @@ const FILE_WALLET_RESET = {
   feeConfirm: null,
   feeWaive: null,
   waiveReason: '',
+  ncConfirm: null,
+  ncNotes: {},
   billConfirm: null,
   changeOpen: false,
   changeTier: null,
@@ -1659,10 +1667,45 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
           track('fee', this.cmd.waiveFee(f.id, r.id, why).then((ok) => ok && this.setState({ feeWaive: null, waiveReason: '' })))
         },
         back: () => this.setState({ feeConfirm: null, feeWaive: null }),
+        // DV-910: a fee waiting for Square: "Not charged (checked Square)" (pay.collect only), a confirm first, the server's
+        // words for a refused one under it
+        ...(() => {
+          const show = r.waiting && !!r.invoiceId && this.can('pay.collect')
+          const note = show ? (s.ncNotes[r.id] ?? '') : ''
+          return {
+            ncShow: show,
+            ncLabel: NOT_CHARGED_LABEL,
+            ncOpen: () => {
+              if (show && this.cmd.allow('pay.collect'))
+                this.setState({ ncConfirm: r.id, feeConfirm: null, feeWaive: null })
+            },
+            ncConfirming: show && s.ncConfirm === r.id,
+            ncText: NOT_CHARGED_CONFIRM,
+            ncConfirm: () => {
+              if (!show || !r.invoiceId || busy('not-charged')) return
+              track(
+                'not-charged',
+                this.cmd.notCharged(f.id, r.invoiceId, r.id).then((res) =>
+                  this.setState((st) => {
+                    const ncNotes = { ...st.ncNotes }
+                    if (res.ok || !res.note) delete ncNotes[r.id]
+                    else ncNotes[r.id] = res.note
+                    return { ncConfirm: null, ncNotes }
+                  }),
+                ),
+              )
+            },
+            ncBack: () => this.setState({ ncConfirm: null }),
+            ncSubmitLabel: busy('not-charged') ? 'Checking Square…' : 'Not charged',
+            ncHasNote: !!note,
+            ncNote: note,
+          }
+        })(),
       })),
       feeHas: feeVMs.length > 0,
       feeConfirmStyle: confirmBoxStyle(dark, 'accent'),
       feeConfirmBtnStyle: actionButtonStyle('primary', busy('fee')),
+      ncConfirmBtnStyle: actionButtonStyle('primary', busy('not-charged')),
     }
 
     // ---- the billing block (Membership tab)

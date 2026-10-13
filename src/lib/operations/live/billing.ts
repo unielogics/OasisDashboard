@@ -165,6 +165,10 @@ export interface FeeRowVM {
   canDecide: boolean
   chargeLabel: string
   tone: 'amber' | 'red' | 'green' | 'ink'
+  /** DV-910: waiting for Square (charging or unknown) on an invoice: "Not charged (checked Square)" may close it. */
+  waiting: boolean
+  /** The invoice the charge's money goes to (the not-charged route is the invoice's); null: nothing to close it on. */
+  invoiceId: string | null
 }
 
 /** A fee as both the Operations and the Payments ports type it (api-spec 30.11 ChargeDto). */
@@ -180,11 +184,19 @@ export type FeeLike = Pick<
   | 'chargedAt'
   | 'error'
   | 'waiveReason'
->
+> & { invoiceId?: string | null }
 
+/** A saved-card charge Square has not answered yet (the job finishes it; staff may close it with Not charged, DV-910). */
+export const isWaitingCharge = (c: Pick<FeeCharge, 'state'>): boolean =>
+  c.state === 'charging' || c.state === 'unknown'
+
+/**
+ * The fees of a visit, and (Payments, DV-910) a balance charge of the invoice still waiting for Square: a balance charged,
+ * declined or waived is the ledger's business, so only a waiting one is listed, to be closed with Not charged.
+ */
 export function feeRows(items: readonly FeeLike[] | undefined, tz: string, today: string): FeeRowVM[] {
   return (items ?? [])
-    .filter((c) => c.purpose !== 'balance')
+    .filter((c) => c.purpose !== 'balance' || isWaitingCharge(c))
     .map((c) => {
       const card = c.card?.label ?? 'the saved card'
       const title = PURPOSE_TITLE[c.purpose] + ' · ' + opsMoney(c.amountCents) + ' on ' + card
@@ -221,8 +233,46 @@ export function feeRows(items: readonly FeeLike[] | undefined, tz: string, today
         canDecide: c.state === 'proposed' || c.state === 'declined',
         chargeLabel: 'Charge ' + opsMoney(c.amountCents),
         tone,
+        waiting: isWaitingCharge(c),
+        invoiceId: c.invoiceId ?? null,
       }
     })
+}
+
+// ---- Not charged (checked Square) (DV-910; ADR 0171 Q4 H1-R1) ------------------------------------------------------------
+
+export const NOT_CHARGED_LABEL = 'Not charged (checked Square)'
+export const NOT_CHARGED_CONFIRM = 'Only if Square shows no payment for this charge.'
+
+/** The refusals of the not-charged route whose detail is shown on the row as the server words it (plain, never internals). */
+const NOT_CHARGED_NOTES = new Set([
+  'CARD_CHARGE_IN_PROGRESS',
+  'CARD_CHARGE_NOT_WAITING',
+  'SQUARE_UNAVAILABLE',
+])
+
+/** The server's words for a refused Not charged ("Square may still be answering this charge. …"), or null. */
+export function notChargedNote(e: {
+  code?: string | null
+  detail?: string | null
+  title: string
+}): string | null {
+  if (!e.code || !NOT_CHARGED_NOTES.has(e.code)) return null
+  return e.detail?.trim() || e.title
+}
+
+/** The toast after Not charged: Square had the payment (recorded), or nothing was charged (the charge is closed). */
+export function notChargedToast(c: Pick<FeeCharge, 'state' | 'amountCents' | 'card' | 'purpose'>): {
+  title: string
+  desc: string
+} {
+  const card = c.card?.label ?? 'the saved card'
+  if (c.state === 'charged')
+    return { title: 'Square had the payment', desc: opsMoney(c.amountCents) + ' on ' + card + ' is recorded' }
+  return {
+    title: 'Nothing was charged',
+    desc: c.purpose === 'balance' ? 'Collect the balance another way' : 'Charge the fee again or waive it',
+  }
 }
 
 export const chargeFeeText = (row: Pick<FeeRowVM, 'title'>): string =>

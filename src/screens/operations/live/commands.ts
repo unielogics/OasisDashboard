@@ -28,7 +28,13 @@ import type { CollectResult, PaymentsPort } from '@/data/ports/payments'
 import type { ToastSpec } from '@/data/toast'
 import { businessClock } from '@/lib/tz'
 import { applyChecklist } from '@/lib/operations/live/optimistic'
-import { billingToast, cardLinkToast, feeChargeToast } from '@/lib/operations/live/billing'
+import {
+  billingToast,
+  cardLinkToast,
+  feeChargeToast,
+  notChargedNote,
+  notChargedToast,
+} from '@/lib/operations/live/billing'
 import type { BillingActionKey } from '@/lib/operations/live/billing'
 import type { NextStepKey } from '@/lib/operations/live/file'
 
@@ -480,6 +486,29 @@ export class OpsCommands {
       deny: 'collect payments',
     })
     return this.done(a, r) && r.ok ? r.data : null
+  }
+
+  /**
+   * DV-910: "Not charged (checked Square)" on a fee Square never answered (POST /invoices/:id/card-charges/:chargeId/
+   * not-charged): the server looks the payment up at Square; found, it is recorded; none, the fee closes as not charged
+   * (charge it again or waive it). A refusal is the server's toast; its words come back as `note` for the row.
+   */
+  async notCharged(
+    fileId: string,
+    invoiceId: string,
+    chargeId: string,
+  ): Promise<{ ok: boolean; note: string | null }> {
+    if (!this.allow('pay.collect')) return { ok: false, note: null }
+    const a = this.action('not-charged:' + chargeId)
+    const r = await this.run({
+      action: a,
+      key: qk.ops('fees', fileId),
+      invalidate: [qk.ops('file', fileId), qk.payments()],
+      request: (idem) => this.d.payments.notCharged(invoiceId, chargeId, { idempotencyKey: idem }),
+      onOk: (res) => notChargedToast(res.charge),
+      deny: 'collect payments',
+    })
+    return { ok: this.done(a, r), note: r.ok ? null : notChargedNote(r.error) }
   }
 
   async waiveFee(fileId: string, chargeId: string, reason: string): Promise<boolean> {

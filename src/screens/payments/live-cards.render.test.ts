@@ -121,6 +121,92 @@ describe('the live Payments template: saved card and receipts', () => {
     expect(page).not.toContain('said OK to charge')
   })
 
+  it('DV-910: a balance charge waiting for Square, with Not charged and its confirm; the server’s words after a refusal', async () => {
+    const d = unpaid(CARD)
+    const port = stubPort()
+    port.details.set(d.id, d)
+    port.rows = [makeRow(d)]
+    port.charges.set(d.id, [
+      {
+        id: 'ch-1',
+        purpose: 'balance',
+        state: 'unknown',
+        amountCents: 4280,
+        reason: 'Balance',
+        card: { id: 'card-1', label: 'Visa ••4242', brand: 'VISA', last4: '4242' },
+        invoiceId: d.id,
+        appointmentId: null,
+        squarePaymentId: null,
+        error: null,
+        declineCode: null,
+        attempts: 1,
+        proposedBy: null,
+        decidedBy: 'Rafael M.',
+        decidedAt: null,
+        chargedAt: null,
+        waiveReason: null,
+        createdAt: '2026-06-13T14:36:00.000Z',
+      },
+    ])
+    const l = makeLive(makeSession({ role: 'mgmt' }), port)
+    for (let i = 0; i < 4; i++) {
+      l.vals()
+      await l.settle()
+    }
+    let page = html(l)
+    expect(page).toContain('Balance · $42.80 on Visa ••4242')
+    expect(page).toContain('Waiting for Square: it is recorded as soon as Square answers, never twice.')
+    expect(page).toContain('>Not charged (checked Square)<')
+    expect(page).not.toContain('Only if Square shows no payment for this charge.')
+    l.vals().live.feeRows[0].ncOpen()
+    page = html(l)
+    expect(page).toContain('Only if Square shows no payment for this charge.')
+    expect(page).toContain('>Not charged<')
+    l.port.next.notCharged = new ApiError({
+      status: 409,
+      code: 'CARD_CHARGE_IN_PROGRESS',
+      title: 'A charge is still going',
+      detail: 'Square may still be answering this charge. Check again in a few minutes.',
+    })
+    l.vals().live.feeRows[0].ncConfirm()
+    await l.settle()
+    page = html(l)
+    expect(page).toContain('Square may still be answering this charge. Check again in a few minutes.')
+    expect(page).not.toContain('Only if Square shows no payment for this charge.')
+  })
+
+  it('DV-910: the Collect sheet waiting for Square offers Not charged', async () => {
+    const l = await boot(unpaid(CARD))
+    l.vals()
+      .d.actions.find((a: any) => a.label.startsWith('Collect'))
+      .onClick()
+    l.vals()
+      .sh.payMethods.find((m: any) => m.label === 'Saved card ••4242')
+      .onClick()
+    let page = html(l)
+    expect(page).not.toContain('Not charged (checked Square)')
+    l.vals().sh.scToggle()
+    l.port.next.chargeCard = {
+      charge: {
+        id: 'ch-1',
+        purpose: 'balance',
+        state: 'unknown',
+        amountCents: 4280,
+        invoiceId: 'uuid-INV-20640',
+        card: { id: 'card-1', label: 'Visa ••4242', brand: null, last4: null },
+      },
+      invoice: null,
+    }
+    l.vals().sh.submit()
+    await l.settle()
+    page = html(l)
+    expect(page).toContain('Waiting for Square:')
+    expect(page).toContain('>Not charged (checked Square)<')
+    l.vals().sh.scNcOpen()
+    page = html(l)
+    expect(page).toContain('Only if Square shows no payment for this charge.')
+  })
+
   it('a Square payment’s entry: the receipt number in its meta and the receipt link', async () => {
     const pay = makeEvent({
       type: 'pay',

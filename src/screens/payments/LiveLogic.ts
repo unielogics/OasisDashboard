@@ -53,7 +53,17 @@ import {
 import { toastForError, toastText } from '@/data/toast'
 import { serverNow } from '@/lib/clock'
 import { DEFAULT_TZ, businessToday } from '@/lib/tz'
-import { chargeFeeText, feeChargeToast, feeLineStyle, feeRows } from '@/lib/operations/live/billing'
+import {
+  NOT_CHARGED_CONFIRM,
+  NOT_CHARGED_LABEL,
+  chargeFeeText,
+  feeChargeToast,
+  feeLineStyle,
+  feeRows,
+  isWaitingCharge,
+  notChargedNote,
+  notChargedToast,
+} from '@/lib/operations/live/billing'
 import { invoicePill } from '@/lib/color'
 import {
   FILTERS,
@@ -143,14 +153,22 @@ export interface LiveState {
   moveFor: string | null
   moveTo: string
   moveError: string
-  /** DV-901: the saved-card charge of the Collect sheet: declined (Square's reason) or waiting for Square (202). */
-  cardState: { kind: 'declined' | 'waiting'; text: string } | null
+  /**
+   * DV-901: the saved-card charge of the Collect sheet: declined (Square's reason) or waiting for Square (202, with the
+   * charge, which DV-910's Not charged may close).
+   */
+  cardState: { kind: 'declined' | 'waiting'; text: string; charge?: CardCharge } | null
   /** DV-904: the fee of a canceled visit whose charge asks first, the fee being waived and the reason typed. */
   feeConfirm: string | null
   feeWaive: string | null
   waiveReason: string
   /** A fee command in flight. */
   feeBusy: boolean
+  /** DV-910: the waiting charge whose "Not charged (checked Square)" asks first, a request in flight, and the server's
+   * words for a refused one (per charge: "Square may still be answering this charge. …"). */
+  ncConfirm: string | null
+  ncBusy: boolean
+  ncNotes: Record<string, string>
 }
 
 export interface LiveDeps {
@@ -264,6 +282,9 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       feeWaive: null,
       waiveReason: '',
       feeBusy: false,
+      ncConfirm: null,
+      ncBusy: false,
+      ncNotes: {},
     }
   }
 
@@ -373,9 +394,14 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     return v?.items
   }
 
-  /** DV-904: the fees of a canceled visit's invoice (GET /invoices/:id/card-charges), read quietly. */
+  /**
+   * DV-904: the fees of a canceled visit's invoice (GET /invoices/:id/card-charges), read quietly; DV-910: also an open
+   * invoice Square takes card money on that still owes, for a balance charge waiting for Square (Not charged closes it).
+   */
   private readCharges(d: InvoiceDetail): CardCharge[] | undefined {
-    if (!d.canceled || !d.appointmentId) return undefined
+    const fees = d.canceled && !!d.appointmentId
+    const waiting = !d.canceled && processorOf(d) === 'square' && d.calc.balance > 0
+    if (!fees && !waiting) return undefined
     const v = this.deps.store.read(qk.payments('charges', d.id), () => this.deps.port.invoiceCharges(d.id), {
       staleTimeMs: 30_000,
     })
@@ -486,11 +512,12 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     if (req.kind === 'card_charge') {
       if (res.ok) {
         act.renew()
-        const waiting = (res.data as CardChargeResult).charge.state === 'unknown'
+        const charge = (res.data as CardChargeResult).charge
+        const waiting = charge.state === 'unknown'
         this.setState({
           busy: false,
           sheet: waiting ? 'collect' : null,
-          cardState: waiting ? { kind: 'waiting', text: WAITING_FOR_SQUARE_TEXT } : null,
+          cardState: waiting ? { kind: 'waiting', text: WAITING_FOR_SQUARE_TEXT, charge } : null,
         })
       } else {
         const e = res.error
@@ -744,6 +771,57 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     this.setState(r.ok ? { feeBusy: false, feeWaive: null, waiveReason: '' } : { feeBusy: false })
   }
 
+  /**
+   * DV-910: "Not charged (checked Square)", after the confirm: the server looks the payment up at Square. Found: recorded
+   * (the toast says so); none: the charge closes as not charged (a balance: the invoice can be collected again, the Collect
+   * sheet that waited on it shows the server's words; a fee: charge it again or waive it). A refusal (Square may still be
+   * answering, already handled, Square not answering) is the server's toast and stays on the row in its words.
+   */
+  private async notCharged(invoiceId: string, c: CardCharge, perms: LivePerms): Promise<void> {
+    if (!perms.canCollect) {
+      this.flash(deniedTitle('pay.collect'))
+      return
+    }
+    if (this.state.ncBusy) return
+    const act = this.actionFor('not-charged:' + c.id)
+    this.setState({ ncBusy: true })
+    const r = await this.run(
+      act,
+      (i) => this.deps.port.notCharged(invoiceId, c.id, { idempotencyKey: i }),
+      (res) => toastText(notChargedToast(res.charge)),
+      'collect payments',
+    )
+    if (this.unmounted) return
+    if (r.ok) {
+      act.renew()
+      const ch = r.data.charge
+      this.setState((st) => {
+        const ncNotes = { ...st.ncNotes }
+        delete ncNotes[c.id]
+        const inSheet = st.cardState?.kind === 'waiting' && st.cardState.charge?.id === c.id
+        if (!inSheet) return { ncBusy: false, ncConfirm: null, ncNotes }
+        // the Collect sheet that waited on this charge: recorded, it closes; closed as not charged, it is the Collect
+        // sheet again with the server's words, the client's OK asked again
+        return ch.state === 'charged'
+          ? { ncBusy: false, ncConfirm: null, ncNotes, sheet: null, cardState: null }
+          : {
+              ncBusy: false,
+              ncConfirm: null,
+              ncNotes,
+              f: { ...st.f, cardOk: false },
+              cardState: { kind: 'declined', text: ch.error?.trim() || 'Nothing was charged.' },
+            }
+      })
+      return
+    }
+    const note = notChargedNote(r.error)
+    this.setState((st) => ({
+      ncBusy: false,
+      ncConfirm: null,
+      ncNotes: note ? { ...st.ncNotes, [c.id]: note } : st.ncNotes,
+    }))
+  }
+
   private async exportCsv(rowCount: number): Promise<void> {
     if (this.exporting) return
     this.exporting = true
@@ -768,6 +846,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       urlError: null,
       sentLink: null,
       cardState: null,
+      ncConfirm: null,
     })
   }
 
@@ -874,7 +953,15 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       d,
       sheetOpen: !!sk && !!detail,
       sh,
-      closeSheet: () => this.setState({ sheet: null, busy: false, urlError: null, sentLink: null, cardState: null }),
+      closeSheet: () =>
+        this.setState({
+          sheet: null,
+          busy: false,
+          urlError: null,
+          sentLink: null,
+          cardState: null,
+          ncConfirm: null,
+        }),
       stop: (e: { stopPropagation(): void }) => e.stopPropagation(),
       toast: s.toast,
     }
@@ -965,7 +1052,9 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
 
   /**
    * DV-904: the no-show or late-cancel fee of a canceled visit, under the invoice's actions (`live.fee*`): the same rows as
-   * the appointment file's, so a fee the client's own late cancel proposed is found where the canceled invoice is.
+   * the appointment file's, so a fee the client's own late cancel proposed is found where the canceled invoice is. DV-910:
+   * a balance charge of the invoice waiting for Square is listed there too, and every waiting row offers `pay.collect`
+   * "Not charged (checked Square)" (a confirm first).
    */
   private feeVals(det: InvoiceDetail | undefined, perms: LivePerms, tz: string): Vals {
     const s = this.state
@@ -977,6 +1066,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       feeShow: !!det && rows.length > 0,
       feeRows: rows.map((r) => ({
         ...r,
+        ...this.notChargedVals(det, r.waiting ? byId.get(r.id) : undefined, perms),
         lineStyle: feeLineStyle(r.tone),
         charge: () => {
           if (!perms.canCollect) return this.flash(deniedTitle('pay.collect'))
@@ -997,6 +1087,36 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       })),
       feeButtonStyle: approveButtonStyle(perms.canCollect && !s.feeBusy),
       feeConfirmBtnStyle: approveButtonStyle(!s.feeBusy),
+      ncButtonStyle: approveButtonStyle(!s.ncBusy),
+    }
+  }
+
+  /**
+   * DV-910: the "Not charged (checked Square)" keys of a charge waiting for Square (a row under the invoice's actions, or the
+   * Collect sheet that waited on it): shown only with `pay.collect` and an invoice to close it on; a confirm first; the
+   * server's words for a refused one under it.
+   */
+  private notChargedVals(det: InvoiceDetail | undefined, c: CardCharge | undefined, perms: LivePerms): Vals {
+    const s = this.state
+    const invoiceId = c ? (c.invoiceId ?? det?.id ?? null) : null
+    const show = !!c && !!invoiceId && perms.canCollect && isWaitingCharge(c)
+    const note = c ? (s.ncNotes[c.id] ?? '') : ''
+    return {
+      ncShow: show,
+      ncLabel: NOT_CHARGED_LABEL,
+      ncOpen: () => {
+        if (!show || !c) return
+        this.setState({ ncConfirm: c.id, feeConfirm: null, feeWaive: null })
+      },
+      ncConfirming: show && s.ncConfirm === c?.id,
+      ncText: NOT_CHARGED_CONFIRM,
+      ncConfirm: () => {
+        if (show && c && invoiceId) void this.notCharged(invoiceId, c, perms)
+      },
+      ncBack: () => this.setState({ ncConfirm: null }),
+      ncSubmitLabel: s.ncBusy ? 'Checking Square…' : 'Not charged',
+      ncHasNote: show && !!note,
+      ncNote: show ? note : '',
     }
   }
 
@@ -1169,6 +1289,8 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
     if (sk === 'apply') sh = { title: 'Apply store credit', sub: det.client }
     const req = calc.request
     const cs = sk === 'collect' ? this.state.cardState : null
+    // DV-910: a charge Square did not answer may be closed from the sheet that waited on it, once Square shows no payment
+    const nc = this.notChargedVals(det, cs?.kind === 'waiting' ? cs.charge : undefined, perms)
     // DV-901: the saved card's step: the client's OK (a tick box with the amount and the card), then the server's answer
     const sc: Vals = {
       scShow: !!calc.savedCard && cs?.kind !== 'waiting',
@@ -1181,6 +1303,17 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
       scDeclineText: cs?.kind === 'declined' ? cs.text : '',
       scWaiting: cs?.kind === 'waiting',
       scWaitingText: cs?.kind === 'waiting' ? cs.text : '',
+      scNcShow: nc.ncShow,
+      scNcLabel: nc.ncLabel,
+      scNcOpen: nc.ncOpen,
+      scNcConfirming: nc.ncConfirming,
+      scNcText: nc.ncText,
+      scNcConfirm: nc.ncConfirm,
+      scNcBack: nc.ncBack,
+      scNcSubmitLabel: nc.ncSubmitLabel,
+      scNcHasNote: nc.ncHasNote,
+      scNcNote: nc.ncNote,
+      scNcBtnStyle: approveButtonStyle(!this.state.ncBusy),
     }
     if (cs?.kind === 'waiting')
       return {
@@ -1196,7 +1329,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
         hasUrlError: false,
         summary: calc.summary,
         blocked: false,
-        submit: () => this.setState({ sheet: null, cardState: null }),
+        submit: () => this.setState({ sheet: null, cardState: null, ncConfirm: null }),
         submitLabel: 'Done',
         hasReasons: false,
         amountRaw: '',

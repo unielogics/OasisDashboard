@@ -185,6 +185,7 @@ export function createFixtureDataPort(opts: FixtureOptions = {}): DataPort {
       chargeCard: async () => unavailable('payments.chargeCard'),
       invoiceCharges: async () => unavailable('payments.invoiceCharges'),
       chargeFee: async () => unavailable('payments.chargeFee'),
+      notCharged: async () => unavailable('payments.notCharged'),
       waiveFee: async () => unavailable('payments.waiveFee'),
       exportCsv: async () => unavailable('payments.exportCsv'),
     },

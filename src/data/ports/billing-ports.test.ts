@@ -19,21 +19,23 @@ function harness() {
 const line = (c: { method: string; url: string }) => `${c.method} ${c.url}`
 
 describe('the Payments port: saved-card charges and fees', () => {
-  it('charges a card for the balance, reads an invoice’s charges, charges and waives a visit’s fee', async () => {
+  it('charges a card for the balance, reads an invoice’s charges, charges and waives a visit’s fee, closes one as not charged', async () => {
     const { client, calls } = harness()
     const port = createLivePaymentsPort(client)
     const o = { idempotencyKey: 'k-1' }
     await port.chargeCard('inv-1', { cardId: 'card-1', amountCents: 4280 }, o)
     await port.chargeFee('a-1', 'ch-1', o)
     await port.waiveFee('a-1', 'ch-1', 'First time', o)
+    await port.notCharged('inv-1', 'ch-1', o)
     await port.invoiceCharges('inv-1')
     expect(calls.map((c) => [line(c), c.body])).toEqual([
       ['POST /api/v1/invoices/inv-1/card-charges', { cardId: 'card-1', amountCents: 4280 }],
       ['POST /api/v1/appointments/a-1/fee-charges/ch-1/charge', {}],
       ['POST /api/v1/appointments/a-1/fee-charges/ch-1/waive', { reason: 'First time' }],
+      ['POST /api/v1/invoices/inv-1/card-charges/ch-1/not-charged', {}],
       ['GET /api/v1/invoices/inv-1/card-charges', undefined],
     ])
-    for (const c of calls.slice(0, 3)) expect(c.headers['Idempotency-Key'], line(c)).toBe('k-1')
+    for (const c of calls.slice(0, 4)) expect(c.headers['Idempotency-Key'], line(c)).toBe('k-1')
   })
 })
 

@@ -7,3 +7,15 @@
 <sc-if value="{{ sh.scWaiting }}" hint-placeholder-val="{{ false }}">
   <div style="padding:12px 14px;border-radius:12px;font-size:12.5px;font-weight:700;line-height:1.45;background:rgba(194,116,11,.12);border:1px solid rgba(194,116,11,.3);color:#8A5A06;">{{ sh.scWaitingText }}</div>
 </sc-if>
+<sc-if value="{{ sh.scNcShow }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;">
+    <button sc-camel-on-click="{{ sh.scNcOpen }}" style="height:34px;padding:0 13px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">{{ sh.scNcLabel }}</button>
+    <sc-if value="{{ sh.scNcConfirming }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12.5px;font-weight:700;color:var(--accentInk);line-height:1.45;">{{ sh.scNcText }}</div>
+      <div style="display:flex;gap:6px;"><button sc-camel-on-click="{{ sh.scNcConfirm }}" style="{{ sh.scNcBtnStyle }}">{{ sh.scNcSubmitLabel }}</button><button sc-camel-on-click="{{ sh.scNcBack }}" style="height:34px;padding:0 13px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12px;color:var(--ink2);">Back</button></div>
+    </sc-if>
+    <sc-if value="{{ sh.scNcHasNote }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12.5px;font-weight:700;color:#8A5A06;line-height:1.45;">{{ sh.scNcNote }}</div>
+    </sc-if>
+  </div>
+</sc-if>

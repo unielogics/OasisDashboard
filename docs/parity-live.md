@@ -353,12 +353,12 @@ for those two steps rather than fed to the oracle; the rest of the sheet and eve
 ## Saved cards, fees, Square billing and Billing & integrations (Q3e, ADR 0171 waves Q3a, Q3b, Q3 dashapi)
 
 The design seeds have no saved card, no fee, no membership billed by Square and Squarespace as the processor, so the live
-screens show none of DV-901..DV-909 on them (the `Visit` card of DV-904 waits for Square as the processor), with one
+screens show none of DV-901..DV-910 on them (the `Visit` card of DV-904 waits for Square as the processor), with one
 exception:
 
 | id             | kind          | DV             | what it covers                                                                                                                                       |
 | -------------- | ------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| L-payments-16 (extended) | wiring | DV-901    | the Collect sheet's saved-card keys (`sh.sc*`), carried by every sheet's view model and rendered only by the Saved card tender (the refund-sheet steps read them) |
+| L-payments-16 (extended) | wiring | DV-901, DV-910 | the Collect sheet's saved-card keys (`sh.sc*`, Not charged's `sh.scNc*` included), carried by every sheet's view model and rendered only by the Saved card tender (the refund-sheet steps read them) |
 
 Settings → Billing & integrations is the fourth tab of `Prices & memberships` and the scenarios never open the pricing sections;
 the cards, fees and billing blocks need data the design seeds do not have. Run on dashboard `ws/q3-dash` against backend
