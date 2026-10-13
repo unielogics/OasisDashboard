@@ -251,8 +251,16 @@ async function main(): Promise<void> {
 
     // ---------------------------------------------------------------------------------------------------------------
     section('the keypad and the hidden email form')
-    // turning kiosk mode on from the tablet signs the manager out there: the tablet goes straight to the keypad
-    await tablet.waitForURL((u) => u.pathname === '/login', { timeout: 15_000 })
+    // turning kiosk mode on from the tablet signs the manager out there: the tablet goes straight to the keypad (the page may be
+    // sent to /login twice, by the switch's answer and by a refetch's 401: the first navigation is aborted, so wait for the keypad)
+    await until(async () => {
+      try {
+        return new URL(tablet.url()).pathname === '/login' && (await text(tablet)).includes('Enter the shop code')
+      } catch {
+        return false
+      }
+    }, 20_000)
+    ok(new URL(tablet.url()).pathname === '/login', 'kiosk mode on from the tablet signs the manager out there: the keypad', tablet.url())
     ok((await api(tablet, 'GET', '/kiosk/status')).body.enabled === true, 'kiosk mode is on')
     ok(!!deviceId, 'the tablet is a registered kiosk device', deviceId)
     await tablet.waitForSelector('text=Enter the shop code', { timeout: 15_000 })
