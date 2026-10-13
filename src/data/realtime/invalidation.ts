@@ -44,6 +44,8 @@ const SETTINGS_ALSO: Record<string, QueryKey[]> = {
   employees: [['settings', 'kiosk']],
   // the Settings Q&A counts against the knowledge budget Settings → Oasis AI → Knowledge shows (ADR 0174 §1c)
   assistant: [['settings', 'assistant_knowledge']],
+  // the sales tax rate and rounding (`tax.rate_dbp`, `tax.rounding`; ADR 0173) show in Billing & integrations (DV-914)
+  tax: [['settings', 'billing']],
 }
 
 /** Query families an event touches. The key vocabulary is data/query.ts (first element = channel or 'me'). */

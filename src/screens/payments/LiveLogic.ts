@@ -79,7 +79,6 @@ import {
   chip,
   collectToast,
   confirmToast,
-  divHalfUp,
   creditLineText,
   creditToast,
   csvToast,
@@ -105,9 +104,11 @@ import {
   refundToast,
   rowStyle,
   rowView,
+  salesTaxCents,
   saveBlob,
   seg,
   submitStyle,
+  taxRateOf,
   unitSeg,
   adjustValueLabel,
 } from '@/lib/payments'
@@ -118,6 +119,7 @@ import type {
   RangeKey,
   SheetKind,
   SheetRequest,
+  TaxRate,
   Theme,
 } from '@/lib/payments'
 
@@ -1204,7 +1206,7 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
           const on = f.items.includes(i)
           return {
             label: it.name,
-            value: moneyCentsWithTax(it.priceCents, det.taxBp),
+            value: moneyCentsWithTax(it.priceCents, taxRateOf(det)),
             on,
             onClick: () => this.setF({ items: on ? f.items.filter((x) => x !== i) : [...f.items, i] }),
             style: itemRowStyle(on),
@@ -1410,8 +1412,8 @@ export class LivePaymentsLogic extends DCLogic<LiveState> {
 }
 
 /** Refund-by-item row value: the item's price with the invoice's tax (what the server refunds for that line). */
-const moneyCentsWithTax = (priceCents: number, taxBp: number): string =>
-  money(divHalfUp(priceCents * (10_000 + taxBp), 10_000))
+const moneyCentsWithTax = (priceCents: number, rate: TaxRate): string =>
+  money(priceCents + salesTaxCents(priceCents, rate))
 
 function emptyDetail(): Vals {
   return {

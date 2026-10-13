@@ -21,6 +21,7 @@ import { AMBER, LATE_COLOR, badgeStyle, memberBadge, payColor } from './board'
 import { firstWord, initialsOf, opsMoney } from './fmt'
 import { channelTagOf } from './assistant'
 import { coverageText } from '@/lib/sizes'
+import { taxPercentLabel, taxRateOf } from '@/lib/payments/cents'
 import { depositLine, depositState, hasServerDeposit, itemLabelOf, processorWord, tenderLabel } from './sizes'
 import type { DepositFacts } from './sizes'
 import type { ProcessorName } from './sizes'
@@ -552,7 +553,8 @@ export function fileVM(
     val,
     kind,
   })
-  const taxLabel = 'Tax (' + (inv?.taxBp ? trimRate(inv.taxBp) : '7') + '%)'
+  // DV-213 (ADR 0173): the invoice's own rate, up to three decimals ("Tax (6.625%)"); taxBp × 10 from an older server
+  const taxLabel = 'Tax (' + (inv ? taxPercentLabel(taxRateOf(inv).dbp) : '7%') + ')'
   // DV-905: the server's processor and deposit state on the file's own invoice, for every role (a server before wave Q3:
   // what the screen learned, and the deposit worked out from the ledger, DV-809/DV-811)
   const processor: ProcessorName = inv?.processing?.processor ?? ui.processor ?? 'squarespace'
@@ -858,8 +860,6 @@ export function fileVM(
     pickup: f.overview.pickupState,
   }
 }
-
-const trimRate = (bp: number): string => String(+(bp / 100).toFixed(2))
 
 function pillStyle(disabled: boolean): Style {
   return {

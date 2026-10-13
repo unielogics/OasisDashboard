@@ -39,7 +39,7 @@ describe('the Payments port: saved-card charges and fees', () => {
   })
 })
 
-describe('the Settings API: Billing & integrations and Move members', () => {
+describe('the Settings API: Billing & integrations, Move members, the sales tax and the Square item library', () => {
   it('reads the panel and sends each block to its own route', async () => {
     const { client, calls } = harness()
     const api = createSettingsApi(client)
@@ -52,6 +52,11 @@ describe('the Settings API: Billing & integrations and Move members', () => {
     await api.testSquare(o)
     await api.syncSquareCatalog(o)
     await api.moveMembers('gold', { notice: 30 }, o)
+    await api.saveSalesTax({ percent: '6.625', version: 4 }, o)
+    await api.squareItems()
+    await api.syncSquareItems(o)
+    await api.setSquareItemsTax({ mode: 'adopt', squareTaxId: 'TAX1', version: 2 }, o)
+    await api.archiveSquareItems(o)
     expect(calls.map((c) => [line(c), c.body])).toEqual([
       ['GET /api/v1/settings/billing', undefined],
       ['PUT /api/v1/settings/billing/link-tipping', { enabled: true, version: 0 }],
@@ -61,6 +66,12 @@ describe('the Settings API: Billing & integrations and Move members', () => {
       ['POST /api/v1/integrations/square/test', {}],
       ['POST /api/v1/integrations/square/catalog/sync', {}],
       ['POST /api/v1/catalog/tiers/gold/move-members', { notice: 30 }],
+      ['PUT /api/v1/settings/billing/sales-tax', { percent: '6.625', version: 4 }],
+      ['GET /api/v1/integrations/square/items', undefined],
+      ['POST /api/v1/integrations/square/items/sync', {}],
+      ['PUT /api/v1/integrations/square/items/tax', { mode: 'adopt', squareTaxId: 'TAX1', version: 2 }],
+      ['POST /api/v1/integrations/square/items/archive-all', {}],
     ])
+    for (const c of calls.filter((x) => x.method !== 'GET')) expect(c.headers['Idempotency-Key'], line(c)).toBe('k-1')
   })
 })

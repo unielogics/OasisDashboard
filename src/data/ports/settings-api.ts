@@ -95,6 +95,14 @@ export type PriceNoticeRes = ApiOk<'/api/v1/settings/billing/price-change-notice
 export type CardFeesReq = ApiReq<'/api/v1/settings/card-fees', 'put'>
 export type CardFeesRes = ApiOk<'/api/v1/settings/card-fees', 'put'>
 export type MoveMembersRes = ApiOk<'/api/v1/catalog/tiers/{key}/move-members', 'post'>
+// The sales tax rate (ADR 0173; api-spec 30.15) and the Square item library (ADR 0172; api-spec 30.14)
+export type SalesTaxReq = ApiReq<'/api/v1/settings/billing/sales-tax', 'put'>
+export type SalesTaxRes = ApiOk<'/api/v1/settings/billing/sales-tax', 'put'>
+export type SquareItemsRes = ApiOk<'/api/v1/integrations/square/items', 'get'>
+export type SquareItemsSyncRes = ApiOk<'/api/v1/integrations/square/items/sync', 'post'>
+export type SquareItemsTaxReq = ApiReq<'/api/v1/integrations/square/items/tax', 'put'>
+export type SquareItemsTaxRes = ApiOk<'/api/v1/integrations/square/items/tax', 'put'>
+export type SquareItemsArchiveRes = ApiOk<'/api/v1/integrations/square/items/archive-all', 'post'>
 
 type Opts = Pick<RequestOptions, 'idempotencyKey' | 'ifMatch' | 'signal'>
 
@@ -184,6 +192,16 @@ export interface SettingsApi {
   syncSquareCatalog(o?: Opts): Promise<CatalogSyncRes>
   /** POST /catalog/tiers/:key/move-members (set.billing): members on an older price are told, then moved. */
   moveMembers(key: string, body: { notice?: number }, o?: Opts): Promise<MoveMembersRes>
+  /** PUT /settings/billing/sales-tax (set.billing): the rate new invoices are made with. Never sends `rounding`. */
+  saveSalesTax(body: { percent: string; version: number }, o?: Opts): Promise<SalesTaxRes>
+  /** GET /integrations/square/items (set.billing): the Square item library, read from Oasis only. */
+  squareItems(): Promise<SquareItemsRes>
+  /** POST /integrations/square/items/sync ("Sync now"): with the sync off it only reads Square (a preview). */
+  syncSquareItems(o?: Opts): Promise<SquareItemsSyncRes>
+  /** PUT /integrations/square/items/tax: which Square tax Oasis items carry. */
+  setSquareItemsTax(body: SquareItemsTaxReq, o?: Opts): Promise<SquareItemsTaxRes>
+  /** POST /integrations/square/items/archive-all: every Oasis item archived at Square (writes on, the sync off). */
+  archiveSquareItems(o?: Opts): Promise<SquareItemsArchiveRes>
 }
 
 export function createSettingsApi(c: ApiClient): SettingsApi {
@@ -254,5 +272,10 @@ export function createSettingsApi(c: ApiClient): SettingsApi {
     testSquare: (o) => c.post('/integrations/square/test', {}, o),
     syncSquareCatalog: (o) => c.post('/integrations/square/catalog/sync', {}, o),
     moveMembers: (key, body, o) => c.post(`/catalog/tiers/${enc(key)}/move-members`, body, o),
+    saveSalesTax: (body, o) => c.put('/settings/billing/sales-tax', body, o),
+    squareItems: () => c.get('/integrations/square/items'),
+    syncSquareItems: (o) => c.post('/integrations/square/items/sync', {}, o),
+    setSquareItemsTax: (body, o) => c.put('/integrations/square/items/tax', body, o),
+    archiveSquareItems: (o) => c.post('/integrations/square/items/archive-all', {}, o),
   }
 }

@@ -20,7 +20,16 @@ import type {
 } from '../../data/ports/payments'
 import { invoicePill } from '../color'
 import { addDays } from '../tz'
-import { adjustPreview, itemsRefundValue, money, money0, parseCents, parsePercentBp, taxLabel } from './cents'
+import {
+  adjustPreview,
+  itemsRefundValue,
+  money,
+  money0,
+  parseCents,
+  parsePercentBp,
+  taxPercentLabel,
+  taxRateOf,
+} from './cents'
 import {
   actionStyle,
   approveButtonStyle,
@@ -288,7 +297,7 @@ export function lineViews(d: InvoiceDetail): LineView[] {
     ...d.adjustments.map((a) =>
       line(adjustmentLabel(a), money(a.amountCents), a.amountCents < 0 ? 'neg' : null),
     ),
-    line('Tax (' + taxLabel(d.taxBp) + ')', money(c.tax)),
+    line('Tax (' + taxPercentLabel(taxRateOf(d).dbp) + ')', money(c.tax)),
     ...(c.tip ? [line('Tip', money(c.tip))] : []),
     line('Total', money(c.total), 'total'),
     ...(c.creditApplied ? [line('Store credit applied', money(-c.creditApplied), 'pos')] : []),
@@ -637,7 +646,7 @@ export function liveSheetCalc(args: {
     else if (f.mode === 'items')
       val = itemsRefundValue(
         f.items.map((i) => d.items[i]?.priceCents ?? 0),
-        d.taxBp,
+        taxRateOf(d),
         c.refundable,
       )
     else val = amountCents
@@ -683,7 +692,7 @@ export function liveSheetCalc(args: {
 
   if (sk === 'adjust') {
     const value = f.unit === '%' ? parsePercentBp(f.amount) : parseCents(f.amount)
-    const pv = adjustPreview(c, d.taxBp, { kind: f.kind, unit: f.unit, value })
+    const pv = adjustPreview(c, taxRateOf(d), { kind: f.kind, unit: f.unit, value })
     const over = pv.pre > ad.maxCents
     blocked = pv.pre <= 0 || pv.newSub < 0 || over
     summary = [

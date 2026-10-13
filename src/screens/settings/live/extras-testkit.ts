@@ -337,6 +337,7 @@ export function billingFixture(): any {
       squareEnvironment: 'sandbox',
       writesEnabled: false,
       membershipsEnabled: false,
+      itemsSyncEnabled: false,
       posAppSwitch: false,
       posAutomatch: 'evidence',
       publicLinksEnabled: false,
@@ -347,12 +348,62 @@ export function billingFixture(): any {
     cardFees: { fees: { enabled: false, noShowCents: 0, lateCancelCents: 0 }, version: 0, active: false },
     renewalPolicy: { graceDays: 7, cancelDays: 21, version: 0 },
     priceChangeNotice: { days: 30, version: 0 },
+    salesTax: { percent: '7', rateDbp: 7000, label: '7%', rounding: 'half_up', version: 0 },
+    squareItems: {
+      mode: 'preview',
+      tax: null,
+      counts: { onSquare: 0, waiting: 0, failed: 0, archived: 0, notSold: 0 },
+      lastSyncAt: null,
+    },
     consent: {
       version: 'v1',
       checkedByDefault: false,
       purposes: ['membership_billing', 'no_show_fee', 'late_cancel_fee', 'balance'],
       text: 'Save this card with Square so Oasis Auto Spa can charge it for: membership payments, no-show fees, late-cancel fees, balances. Charges are made only after the shop confirms them, except your membership’s monthly payment. You can remove the card any time from your link or by asking us.',
     },
+  }
+}
+
+/** GET /integrations/square/items as the backend answers it with the defaults (watch only, never checked). */
+export function squareItemsFixture(): any {
+  return {
+    mode: 'preview',
+    environment: 'sim',
+    writesEnabled: false,
+    itemsSyncEnabled: false,
+    taxMode: 'auto',
+    taxObjectId: null,
+    taxCheck: null,
+    taxCheckedAt: null,
+    counts: { onSquare: 0, waiting: 5, failed: 0, archived: 0, notSold: 1 },
+    lastSyncAt: null,
+    lastSync: null,
+    lastDriftAt: null,
+    lastWriteAt: null,
+    lastError: null,
+    lastErrorAt: null,
+    failures: [],
+    preview: null,
+    version: 0,
+  }
+}
+
+/** A tax check as the backend writes it (ADR 0172 tax.ts): the shop's one tax at Oasis's rate, adopted. */
+export function taxCheckFixture(over: Record<string, unknown> = {}): any {
+  return {
+    status: 'ok',
+    mode: 'auto',
+    taxId: 'TAX-NJ',
+    taxName: 'NJ Sales Tax',
+    percentage: '6.625',
+    wantPercentage: '6.625',
+    own: false,
+    ownChanged: [],
+    detail: 'Square tax “NJ Sales Tax” is 6.625%, the same as Oasis',
+    warnings: [],
+    candidates: [{ id: 'TAX-NJ', name: 'NJ Sales Tax', percentage: '6.625', matches: true, problem: null }],
+    rounding: { checked: 9, differ: 0, detail: 'all 9 sample totals match Square to the cent' },
+    ...over,
   }
 }
 
@@ -565,13 +616,73 @@ export function extendApi(f: ReturnType<typeof setup>) {
     recreated: 0,
     failed: 0,
   }))
+  // the sales tax rate (ADR 0173, api-spec 30.15): the server's parser, 422 on `percent`
+  api.saveSalesTax = step('saveSalesTax', (body: any) => {
+    fresh(bill.salesTax.version, body.version)
+    const m = /^\s*(\d{1,3})(?:\.(\d{0,3}))?\s*%?\s*$/.exec(String(body.percent))
+    const dbp = m ? Number(m[1]) * 1000 + Number((m[2] ?? '').padEnd(3, '0') || '0') : null
+    if (dbp === null || dbp > 100_000)
+      throw validation('Use a percentage from 0 to 100 with up to three decimals, such as 6.625', 'body.percent')
+    const whole = Math.floor(dbp / 1000)
+    const frac = String(dbp % 1000).padStart(3, '0').replace(/0+$/, '')
+    const percent = whole + (frac ? '.' + frac : '')
+    bill.salesTax = { ...bill.salesTax, percent, rateDbp: dbp, label: percent + '%', version: bill.salesTax.version + 1 }
+    return clone(bill.salesTax)
+  })
+  // the Square item library (ADR 0172, api-spec 30.14)
+  const items = squareItemsFixture()
+  api.squareItems = step('squareItems', () => clone(items))
+  api.syncSquareItems = step('syncSquareItems', () => {
+    const preview = {
+      create: 5,
+      createPrices: 14,
+      update: 0,
+      archive: 0,
+      unchanged: 0,
+      skipped: 1,
+      categories: 3,
+      tax: 'adopt',
+      at: '2026-06-13T14:36:00.000Z',
+    }
+    items.taxCheck = taxCheckFixture()
+    items.taxCheckedAt = preview.at
+    items.preview = preview
+    return {
+      status: 'preview',
+      mode: items.mode,
+      tax: clone(items.taxCheck),
+      preview,
+      created: 0,
+      updated: 0,
+      archived: 0,
+      recreated: 0,
+      adopted: 0,
+      restored: 0,
+      failed: 0,
+      categoriesCreated: 0,
+      taxCreated: 0,
+      taxUpdated: 0,
+      failures: [],
+      changedInSquare: [],
+      reported: [],
+    }
+  })
+  api.setSquareItemsTax = step('setSquareItemsTax', (body: any) => {
+    fresh(items.version, body.version)
+    if (body.mode === 'adopt' && !body.squareTaxId) throw validation('Pick the Square tax', 'body.squareTaxId')
+    items.taxMode = body.mode
+    items.taxObjectId = body.mode === 'adopt' ? body.squareTaxId : null
+    items.version += 1
+    return { mode: items.taxMode, squareTaxId: items.taxObjectId, version: items.version }
+  })
+  api.archiveSquareItems = step('archiveSquareItems', () => ({ archived: 3, alreadyArchived: 1, failed: 0, failures: [] }))
   api.moveMembers = step('moveMembers', (key: string) => ({
     tierKey: key,
     moving: 2,
     skipped: 1,
     swapAfter: '2026-07-13T14:36:00.000Z',
   }))
-  return { cat, rem, bill }
+  return { cat, rem, bill, items }
 }
 
 export const validation = (detail: string, path = 'body.x'): ApiError =>

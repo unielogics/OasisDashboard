@@ -24,7 +24,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { chromium } from '@playwright/test'
 import type { Browser, BrowserContext, Download, Page } from '@playwright/test'
-import { calcCents } from '../src/lib/payments/cents'
+import { calcCents, taxPercentLabel } from '../src/lib/payments/cents'
 import { EMAILS, loadStack, login } from './live-e2e'
 import type { LiveStack } from './live-e2e'
 
@@ -327,7 +327,8 @@ async function scrape(page: Page): Promise<View> {
           id: t(c[0]?.children[1]),
           client: t(c[1]?.children[0]),
           vehicle: t(c[1]?.children[1]),
-          items: t(c[2]),
+          // the items cell is wrapped with the row's category chip (pay-row-cat.html, live only): the design's cell is the last child
+          items: t(c[2]?.lastElementChild ?? c[2]),
           total: t(c[3]),
           status: t(pill),
           adj: t(c[4]).endsWith('ADJ'),
@@ -579,7 +580,8 @@ async function compareDetail(page: Page, v: View, id: string, label: string): Pr
       label: (a.amountCents < 0 ? 'Discount · ' : 'Surcharge · ') + (a.reason ?? ''),
       value: usd2(a.amountCents),
     })),
-    { label: `Tax (${Number((d.taxBp / 100).toFixed(2))}%)`, value: usd2(c.tax) },
+    // DV-213 (ADR 0173): the invoice's own rate in thousandths of a percent
+    { label: `Tax (${taxPercentLabel(d.taxDbp)})`, value: usd2(c.tax) },
     ...(c.tip ? [{ label: 'Tip', value: usd2(c.tip) }] : []),
     { label: 'Total', value: usd2(c.total) },
     ...(c.creditApplied ? [{ label: 'Store credit applied', value: usd2(-c.creditApplied) }] : []),
@@ -934,10 +936,17 @@ async function phaseRead(browser: Browser): Promise<void> {
         dest: e.dest,
         processorState: e.processorState,
       })),
-      taxBp: d.taxBp,
+      taxDbp: d.taxDbp,
+      taxRounding: d.taxRounding,
       tipCents: d.tipCents,
       canceled: d.canceled,
     })
+    // ADR 0173: every invoice carries its rate in dbp and its rounding (the deprecated taxBp is that rate in whole bp)
+    ok(
+      Number.isInteger(d.taxDbp) && ['half_up', 'half_even'].includes(d.taxRounding),
+      `${d.label} carries taxDbp and taxRounding`,
+      [d.taxDbp, d.taxRounding],
+    )
     const bad = Object.entries(twin).filter(([k, val]) => d.calc[k] !== val)
     ok(
       bad.length === 0,

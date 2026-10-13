@@ -18,6 +18,9 @@ import {
   policyText,
   priceSquareText,
   processingLines,
+  roundingText,
+  salesTaxBody,
+  sameSalesTax,
   squareStatus,
   syncToast,
   testToast,
@@ -73,11 +76,43 @@ describe('the Square row and Test connection', () => {
       'Square: Simulator',
       'Square writes: Off · watch only: payments are seen and matched, nothing is made at Square',
       'Memberships on Square: Off',
+      'Square item library: Off',
       'Saved cards and fees: Off until Square takes card payments',
       'Personal pay, card and membership pages: Off',
       'Counter payments recorded: Only on strong evidence',
       '“Open Square POS” button: Off',
     ])
+    // DV-911: the item sync writes only with Square writes on too
+    const item = (p: Record<string, unknown>) =>
+      processingLines({ ...billingFixture().processing, ...p }).find((l) => l.label === 'Square item library')!.value
+    expect(item({ itemsSyncEnabled: true, writesEnabled: true })).toBe('On')
+    expect(item({ itemsSyncEnabled: true, writesEnabled: false })).toBe('On once Square writes are on (watch only now)')
+  })
+  it('Test connection’s tax check reads “Sales tax” (ADR 0172)', () => {
+    expect(checkLines([{ key: 'tax', ok: true, detail: 'Square tax “NJ Sales Tax” is 6.625%, the same as Oasis' }])).toEqual([
+      { label: 'Sales tax', value: 'OK · Square tax “NJ Sales Tax” is 6.625%, the same as Oasis', tone: 'green' },
+    ])
+  })
+})
+
+describe('the sales tax rate (ADR 0173, DV-914)', () => {
+  it('takes what the server takes, as typed; anything else says how to write it', () => {
+    for (const ok of ['6.625', '7', '7.0', ' 6.625 ', '6.625%', '0', '100'])
+      expect(salesTaxBody(ok), ok).toEqual({ ok: true, value: ok.trim() })
+    for (const bad of ['6.6255', '-1', '101', 'abc', '', '6,625', '.5'])
+      expect(salesTaxBody(bad), bad).toEqual({
+        ok: false,
+        message: 'Use a percentage from 0 to 100 with up to three decimals, such as 6.625',
+      })
+  })
+  it('the draft is the text as typed (a half-typed “7.” stays on screen)', () => {
+    expect(sameSalesTax({ percent: '7' }, { percent: ' 7 ' })).toBe(true)
+    expect(sameSalesTax({ percent: '7' }, { percent: '7.' })).toBe(false)
+    expect(sameSalesTax({ percent: '7' }, { percent: '6.625' })).toBe(false)
+  })
+  it('says how new invoices round, read only', () => {
+    expect(roundingText('half_up')).toBe('Rounded half up, once per invoice.')
+    expect(roundingText('half_even')).toBe('Rounded like Square (half cents to the even cent), once per invoice.')
   })
 })
 

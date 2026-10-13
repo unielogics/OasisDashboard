@@ -28,6 +28,7 @@ import type {
   RemindersPreviewRes,
   RemindersRes,
   SettingsApi,
+  SquareItemsRes,
 } from '@/data/ports/settings-api'
 import { toastForError, toasts } from '@/data/toast'
 import type { ToastSpec } from '@/data/toast'
@@ -134,6 +135,8 @@ const REMINDERS_KEY = qk.settings('reminders')
 const BILLING_KEY = qk.settings('billing')
 /** GET /kiosk; under ['settings', 'kiosk'] so `settings.changed {section: kiosk}` (and employees) refetch it. */
 const KIOSK_KEY = qk.settings('kiosk', 'overview')
+// the Square item library (ADR 0172, DV-911): read with the billing section, refetched after its writes
+const SQUARE_ITEMS_KEY = qk.settings('squareItems')
 const BILLING_DENY = 'set.billing' as const
 const FOREVER = { staleTimeMs: Infinity }
 const noop = (): void => {}
@@ -244,6 +247,13 @@ export class SettingsExtras {
       busy: (name) => this.busy.has(name),
       changed: () => this.changed(),
       flash: (t) => this.flash(t),
+      items: () => this.squareItems(),
+      itemsFailed: () => this.store.status(SQUARE_ITEMS_KEY) === 'error',
+      retryItems: () => {
+        void this.qc.invalidateQueries({ queryKey: SQUARE_ITEMS_KEY })
+        this.changed()
+      },
+      itemsKeys: [SQUARE_ITEMS_KEY, CATALOG_KEY],
       stamp: (iso) => {
         const ms = Date.parse(iso)
         if (!Number.isFinite(ms)) return ''
@@ -376,6 +386,14 @@ export class SettingsExtras {
     return this.store.read<KioskOverview>(KIOSK_KEY, f, FOREVER)
   }
 
+  /** GET /integrations/square/items (set.billing only), while Billing & integrations is open. */
+  squareItems(): SquareItemsRes | undefined {
+    if (!this.can(BILLING_DENY)) return undefined
+    const f = () => this.api.squareItems()
+    this.watch('squareItems', SQUARE_ITEMS_KEY, f)
+    return this.store.read<SquareItemsRes>(SQUARE_ITEMS_KEY, f, FOREVER)
+  }
+
   /** What stands in for an extra section while its data is not here. */
   gate(sec: ExtraSection): 'locked' | 'loading' | 'failed' | null {
     if (sec === 'kiosk') {
@@ -401,6 +419,7 @@ export class SettingsExtras {
     void this.qc.invalidateQueries({ queryKey: REMINDERS_KEY })
     void this.qc.invalidateQueries({ queryKey: BILLING_KEY })
     void this.qc.invalidateQueries({ queryKey: KIOSK_KEY })
+    void this.qc.invalidateQueries({ queryKey: SQUARE_ITEMS_KEY })
   }
 
   private async run<T>(
@@ -504,6 +523,7 @@ export class SettingsExtras {
     if (sec !== 'reminders') this.unwatch('reminders')
     // Memberships reads the notice of "Move members" from the billing settings (set.billing)
     if (sec !== 'billing' && sec !== 'memberships') this.unwatch('billing')
+    if (sec !== 'billing') this.unwatch('squareItems')
     const c = CATALOG_SECTIONS.includes(sec) ? this.catalog() : undefined
     out.cat = this.catalogVals(sec === 'catalog' ? c : undefined, dark)
     out.cats = this.categoriesVals(sec === 'categories' ? c : undefined)
@@ -611,6 +631,8 @@ export class SettingsExtras {
       const d = this.draftOf(s)
       const subs = [categoryLabel(s.category, info), s.quoteOnly ? 'quote only' : line(s)]
       if (!s.visibleOnline) subs.push('hidden')
+      // DV-913: a service Oasis took off Square (turned off, quote only) while the item sync is on
+      if (prices.find((r) => r.serviceId === s.id)?.square?.state === 'archived') subs.push('archived in Square')
       if (this.svcEntry(s)) subs.push('unsaved')
       return {
         name: d.publicName.trim() || s.name,

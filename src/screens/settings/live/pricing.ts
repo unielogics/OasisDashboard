@@ -31,6 +31,7 @@ import {
   wholeMoney,
 } from '@/lib/settings/sizes'
 import type { FeeDraft, GuestFeeView, PriceRowItem, RowDraft, SentCell, VehicleClassItem } from '@/lib/settings/sizes'
+import { cellDot, rowSquareText } from '@/lib/settings/square-items'
 import { seg, sw } from '@/lib/settings/styles'
 import { cellInputStyle, formError, gridColumns, gridRowStyle, saveButtonStyle } from './ui'
 import type { InputEvent, KeyEvent, SectionCtx, Vals } from './ui'
@@ -318,6 +319,10 @@ export class PricingSections {
         else if (row && row.cells.some((x) => active.some((a) => a.key === x.class)))
           subs.push('from ' + wholeMoney(row.fromCents))
         if (range) subs.push('from–to')
+        // DV-912: the service's Square item, only while the item sync is on (the server sends nothing otherwise); a quote-only
+        // service is never sold in Square, and its line already says why
+        const sq = s.quoteOnly && row?.square?.state === 'not_sold' ? '' : rowSquareText(row?.square)
+        if (sq) subs.push(sq)
         if (entry) subs.push(entry.conflict || conflict === s.id ? 'changed meanwhile' : 'unsaved')
         const hidden = entry ? offChangesText(offSizeChanges(entry.value, base, all)) : ''
         if (hidden) subs.push(hidden)
@@ -330,6 +335,7 @@ export class PricingSections {
             const b = base[a.key] ?? { from: '', to: '' }
             const changed = v.from.trim() !== b.from.trim() || v.to.trim() !== b.to.trim()
             const cs = cellInputStyle(changed, changed && (!!entry?.conflict || conflict === s.id))
+            const dot = cellDot(row?.square, a.key)
             return {
               range,
               single: !range,
@@ -340,6 +346,19 @@ export class PricingSections {
               style: cs,
               label: name + ' · ' + a.label,
               toLabel: name + ' · ' + a.label + ' (up to)',
+              // DV-912: where this price stands in Square (the error as the tooltip of a failed one)
+              hasDot: !!dot,
+              dotTitle: dot?.title ?? '',
+              // in the cell's top right corner, over the box: the columns keep their widths with or without a dot
+              dotStyle: {
+                position: 'absolute',
+                top: '5px',
+                right: '5px',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: dot?.colour ?? 'transparent',
+              },
             }
           }),
         }

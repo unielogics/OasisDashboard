@@ -54,7 +54,7 @@ filter, q)` (the port follows the keyset cursors, 500 per page, so the table sho
 | `filters`                                            | UI state + `summary.filterCounts`                                                                                                         |
 | `rows`, `noRows`, `query`, `onQuery`                 | `GET /payments/invoices` rows; `query` is UI state                                                                                        |
 | `hasPending`, `pendingText`, `openPending`           | `summary.pendingApprovals` (global, not range filtered); Review selects `first.invoiceId`                                                 |
-| `d.*` header, `big`, `lines`, `creditLine`           | `GET /invoices/:id`: `statusLabel`, `calc`, `items`, `adjustments`, `taxBp`, `clientCredit`                                               |
+| `d.*` header, `big`, `lines`, `creditLine`           | `GET /invoices/:id`: `statusLabel`, `calc`, `items`, `adjustments`, `taxDbp`/`taxRounding` (ADR 0173), `clientCredit`                    |
 | `d.actions`                                          | the detail's `calc` (balance, refundable, credit) and the session (permissions); titles are the design's                                  |
 | `d.ledger`                                           | `detail.ledger` (newest first, `atLabel`, `canApprove`, `approveBlock`, `awaitingProcessor`); Approve/Deny/Confirm are commands           |
 | `sheetOpen`, `sh.*`                                  | UI form state + the detail; summary rows are the cents previews, the server has the last word on submit                                   |
@@ -169,6 +169,17 @@ Commands (all with an Idempotency-Key per action, through `command()` with `key:
 | Apply (a candidate or the invoice open on screen) | `POST /payments/square/:paymentId/apply {invoiceId, confirmEventId?}` | `pay.collect` | `Recorded on INV-20640 · $13.37` / `Square reader payment confirmed · $42.80` |
 | Set aside (after a reason) | `POST /payments/square/:paymentId/ignore {reason}` | `pay.collect` | `Set aside · $13.37` (`Pick a reason first` without one) |
 | Move | `POST /payments/square/:paymentId/reassign {toInvoiceId}` | `pay.void` | `Moved to INV-20641 · $42.80` (the moved-to invoice is selected) |
+
+**Sales tax at a precise rate (ADR 0173, wave K3; DV-213).** An invoice carries its rate in thousandths of a percent
+(`taxDbp`: 7000 = 7%, 6625 = 6.625%) and its rounding (`taxRounding`: `half_up`, or `half_even` once the rollout switches the
+location to Square's rule); `taxBp` stays one release as the rate in whole basis points and is read only by `taxRateOf` for a
+server that sends nothing else (×10, half up). `cents.ts` follows the backend's `salesTaxCents`: `n = sub × dbp`, then
+`n / 100000` half up or half to even, once on `max(items + adjustments, 0)`; the by-item refund value is
+`min(refundable, lines + salesTax(lines))`, the adjustment preview `newSub + salesTax(max(newSub, 0)) + tip`, and net takes
+the refunds' tax part out half up at the invoice's rate. The label is `taxPercentLabel` ("6.625%"). `cents.test.ts` holds the
+ADR's vectors (6.625% half to even are Square's own CalculateOrder answers, SQR-18) and an exact reference for half to even;
+`src/screens/payments/live-tax.test.ts` shows the screen at 6.625% under both rules; the e2e compares the twin with the
+server's `calc` on every invoice with the invoice's own `taxDbp` and `taxRounding`.
 
 The cents twin (`cents.ts`) leaves a refund whose `processorState` is `failed` out of `refunded` and `refOrig`, like the
 backend's `calc.ts` and `invoice_calc_of` (ADR 0171 D4); `cents.test.ts` holds the backend's golden vectors and the e2e
