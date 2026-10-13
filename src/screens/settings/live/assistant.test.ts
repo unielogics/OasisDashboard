@@ -440,6 +440,12 @@ describe('the tabs (ADR 0174, DV-708)', () => {
     expect(location.hash).toBe('#assistant/limits')
     asst(m.logic).tabs[0].onClick()
     expect(location.hash).toBe('#assistant')
+    asst(m.logic).tabs[1].onClick()
+    expect(location.hash).toBe('#assistant/knowledge')
+    // leaving the section: a reload opens Working hours, not this tab
+    vals(m.logic).goHours()
+    vals(m.logic)
+    expect(location.hash).toBe('')
   })
 
   it('#assistant/limits opens that tab; an unknown tab opens Status & switches', async () => {

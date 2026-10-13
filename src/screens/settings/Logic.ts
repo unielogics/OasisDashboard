@@ -1298,7 +1298,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       // Settings → Oasis AI assistant (ADR 0160, DV-705..707): the nav entry, the section and its save bar
       secAssistant: sec === 'assistant' && !gate,
       asst: {
-        ...(this.data.assistant?.vals(sec === 'assistant' && !gate) ?? {}),
+        ...(this.data.assistant?.vals(sec === 'assistant' && !gate, sec === 'assistant') ?? {}),
         go: () => this.setState({ section: 'assistant' }),
         navStyle: navStyle(sec, 'assistant'),
         dirty: sec === 'assistant' && !gate && !!this.data.assistant?.dirty(),

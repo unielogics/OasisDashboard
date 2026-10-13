@@ -277,8 +277,8 @@ describe('conversations (training review)', () => {
       ['90 days', 'transparent'],
     ])
     expect(v.rows.map((x: any) => [x.label, x.flags.map((f: any) => f.label)])).toEqual([
-      ['Priya ·•••0142', ['Waiting for the team (asked for person)']],
-      ['Client ·•••0199', ['Policy check stepped in']],
+      ['Priya · •••0142', ['Waiting for the team (asked for person)']],
+      ['Client · •••0199', ['Policy check stepped in']],
     ])
     expect([v.noPick, v.pickText]).toEqual([true, 'Pick a chat on the left to read it.'])
     v.filters[3].onClick()
@@ -289,7 +289,7 @@ describe('conversations (training review)', () => {
     rv(m).rows[0].onClick()
     await vi.waitFor(() => expect(rv(m).turns).toHaveLength(1))
     v = rv(m)
-    expect(v.title).toBe('Priya ·•••0142')
+    expect(v.title).toBe('Priya · •••0142')
     const t = v.turns[0]
     expect(t.clientTexts.map((x: any) => x.text)).toEqual(['Do you clean engine bays?'])
     expect(t.parts.map((x: any) => x.text)).toEqual(['Sorry, we don’t do engine bays. Book a wash: ', 'link'])
@@ -322,7 +322,7 @@ describe('conversations (training review)', () => {
     expect(rv(m).hasMore).toBe(true)
     r.state.conversations = [{ id: 'v3', client: { firstName: 'Liam', phoneLast4: '0177' }, lastTurnAt: '2026-06-12T14:00:00Z', turns: 3, handoff: null, flags: [] }]
     rv(m).loadMore()
-    await vi.waitFor(() => expect(rv(m).rows.map((x: any) => x.label)).toContain('Liam ·•••0177'))
+    await vi.waitFor(() => expect(rv(m).rows.map((x: any) => x.label)).toContain('Liam · •••0177'))
     expect(rv(m).hasMore).toBe(false)
   })
 })

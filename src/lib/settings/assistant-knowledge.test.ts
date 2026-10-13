@@ -138,6 +138,10 @@ describe('a document’s status', () => {
     expect(documentError(d('failed', 'no_text'))).toMatch(/^This PDF is a scan \(pictures of pages\)/)
     expect(documentError({ status: 'failed', errorCode: 'corrupt', error: 'The server said so.' })).toBe('The server said so.')
     expect(canRetry(d('failed', 'timeout'))).toBe(true)
+    expect(canRetry(d('failed', 'corrupt'))).toBe(true)
+    // the same file fails the same way: upload another copy
+    expect(canRetry(d('failed', 'no_text'))).toBe(false)
+    expect(canRetry(d('failed', 'encrypted'))).toBe(false)
     expect(canRetry(d('failed', 'not_pdf'))).toBe(false)
     expect(canRetry(d('ready'))).toBe(false)
   })

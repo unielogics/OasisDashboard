@@ -698,7 +698,8 @@ try {
       await page.getByText('E2E Tester' + unique, { exact: true }).click()
       await page.getByRole('button', { name: 'Roles & access' }).click()
       const eff = detail.effectivePermissions.filter((p: any) => p.on).length
-      await page.getByText(`${eff} of 27 allowed`).waitFor()
+      // the design's 27 plus set.assistant (backend ADR 0174; DV-715): the server's list, whatever its length
+      await page.getByText(`${eff} of ${detail.effectivePermissions.length} allowed`).waitFor()
       // deactivate then reactivate (restores "invited" for someone who never accepted)
       await page.getByRole('button', { name: 'Deactivate' }).click()
       await page.getByRole('button', { name: 'Save changes' }).click()
@@ -986,7 +987,7 @@ try {
           rows++
         }
       }
-      check(rows >= 7 * 27, `compared ${rows} permission rows`)
+      check(rows >= 7 * 27, `compared ${rows} permission rows (27 or 28 per person, DV-715)`)
     },
   )
 

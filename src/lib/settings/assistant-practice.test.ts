@@ -76,8 +76,8 @@ describe('practice', () => {
 
 describe('conversations', () => {
   it('a client by first name and the last four digits only', () => {
-    expect(clientLabel({ firstName: 'Priya', phoneLast4: '0142' })).toBe('Priya ·•••0142')
-    expect(clientLabel({ firstName: null, phoneLast4: '0142' })).toBe('Client ·•••0142')
+    expect(clientLabel({ firstName: 'Priya', phoneLast4: '0142' })).toBe('Priya · •••0142')
+    expect(clientLabel({ firstName: null, phoneLast4: '0142' })).toBe('Client · •••0142')
   })
   it('flags, handoffs, the policy check and tools in plain words', () => {
     expect(flagWords('judge')).toBe('Policy check stepped in')

@@ -265,8 +265,12 @@ export function documentError(d: DocumentLike): string {
   }
 }
 
-/** Whether "Try again" can read a failed document again (never a file that is not a PDF). */
-export const canRetry = (d: DocumentLike): boolean => d.status === 'failed' && d.errorCode !== 'not_pdf'
+/**
+ * Whether "Try again" is worth offering for a failed document: a read that ran out of time or broke may succeed again; a
+ * scan, a locked file, too many pages or a file that is not a PDF fail the same way every time (upload another copy).
+ */
+export const canRetry = (d: DocumentLike): boolean =>
+  d.status === 'failed' && (d.errorCode === null || d.errorCode === 'timeout' || d.errorCode === 'corrupt')
 
 export const chipStyle = (tone: ChipTone): Record<string, string | number> => {
   const c: Record<ChipTone, [string, string]> = {

@@ -137,6 +137,8 @@ export class AssistantSection {
   private saveError = ''
   private saving = false
   private tab: AssistantTab = 'status'
+  /** This page wrote `#assistant/<tab>` (cleared again when the person leaves the section). */
+  private wroteHash = false
   private listNew: Record<BehaviorListKey, string> = { avoidWords: '', avoidTopics: '', handoffTopics: '' }
   private listError: Record<BehaviorListKey, string> = { avoidWords: '', avoidTopics: '', handoffTopics: '' }
   readonly ctx: AiCtx
@@ -185,14 +187,20 @@ export class AssistantSection {
   setTab(t: AssistantTab, remember = true): void {
     if (this.tab === t) return
     this.tab = t
-    if (remember && typeof window !== 'undefined' && window.history?.replaceState) {
-      try {
-        window.history.replaceState(window.history.state, '', '#assistant' + (t === 'status' ? '' : '/' + t))
-      } catch {
-        /* a sandboxed frame: the tab still switches */
-      }
+    if (remember) {
+      this.writeHash('#assistant' + (t === 'status' ? '' : '/' + t))
+      this.wroteHash = true
     }
     this.d.changed()
+  }
+
+  private writeHash(hash: string): void {
+    if (typeof window === 'undefined' || !window.history?.replaceState) return
+    try {
+      window.history.replaceState(window.history.state, '', hash || window.location.pathname + window.location.search)
+    } catch {
+      /* a sandboxed frame: the tab still switches */
+    }
   }
 
   view(): AssistantView | undefined {
@@ -463,7 +471,13 @@ export class AssistantSection {
 
   // ---- what the template reads (live.asst) -------------------------------------------------------------------------------
 
-  vals(open = true): Record<string, unknown> {
+  /** `open`: the section is on screen and loaded; `here`: the section is the one selected (even while it loads). */
+  vals(open = true, here = open): Record<string, unknown> {
+    if (!here && this.wroteHash) {
+      // left the section: a reload opens the section the person is on, not this tab
+      this.wroteHash = false
+      this.writeHash('')
+    }
     const v = this.view()
     const c = this.current()
     const ready = !!v && !!c

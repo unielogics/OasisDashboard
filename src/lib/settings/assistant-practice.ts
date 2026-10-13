@@ -157,7 +157,7 @@ export const flagWords = (f: string): string =>
   REVIEW_FILTERS.find((x) => x.key === f)?.label ?? f.replace(/_/g, ' ')
 
 export const clientLabel = (c: { firstName: string | null; phoneLast4: string }): string =>
-  (c.firstName ?? 'Client') + ' ·•••' + c.phoneLast4
+  (c.firstName ?? 'Client') + ' · •••' + c.phoneLast4
 
 export function handoffWords(h: { open: boolean; reason: string | null } | null): string {
   if (!h) return ''

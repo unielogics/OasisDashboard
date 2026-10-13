@@ -284,24 +284,26 @@ describe('PDFs', () => {
     expect(ed.reviewLabel).toBe('Open')
   })
 
-  it('a scan says so and can be read again; another failure too; a failed PDF is deleted; download opens the link', async () => {
+  it('a scan says so; a read that ran out of time is read again; a failed PDF is deleted; download opens the link', async () => {
     const k = fakeKnowledge()
     k.state.documents.push(doc({ id: 'd1', status: 'failed', errorCode: 'no_text', pageCount: 4 }))
     k.state.documents.push(doc({ id: 'd2', filename: 'Menu.pdf', status: 'failed', errorCode: 'not_pdf', error: 'This file is not a PDF.' }))
+    k.state.documents.push(doc({ id: 'd3', filename: 'Big guide.pdf', status: 'failed', errorCode: 'timeout' }))
     const m = makeAssistant({ knowledge: k })
     await openTab(m, 'knowledge', ready(m))
-    const [scan, notPdf] = kn(m).docs
-    expect([scan.chip, scan.canRetry, scan.hasToggle, scan.canReview]).toEqual(['Can’t read: scanned', true, false, false])
+    const [scan, notPdf, slow] = kn(m).docs
+    expect([scan.chip, scan.canRetry, scan.hasToggle, scan.canReview]).toEqual(['Can’t read: scanned', false, false, false])
     expect(scan.error).toMatch(/^This PDF is a scan \(pictures of pages\), so Oasis AI can’t read it\./)
     expect([notPdf.chip, notPdf.canRetry, notPdf.error]).toEqual(['Failed', false, 'This file is not a PDF.'])
+    expect([slow.chip, slow.canRetry, slow.error]).toEqual(['Failed', true, 'Reading this PDF took too long. Try again.'])
     scan.download()
     await vi.waitFor(() => expect(m.opened).toEqual(['https://bucket.example/d1.pdf?sig']))
-    scan.retry()
-    await vi.waitFor(() => expect(kn(m).docs[0].chip).toBe('Reading the PDF…'))
+    slow.retry()
+    await vi.waitFor(() => expect(kn(m).docs[2].chip).toBe('Reading the PDF…'))
     kn(m).docs[1].askRemove()
     expect(kn(m).docs[1].confirmText).toBe('Delete this PDF and its text?')
     kn(m).docs[1].remove()
-    await vi.waitFor(() => expect(kn(m).docs).toHaveLength(1))
+    await vi.waitFor(() => expect(kn(m).docs).toHaveLength(2))
     expect(k.calls.filter((c) => c[0] === 'removeDocument').map((c) => c[1])).toEqual(['d2'])
   })
 

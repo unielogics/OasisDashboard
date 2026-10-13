@@ -135,6 +135,7 @@ held (Crew). Inside the screen:
 | Catalog, Categories     | any signed-in person | `set.services` (live only, DV-317, DV-318)                                                          |
 | Vehicle sizes, Prices by size, Memberships | any signed-in person | `set.services` (live only, DV-322..DV-326)                                     |
 | Reminders & texts       | any signed-in person | `set.hours`: `Your role can’t change hours and closures` (live only, DV-319)                        |
+| Oasis AI assistant      | any signed-in person (the tabs: `set.assistant`; Conversations also `cli.view`) | `set.assistant`: `Your role can’t change the assistant settings` (live only, DV-705..715) |
 
 Sections that cannot be read show the locked card; a write that cannot be done shows the toast and sends no request. The
 server enforces the same rules (403 and the Super-only guards come back as toasts if the client was wrong). Pay type and
@@ -191,7 +192,7 @@ design-patches/live/partials/settings-nav-assistant.html, settings-assistant.htm
 | What                    | API                                                                       | Rule                                                                                                      |
 | ----------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | read                    | `GET /settings/assistant` (any signed-in person), refetched on `settings.changed {section: assistant}` | loading and failed cards like the other sections; the nav `ON` badge is `active` (server switch and section) |
-| save                    | `PUT /settings/assistant` `{changed fields, version}`                    | `set.hours`; only the fields that differ from the server; FAQ lines trimmed                               |
+| save                    | `PUT /settings/assistant` `{changed fields, version}`                    | `set.assistant` (was `set.hours`, DV-715); only the fields that differ from the server; FAQ lines trimmed; `capabilities` and `behavior` whole |
 | change saved elsewhere  | the stream refetches the view                                            | fields nobody touched here follow it, edited fields stay (Working hours' rule, DV-309)                    |
 | 412 `VERSION_CONFLICT`  | `command()` refetches the view and toasts the server's words             | the edits stay over the new version; the next Save sends them with it                                    |
 | 422                     | `errors[].path` (`allowlist.1`, `faq.0.a`, `staffPauseHours`, `body.stage`) | under the field and in the save bar; no toast                                                          |
@@ -202,7 +203,7 @@ everything up here meanwhile.` while `AI_ENABLED` is off, or `Oasis AI is switch
 answers nobody yet.`), `Oasis AI is answering texts.`; stages `Test numbers` (only the listed numbers; start with your own phones),
 `Clients` (every client on file; unknown numbers reach the team as today), `Everyone` (new numbers too; it asks a new texter's
 name and adds them as a client); `Pause after a staff reply` (1 to 72 hours); `Book, move and cancel by text` (each change waits
-for the client's 4-digit reply; off: a booking link instead). A role without `set.hours` reads the section; any change toasts
+for the client's 4-digit reply; off: a booking link instead). A role without `set.assistant` reads the section; any change toasts
 `Your role can’t change the assistant settings` and sends nothing.
 
 Running the browser check (it changes data; reseed before running it again):
@@ -217,6 +218,81 @@ pnpm live:down --name asst --drop
 
 It writes three fixtures straight to the stack's database because nothing in this backend creates them yet: a PIN row and a
 30-day trust for Priya Nair (the link pages are wave 3) and one text with `sender_kind = 'ai'` (the assistant's turn is wave 3).
+
+## Settings → Oasis AI: tabs (live only; wave K2d, backend ADR 0174; DEVIATIONS.md DV-708 to DV-715)
+
+The section gets five tabs (`live.asst.tabs`, the Prices & memberships segment control): **Status & switches** (the section
+above without the Q&A), **Knowledge**, **Practice**, **Limits & tone** and **Conversations**. `/settings#assistant/<tab>`
+opens a tab and the open tab is kept in the address (`history.replaceState`); `#assistant` is Status & switches. A tab reads
+nothing until it is opened. The fields of the section's working copy (Status, the Q&A shown in Knowledge, Limits & tone)
+share the section's save bar; knowledge entries, PDFs and corrections save one at a time.
+
+```
+src/lib/settings/assistant.ts            + Limits & tone: capability words, the "Answer questions only" preset, tones with
+                                           their static example replies, lengths, Spanish modes, the three lists' checks,
+                                           style notes and sign-off checks, ALWAYS_ON, LIMITS_APPLIED
+src/lib/settings/assistant-knowledge.ts  meter, budget refusal, a browser copy of the server's warnings (sanitize.ts) and
+                                           their words, PDF checks, SHA-256 (WebCrypto), a document's status chip and error
+src/lib/settings/assistant-practice.ts   link markers, badges, a turn's note, banners, persona line, review words
+src/data/ports/assistant-knowledge-api.ts  /assistant/knowledge and /documents (+ xhrUpload: presigned POST with progress)
+src/data/ports/assistant-practice-api.ts   /assistant/practice, /assistant/corrections, /assistant/conversations
+src/screens/settings/live/assistant.ts   the section: tabs, working copy (+ capabilities, behavior), save; owns the tabs
+src/screens/settings/live/assistant-{knowledge,practice,review,limits,correction,ctx}.ts   the tabs and their dialog
+src/screens/settings/live/assistant-testkit.ts  stateful fakes of api-spec 15.6c–f, manual timers (tests only)
+design-patches/live/partials/settings-assistant.html (the tab strip and Status) + settings-assistant-{knowledge,practice,
+  limits,conversations,correction}.html (included by it; no new op in settings.patch.json)
+scripts/e2e-assistant.ts (phase `tabs`), scripts/e2e-assistant-stack.sh
+```
+
+| Tab | Reads | Writes (permission) | What is on screen |
+| --- | --- | --- | --- |
+| Knowledge | `GET /assistant/knowledge` (`['settings','assistant_knowledge']`, refetched on `settings.changed {section: assistant_knowledge}` and, because the Q&A counts, on `{section: assistant}`; every 3 s while a PDF is being read) | `POST /assistant/knowledge`, `PUT/DELETE /assistant/knowledge/:id` (`version`), `POST …/documents/presign`, the presigned POST, `POST …/documents/:id/complete`, `POST …/documents/:id/extract`, `DELETE …/documents/:id`, `GET …/documents/:id/file` (`set.assistant`) | the meter (`12,400 of 20,000 characters`, parts, room left); Notes (on/off, preview, Edit, Delete asked inline; `New note`); the Q&A; PDFs (drop box, upload rows with progress, status chips, errors in the server's words, Review / Open, Try again, Download, Delete); Corrections; the editor dialog (name, question for a correction, text with its count, warnings while typing, `I read this text and it is right` and the instruction box for a PDF, Save draft / Save / Save and turn on, Save as a draft after a 422 `KNOWLEDGE_BUDGET`) |
+| Practice | `GET /assistant/practice/sessions` (`['settings','assistant_practice']`), `GET …/sessions/:id` (every 2 s while a turn runs; `assistant.practice.turn` on the notifications channel refetches them, src/data/realtime/invalidation.ts), `GET /customers?q=` for a client on file (`cli.view`) | `POST …/sessions`, `DELETE …/sessions/:id`, `POST …/sessions/:id/turns` (Idempotency-Key), `POST /assistant/practice/turns/:id/rerun`, `POST /assistant/corrections` (`set.assistant`) | banners (practice off, budget used, booking by text or links off on the server), my chats and the day's spend, the persona picker, the chat (bubbles, link chips, badges, `It would also text:`, `Oasis AI is writing…`, Correct this answer, Try again, `After your correction`), the composer (`n / 640`) |
+| Limits & tone | the section's view (`capabilities`, `behavior`) | the section's save (`set.assistant`) | capability switches + Book, move and cancel by text, Answer questions only, tone cards with example replies, Reply length, Texts in Spanish, Words to avoid / Topics to avoid / Always hand to the team, style notes, sign-off, Always on; the note `Oasis AI starts following these limits and this tone with its next update.` while `LIMITS_APPLIED` is false |
+| Conversations | `GET /assistant/conversations?days&filter&limit&cursor`, `GET …/:id` (`set.assistant` + `cli.view`) | `POST /assistant/corrections` (source `live`) | days and filter chips, the list (first name, `•••0142`, chips), Show more, one chat in plain words, This answer was wrong |
+
+Rules:
+
+- **Permissions.** Every tab but Status needs `set.assistant` (Conversations and a client persona also `cli.view`): without
+  it the tab is a locked card in plain words and nothing is read; a write is the toast and no request. The live Roles &
+  permissions matrix and the drawer's effective permissions show `Oasis AI assistant` last in the Settings group (28 rows;
+  the fixture and parity builds keep the design's 27; live parity gives the oracle the same row, `L-settings-74`).
+- **The contract routes.** In this backend wave practice, corrections and the review answer 501 `NOT_BUILT`: the tab says
+  `Coming soon: …` in plain words (no toast, no failed card). Their schemas are final, so the tabs work unchanged once
+  wave K2c builds the routes; the e2e runs them against fixtures served for those routes.
+- **Knowledge entries.** Each save sends only what changed with the entry's version. A 412 keeps the editor and says
+  `Someone else changed this meanwhile, so nothing was saved. Their version is on the list now; save again to keep yours.`
+  (the next Save carries the server's version, so overwriting is the owner's deliberate choice). A 422 `KNOWLEDGE_BUDGET`
+  names how many characters are over and offers `Save as a draft`; nothing is ever cut. Turning an unread PDF on from the
+  list opens its review instead. The warnings shown are the server's while the text is as saved and the browser's copy
+  of the same detectors once it is edited (the server computes them again on save).
+- **PDFs.** Checked in the browser (PDF, 10 MB), hashed (WebCrypto SHA-256) so a file already in the knowledge is refused
+  before any byte is sent (409 `DUPLICATE_DOCUMENT`: `“guide.pdf” is already in your knowledge.`), uploaded to the presigned
+  POST with XMLHttpRequest (fields first, then the file; `Uploading 45%`), completed (202: `Reading the PDF…`; 200 `failed`:
+  the server's sentence). The drop box is an invisible full-size file input over a dashed box: dropping works without drop
+  handlers.
+- **Practice.** Sending waits for the 202; the turn runs as a job; the tab reads the session every 2 s while one runs and
+  stops when none does or the tab is closed. Refusals in words: `PRACTICE_BUSY`, `PRACTICE_OFF`, `PRACTICE_BUDGET` (429).
+  `Try again` appears under a turn corrected from this page and re-runs it as an alternate turn.
+- **Corrections.** `What the client asked` is prefilled with the client's words and may be made general; the wrong reply
+  is shown to the owner only (the server loads it from the turn itself). 409 `CORRECTION_EXISTS` offers `Replace the
+  earlier one` (`replaceEntryId`).
+- **Limits & tone** are saved and checked now (`capabilities` and `behavior` as whole objects; client checks: list lengths,
+  repeats, a topic in both lists, style notes 400, sign-off 24 with no amount, number, link or promise) but the turn applies
+  them from the policy wave on: flip `LIMITS_APPLIED` in `src/lib/settings/assistant.ts` with that wave.
+
+Running the browser check on the test server (it brings a stack of the backend up with the worker and AI_ENABLED, runs the
+settings and tabs phases, and drops the stack; screenshots in `parity-reports/e2e-assistant/`, light and dark):
+
+```bash
+oasis-remote ~/oasis/wt/k-asst-core -- true
+oasis-remote ~/oasis/wt/k-asst-dash --pull parity-reports/e2e-assistant -- 'bash scripts/e2e-assistant-stack.sh /home/ec2-user/oasis/wt/k-asst-core'
+```
+
+Tests: `src/lib/settings/assistant{,-knowledge,-practice}.test.ts`, `src/data/ports/assistant-ai-ports.test.ts` (routes and
+the upload with a fake XHR), `src/screens/settings/live/assistant.test.ts` (tabs, Limits & tone, the Q&A budget),
+`assistant-knowledge.test.ts`, `assistant-practice.test.ts` (practice polling and the event mapping, corrections, the
+review), `assistant.render.test.ts` and `assistant-tabs.render.test.ts` (the live template on every tab).
 
 ## Catalog, Categories and Reminders & texts (live only; ADR 0160 plan A, I, K; DV-317..DV-321)
 

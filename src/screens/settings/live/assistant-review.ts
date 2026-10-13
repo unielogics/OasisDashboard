@@ -176,12 +176,13 @@ export class ReviewSection {
           ? 'failed'
           : 'loading'
     const turns = (d?.turns ?? []).map((t) => {
+      // one line per fact: a handoff is said once, with its reason
+      const tools = t.handoffReason ? t.tools.filter((x) => x !== 'handoff_to_staff') : t.tools
       const facts = [
-        statusWords(t.status),
-        t.handoffReason ? 'Handed to the team (' + t.handoffReason.replace(/_/g, ' ') + ')' : '',
+        t.handoffReason ? 'Handed to the team (' + t.handoffReason.replace(/_/g, ' ') + ')' : statusWords(t.status),
         judgeWords(t.judge),
         t.guard.length ? 'Rewritten: ' + t.guard.join(', ') : '',
-        t.tools.length ? 'It ' + toolWords(t.tools) : '',
+        tools.length ? 'It ' + toolWords(tools) : '',
       ].filter(Boolean)
       return {
         when: whenLabel(t.startedAt, tz),
