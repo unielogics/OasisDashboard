@@ -587,12 +587,24 @@ async function phaseTabs(browser: Browser): Promise<void> {
     { capabilities: lim.capabilities, behavior: lim.behavior },
   )
 
-  // Practice and Conversations: the real contract answers 501 → "Coming soon"
+  // Practice and Conversations: the server's own routes (built since wave K2c: the explanation strip, and the "practice is off"
+  // banner while AI_PRACTICE_ENABLED is false); a backend of an earlier wave answers 501 NOT_BUILT → "Coming soon"
+  const either = async (a: string, b: string): Promise<boolean> =>
+    !!(await until(async () => {
+      const t = await bodyText(A)
+      return t.includes(a) || t.includes(b)
+    }, 10_000))
   await tabTo(A, 'Practice')
-  ok(await waitText(A, 'Coming soon: the practice chat is not built yet on the server.'), 'Practice says coming soon (501 NOT_BUILT)')
-  await shot(A, 'tab-practice-soon')
+  ok(
+    await either('Text Oasis AI as a client would.', 'Coming soon: the practice chat is not built yet on the server.'),
+    'Practice opens on the server’s practice chat (or says coming soon on a backend without it)',
+  )
+  await shot(A, 'tab-practice-real')
   await tabTo(A, 'Conversations')
-  ok(await waitText(A, 'Coming soon: the review of real chats is not built yet on the server.'), 'Conversations says coming soon')
+  ok(
+    await either('Chats Oasis AI answered in the last days', 'Coming soon: the review of real chats is not built yet on the server.'),
+    'Conversations opens on the server’s review (or says coming soon on a backend without it)',
+  )
   await m.ctx.close()
 
   // the same tabs with fixtures for their routes (what wave K2c builds)
