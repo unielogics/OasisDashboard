@@ -126,7 +126,7 @@ export const INSTRUCTION_PATTERNS: readonly RegExp[] = [
   /\bnew\s+(?:rules?|instructions?)\b/i,
   /^\s*(?:#+\s*)?(?:SHOP\s+FACTS|SHOP\s+KNOWLEDGE|TURN\s+CONTEXT|RULES?|SYSTEM|INSTRUCTIONS?|HOW\s+TO\s+WRITE|WHAT\s+IS\s+DATA)\b\s*[:(]?/i,
   /[⟦⟧]|<\/?\s*(?:message|own-text|server-record|trusted)\b|\[\/?trusted\]/i,
-  /\b(?:"ok"\s*:\s*true|category"\s*:\s*"none")/i,
+  /(?:"ok"\s*:\s*true|\bcategory"\s*:\s*"none")/i,
 ]
 
 /** The most warnings kept per entry, as on the server. */
