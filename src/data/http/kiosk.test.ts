@@ -175,7 +175,7 @@ describe('ApiClient in kiosk mode', () => {
     await k.unlock('12345679')
     expect(calls[0].init.headers['X-CSRF-Token']).toBeUndefined()
     expect(calls[0].init.headers['Idempotency-Key']).toBeUndefined()
-    expect(JSON.parse(calls[0].init.body)).toEqual({ code: '12345679' })
+    expect(JSON.parse(calls[0].init.body)).toEqual({ pin: '12345679' })
     expect(c.csrf.get()).toBe('k-csrf')
     await k.lock()
     expect(calls[1].url).toBe('/api/v1/kiosk/lock')

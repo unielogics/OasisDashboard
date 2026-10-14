@@ -1,12 +1,56 @@
-// Fixtures of Settings → Shop floor (ADR 0180): GET /kiosk and GET /reports/employee-activity as the backend answers
-// them (api-spec 31.3, 31.4). Shared by the view-model and render tests. Not shipped.
+// Fixtures of Settings → Shop floor (ADR 0180 and its 2026-10-14 amendment): GET /kiosk and GET /reports/employee-activity
+// as the backend answers them (api-spec 31.3, 31.4). Shared by the view-model and render tests. Not shipped.
 import type { EmployeeActivity, KioskOverview } from '@/data/ports/kiosk-api'
 
 export function overviewFixture(over: Partial<KioskOverview> = {}): KioskOverview {
   return {
-    enabled: false,
+    enabled: true,
     version: 3,
-    code: { set: true, setAt: '2026-10-01T14:00:00Z', setBy: 'Rafael M.', ageDays: 12 },
+    yourAddress: '73.12.4.9',
+    yourAddressIsShop: false,
+    canManageNetworks: true,
+    networks: [
+      {
+        id: 'net-1',
+        address: '73.12.4.80',
+        label: 'Shop Wi-Fi',
+        addedAt: '2026-10-01T14:00:00Z',
+        addedBy: 'Amara O.',
+        lastSeenAt: '2026-10-13T12:00:00Z',
+        failedAttempts: 0,
+        lockedOut: false,
+      },
+      {
+        id: 'net-2',
+        address: '2001:db8:1:2::/64',
+        label: null,
+        addedAt: '2026-10-02T14:00:00Z',
+        addedBy: null,
+        lastSeenAt: null,
+        failedAttempts: 30,
+        lockedOut: true,
+      },
+    ],
+    refused: [
+      {
+        id: 'ref-1',
+        address: '98.4.2.1',
+        attempts: 2,
+        browserName: 'Front desk tablet',
+        firstSeenAt: '2026-10-13T12:00:00Z',
+        lastSeenAt: '2026-10-13T12:05:00Z',
+        fromKnownBrowser: true,
+      },
+      {
+        id: 'ref-2',
+        address: '203.0.113.50',
+        attempts: 1,
+        browserName: null,
+        firstSeenAt: '2026-10-13T13:00:00Z',
+        lastSeenAt: '2026-10-13T13:00:00Z',
+        fromKnownBrowser: false,
+      },
+    ],
     thisDeviceId: null,
     devices: [
       {
@@ -18,6 +62,7 @@ export function overviewFixture(over: Partial<KioskOverview> = {}): KioskOvervie
         lastIp: '100.64.1.7',
         lastUa: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/129.0 Safari/537.36',
         failedAttempts: 0,
+        openedBy: 'Marco R.',
         createdAt: '2026-10-01T14:00:00Z',
         createdBy: 'Rafael M.',
         version: 1,
@@ -31,6 +76,7 @@ export function overviewFixture(over: Partial<KioskOverview> = {}): KioskOvervie
         lastIp: null,
         lastUa: null,
         failedAttempts: 20,
+        openedBy: null,
         createdAt: '2026-10-02T14:00:00Z',
         createdBy: 'Rafael M.',
         version: 2,
@@ -44,17 +90,20 @@ export function overviewFixture(over: Partial<KioskOverview> = {}): KioskOvervie
         lastIp: null,
         lastUa: null,
         failedAttempts: 0,
+        openedBy: null,
         createdAt: '2026-09-02T14:00:00Z',
         createdBy: null,
         version: 4,
       },
     ],
     staff: [
-      { id: 'emp-marco', name: 'Marco R.', status: 'active', listed: true },
-      { id: 'emp-lena', name: 'Lena K.', status: 'invited', listed: false },
-      { id: 'emp-old', name: 'Old P.', status: 'inactive', listed: true },
+      { id: 'emp-marco', name: 'Marco R.', status: 'active', listed: true, pin: { setAt: '2026-10-01T14:00:00Z', setBy: 'Rafael M.' } },
+      { id: 'emp-lena', name: 'Lena K.', status: 'invited', listed: false, pin: null },
+      { id: 'emp-old', name: 'Old P.', status: 'inactive', listed: true, pin: null },
     ],
-    recent: [{ at: '2026-10-13T12:00:00Z', action: 'kiosk.unlock', label: 'Unlocked', by: null, deviceName: 'Front desk tablet' }],
+    recent: [
+      { at: '2026-10-13T12:00:00Z', action: 'kiosk.unlock', label: 'Unlocked', by: 'Marco R.', deviceName: 'Front desk tablet' },
+    ],
     ...over,
   }
 }

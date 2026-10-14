@@ -140,6 +140,7 @@ export function makeKioskMe(over: Partial<KioskMe> = {}): KioskMe {
       locksAtLabel: '9:00 PM',
       rule: 'closing',
     },
+    openedBy: { id: 'emp-marco', name: 'Marco R.' },
     permissions,
     limits: {},
     csrfToken: 'kiosk-csrf-1',

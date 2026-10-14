@@ -22,6 +22,8 @@ export interface KioskInfo {
   /** "9:00 PM" (the server's words, in the shop's time zone). */
   locksAtLabel: string
   rule: KioskMe['lock']['rule']
+  /** Whose PIN opened this kiosk session, "Marco R." (ADR 0180 amendment); '' when the server did not say. */
+  openedBy: string
   /** The employee picker: bay staff first, then by first name. */
   staff: KioskPerson[]
 }
@@ -107,6 +109,7 @@ export function toKioskSession(me: KioskMe): Session {
       locksAt: me.lock.locksAt,
       locksAtLabel: me.lock.locksAtLabel,
       rule: me.lock.rule,
+      openedBy: me.openedBy?.name ?? '',
       staff: me.staff,
     },
     kioskDevice: null,

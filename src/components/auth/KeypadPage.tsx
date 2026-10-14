@@ -1,24 +1,28 @@
-// The kiosk keypad (ADR 0180, design 6.1; DEVIATIONS DV-1001): the sign-in page while kiosk mode is on. The shop's
-// 8-digit code unlocks the registered tablet; typing 0218 as the first four digits swaps in the email/password card at
-// once (nothing is sent). Built from the sign-in page's own primitives (AuthFrame, the Payments locked card, the design's
-// button colours); keys are 76 px tall for gloved, wet or hurried fingers, and the physical keyboard works too.
+// The kiosk keypad (ADR 0180 and its 2026-10-14 amendment, design 6.1; DEVIATIONS DV-1001): the sign-in page while kiosk
+// mode is on (the default). Any listed employee's own 8-digit PIN, typed on the shop's network, opens the board for the whole
+// shop; typing 0218 as the first four digits swaps in the email/password card at once (nothing is sent). Away from the shop
+// (GET /kiosk/status `atShop` false), or before a Super Admin set the shop network (`networkSet` false), the keypad still
+// shows, says so and never sends a PIN. Built from the sign-in page's own primitives (AuthFrame, the Payments locked card,
+// the design's button colours); keys are 76 px tall for gloved, wet or hurried fingers, and the physical keyboard works too.
 //
-// The code is never stored or logged: it lives in this component's state until it is sent, and is cleared right after.
+// The PIN is never stored or logged: it lives in this component's state until it is sent, and is cleared right after.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import {
-  CODE_LENGTH,
   EMPTY_KEYPAD,
   KEYPAD_TEXT,
+  PIN_LENGTH,
+  blockText,
   isComplete,
   keyOf,
+  keypadBlock,
   lockedToast,
   press,
   revealsForm,
   unlockProblem,
   waitText,
 } from '@/auth/keypad'
-import type { KeypadKey, KeypadState } from '@/auth/keypad'
+import type { KeypadBlock, KeypadKey, KeypadState } from '@/auth/keypad'
 import type { KioskStatus } from '@/data/http/auth-types'
 import type { AuthApi, KioskApi } from '@/data/http/endpoints'
 import { serverNow } from '@/lib/clock'
@@ -77,9 +81,12 @@ export function KeypadPage({ status, kiosk, auth, query, navigate, now = serverN
   const [kp, setKp] = useState<KeypadState>(EMPTY_KEYPAD)
   const [form, setForm] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<string>(
-    status.lockedOut ? KEYPAD_TEXT.lockedOut : '',
-  )
+  // no shop network yet, or this connection is not one: no PIN is ever sent from here (0218 still works)
+  const [block, setBlock] = useState<KeypadBlock | null>(() => keypadBlock(status))
+  const [message, setMessage] = useState<string>(() => {
+    const b = keypadBlock(status)
+    return b ? blockText(b) : status.lockedOut ? KEYPAD_TEXT.lockedOut : ''
+  })
   const [lockedOut, setLockedOut] = useState(status.lockedOut)
   const [waitUntil, setWaitUntil] = useState(status.retryAfterSec > 0 ? now() + status.retryAfterSec * 1000 : 0)
   const [, tick] = useState(0)
@@ -100,23 +107,27 @@ export function KeypadPage({ status, kiosk, auth, query, navigate, now = serverN
   }, [waiting])
 
   const submit = useCallback(
-    async (code: string) => {
+    async (pin: string) => {
       if (sending.current) return
       sending.current = true
       setBusy(true)
       setMessage('')
       try {
-        await kiosk.unlock(code)
+        await kiosk.unlock(pin)
         navigate('/operations')
         return
       } catch (err) {
         const p = unlockProblem(err)
         setMessage(p.text)
         if (p.lockedOut) setLockedOut(true)
+        if (p.block) setBlock(p.block)
         setWaitUntil(p.waitSec > 0 ? now() + p.waitSec * 1000 : 0)
-        if (p.showForm) setForm(true)
+        if (p.showForm) {
+          setToast(p.text)
+          setForm(true)
+        }
       } finally {
-        // the code is gone from the page either way
+        // the PIN is gone from the page either way
         setKp(EMPTY_KEYPAD)
         setBusy(false)
         sending.current = false
@@ -125,11 +136,11 @@ export function KeypadPage({ status, kiosk, auth, query, navigate, now = serverN
     [kiosk, navigate, now],
   )
 
-  // a full code goes out by itself, unless the tablet must wait, is locked out or is not a kiosk
+  // a full PIN goes out by itself, unless this connection is not the shop's, the keypad must wait or is locked out
   useEffect(() => {
     if (form || !isComplete(kp) || busy) return
-    if (!status.device) {
-      setMessage(KEYPAD_TEXT.unknownDevice)
+    if (block) {
+      setMessage(blockText(block))
       setKp(EMPTY_KEYPAD)
       return
     }
@@ -140,7 +151,7 @@ export function KeypadPage({ status, kiosk, auth, query, navigate, now = serverN
     }
     if (waiting) return // sent when the countdown ends
     void submit(kp.digits)
-  }, [kp, form, busy, lockedOut, waiting, status.device, submit])
+  }, [kp, form, busy, lockedOut, waiting, block, submit])
 
   // the latest keypad, so keys pressed faster than React renders still add up
   const kpRef = useRef(kp)
@@ -194,13 +205,13 @@ export function KeypadPage({ status, kiosk, auth, query, navigate, now = serverN
   const line = waiting ? waitText(waitSec) : ''
   return (
     <AuthFrame>
-      <Card title="Enter the shop code" text={status.device?.name ?? 'Oasis kiosk'}>
+      <Card title={KEYPAD_TEXT.title} text={KEYPAD_TEXT.subtitle}>
         <div
           role="group"
-          aria-label={`Code, ${kp.digits.length} of ${CODE_LENGTH} digits`}
+          aria-label={`PIN, ${kp.digits.length} of ${PIN_LENGTH} digits`}
           style={{ display: 'flex', justifyContent: 'center', gap: '12px', margin: '2px 0 18px' }}
         >
-          {Array.from({ length: CODE_LENGTH }, (_, i) => (
+          {Array.from({ length: PIN_LENGTH }, (_, i) => (
             <span key={i} data-dot={i < kp.digits.length ? 'on' : 'off'} style={dotStyle(i < kp.digits.length)} />
           ))}
         </div>

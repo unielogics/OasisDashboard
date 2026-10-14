@@ -67,8 +67,11 @@ function kioskApi(): KioskAdminApi {
   return {
     overview: vi.fn(async () => overviewFixture()),
     setMode: vi.fn(),
-    setCode: vi.fn(),
-    register: vi.fn(),
+    setPin: vi.fn(async (id: string) => ({ employeeId: id, setAt: '2026-10-13T14:00:00Z', pin: '24681357' })),
+    removePin: vi.fn(),
+    addNetwork: vi.fn(),
+    removeNetwork: vi.fn(),
+    clearNetworkLockout: vi.fn(),
     rename: vi.fn(),
     revoke: vi.fn(),
     lockDevice: vi.fn(),
@@ -142,7 +145,7 @@ describe('Settings live template: Shop floor', () => {
     expect(logic.renderVals().live.secKiosk).toBe(false)
   })
 
-  it('the Kiosk section from GET /kiosk', async () => {
+  it('the Kiosk section from GET /kiosk: mode, Shop network, Staff PINs, Browsers at the shop, recent events', async () => {
     const { logic } = make('mgmt')
     logic.renderVals().live.goKiosk()
     await vi.waitFor(() => expect(logic.renderVals().live.secKiosk).toBe(true))
@@ -151,33 +154,80 @@ describe('Settings live template: Shop floor', () => {
     const html = renderToStaticMarkup(render(vals, { name: 'settings' }))
     for (const s of [
       '>Kiosk mode<',
-      'Off. Everyone signs in with their email and password.',
-      '>Shop code<',
-      'Set Oct 1 by Rafael M. · 12 days ago',
-      'Change code',
-      'Generate a code',
-      '>This tablet<',
-      'Make this a kiosk',
-      '>Kiosk tablets<',
+      'On. The sign-in page is the PIN keypad',
+      '>Shop network<',
+      'Your connection: 73.12.4.9',
+      'This is the shop’s network',
+      'Do this from a phone or computer connected to the shop Wi-Fi — not mobile data.',
+      'Shop Wi-Fi',
+      '73.12.4.80 · added Oct 1 by Amara O.',
+      'Locked out · too many wrong PINs',
+      'PIN tried from a new network',
+      'Front desk tablet tried from a new network — your internet provider probably changed the shop’s address',
+      'Not from a shop browser — only add it if you know this address is the shop’s',
+      'Add this network',
+      '>Staff PINs<',
+      'Marco R.',
+      'PIN set Oct 1 by Rafael M.',
+      'Change PIN',
+      'Set PIN',
+      'Generate',
+      'Remove PIN',
+      'title="Shows on the kiosk"',
+      '>Browsers at the shop<',
       'Lock all kiosks',
       'Front desk tablet',
+      'Opened by Marco R.',
       'Unlocked · locks 9:00 PM',
       'Bay tablet',
       'Clear lockout',
-      'Who shows on the kiosk',
-      'Marco R.',
-      'Invited · no login yet',
       'Recent kiosk events',
+      'Oct 13, 8:00 AM · Unlocked · Front desk tablet · Opened by Marco R.',
     ])
       expect(html, s).toContain(s)
-    expect(html).not.toContain('Old tablet')
-    expect(html).not.toContain('Old P.')
-    // the code form
-    vals.live.kio.openCode()
+    for (const s of ['Old tablet', 'Old P.', 'Make this a kiosk', 'Shop code', 'Only a Super Admin can change the shop network'])
+      expect(html, s).not.toContain(s)
+    // the PIN form
+    vals.live.kio.staff[1].openSet()
     const open = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
-    expect(open).toContain('New code (8 digits)')
-    expect(open).toContain('Changing the code locks every kiosk now.')
+    expect(open).toContain('New PIN (8 digits)')
+    expect(open).toContain('Type it again')
     expect(open).toContain('type="password"')
+    // a generated PIN, once
+    logic.renderVals().live.kio.staff[0].generate()
+    await vi.waitFor(() => expect(logic.renderVals().live.kio.staff[0].hasGenerated).toBe(true))
+    const gen = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
+    expect(gen).toContain('2468 1357')
+    expect(gen).toContain('Write it down now and give it to them. It isn’t shown again.')
+    expect(gen).toContain('>Copy<')
+  })
+
+  it('a manager who is not a Super Admin sees Shop network read only', async () => {
+    const api = kioskApi()
+    ;(api.overview as any).mockImplementation(async () => overviewFixture({ canManageNetworks: false }))
+    const { logic } = make('mgmt', api)
+    logic.renderVals().live.goKiosk()
+    await vi.waitFor(() => expect(logic.renderVals().live.secKiosk).toBe(true))
+    const html = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
+    expect(html).toContain('Only a Super Admin can change the shop network')
+    expect(html).toContain('This connection isn’t a shop network.')
+    expect(html).not.toContain('This is the shop’s network')
+    expect(html).not.toContain('Add this network')
+    expect(html).toContain('Clear lockout')
+  })
+
+  it('on a shop network it says so instead of the button', async () => {
+    const api = kioskApi()
+    ;(api.overview as any).mockImplementation(async () =>
+      overviewFixture({ yourAddress: '73.12.4.80', yourAddressIsShop: true, refused: [] }),
+    )
+    const { logic } = make('mgmt', api)
+    logic.renderVals().live.goKiosk()
+    await vi.waitFor(() => expect(logic.renderVals().live.secKiosk).toBe(true))
+    const html = renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
+    expect(html).toContain('This is the shop’s network. PINs work here.')
+    expect(html).not.toContain('>This is the shop’s network<')
+    expect(html).not.toContain('PIN tried from a new network')
   })
 
   it('Team activity: chips, the table and the not-built notice', async () => {

@@ -5,6 +5,7 @@ import {
   KEYPAD_TEXT,
   isComplete,
   keyOf,
+  keypadBlock,
   lockedToast,
   press,
   revealsForm,
@@ -65,15 +66,26 @@ describe('keypad: digits, Clear, Backspace, eight digits', () => {
 const problem = (status: number, code: string, extra: Partial<ConstructorParameters<typeof ApiError>[0]> = {}) =>
   new ApiError({ status, code, title: 't', ...extra })
 
+describe('keypad: PINs work only at the shop (ADR 0180 amendment)', () => {
+  it('no shop network yet, or this connection is not one: the keypad never sends a PIN', () => {
+    expect(keypadBlock({ networkSet: false, atShop: false })).toBe('noNetwork')
+    expect(keypadBlock({ networkSet: true, atShop: false })).toBe('notAtShop')
+    expect(keypadBlock({ networkSet: true, atShop: true })).toBeNull()
+    expect(KEYPAD_TEXT.notAtShop).toBe('PINs work only at the shop.')
+    expect(KEYPAD_TEXT.noNetwork).toBe('A Super Admin must set the shop network first — Settings → Kiosk')
+  })
+})
+
 describe('keypad: what each refused unlock says (design 6.1)', () => {
-  it('a wrong code, with the countdown the server asks for', () => {
-    expect(unlockProblem(problem(401, 'KIOSK_CODE_WRONG', { meta: { retryAfterSec: 8 } }))).toEqual({
-      text: 'That code didn’t work.',
+  it('a wrong PIN, with the countdown the server asks for', () => {
+    expect(unlockProblem(problem(401, 'KIOSK_PIN_WRONG', { meta: { retryAfterSec: 8 } }))).toEqual({
+      text: 'That PIN didn’t work.',
       waitSec: 8,
       lockedOut: false,
       showForm: false,
+      block: null,
     })
-    expect(unlockProblem(problem(401, 'KIOSK_CODE_WRONG')).waitSec).toBe(0)
+    expect(unlockProblem(problem(401, 'KIOSK_PIN_WRONG')).waitSec).toBe(0)
     expect(waitText(8)).toBe('Try again in 8 s')
     expect(waitText(0)).toBe('')
   })
@@ -81,16 +93,24 @@ describe('keypad: what each refused unlock says (design 6.1)', () => {
     expect(unlockProblem(problem(429, 'KIOSK_THROTTLED', { retryAfterMs: 4000 })).waitSec).toBe(4)
     expect(unlockProblem(problem(429, 'KIOSK_THROTTLED')).waitSec).toBe(1)
   })
-  it('locked out, unregistered device, no code yet, kiosk mode off, network', () => {
+  it('not at the shop (403 KIOSK_NOT_AT_SHOP): which message follows meta.networkSet; the keypad stops sending', () => {
+    expect(unlockProblem(problem(403, 'KIOSK_NOT_AT_SHOP', { meta: { networkSet: true } }))).toMatchObject({
+      text: 'PINs work only at the shop.',
+      block: 'notAtShop',
+    })
+    expect(unlockProblem(problem(403, 'KIOSK_NOT_AT_SHOP', { meta: { networkSet: false } }))).toMatchObject({
+      text: KEYPAD_TEXT.noNetwork,
+      block: 'noNetwork',
+    })
+    // no meta: the shop has a network, this connection is not one
+    expect(unlockProblem(problem(403, 'KIOSK_NOT_AT_SHOP')).block).toBe('notAtShop')
+  })
+  it('locked out (this address or this browser), kiosk mode off, network', () => {
     expect(unlockProblem(problem(423, 'KIOSK_LOCKED_OUT'))).toMatchObject({
-      text: 'Too many wrong codes. A manager needs to sign in on this tablet.',
+      text: 'Too many wrong PINs. A manager needs to clear it in Settings → Kiosk.',
       lockedOut: true,
     })
-    expect(unlockProblem(problem(403, 'KIOSK_DEVICE_UNKNOWN')).text).toBe(
-      'Codes work only on the shop’s kiosk tablet.',
-    )
-    expect(unlockProblem(problem(409, 'KIOSK_CODE_NOT_SET')).text).toBe(KEYPAD_TEXT.notSet)
-    expect(unlockProblem(problem(409, 'KIOSK_OFF'))).toMatchObject({ showForm: true })
+    expect(unlockProblem(problem(409, 'KIOSK_OFF'))).toMatchObject({ showForm: true, text: KEYPAD_TEXT.off })
     expect(unlockProblem(new ApiError({ status: 0, kind: 'network' })).text).toBe(KEYPAD_TEXT.network)
     expect(unlockProblem(new Error('x')).text).toBe(KEYPAD_TEXT.failed)
   })
@@ -98,10 +118,10 @@ describe('keypad: what each refused unlock says (design 6.1)', () => {
 
 describe('keypad: the toast after the kiosk locked', () => {
   it('names the lock time when the page knew it; a forged time is not shown', () => {
-    expect(lockedToast({ locked: '1', at: '9:00 PM' })).toBe('The kiosk locked at 9:00 PM. Enter the code to open it.')
-    expect(lockedToast({ locked: '1' })).toBe('The kiosk is locked. Enter the code to open it.')
-    expect(lockedToast({ locked: '1', at: '<b>evil</b>' })).toBe('The kiosk is locked. Enter the code to open it.')
-    expect(lockedToast({ expired: '1' })).toBe('The kiosk locked. Enter the code to open it.')
+    expect(lockedToast({ locked: '1', at: '9:00 PM' })).toBe('The kiosk locked at 9:00 PM. Enter your PIN to open it.')
+    expect(lockedToast({ locked: '1' })).toBe('The kiosk is locked. Enter your PIN to open it.')
+    expect(lockedToast({ locked: '1', at: '<b>evil</b>' })).toBe('The kiosk is locked. Enter your PIN to open it.')
+    expect(lockedToast({ expired: '1' })).toBe('The kiosk locked. Enter your PIN to open it.')
     expect(lockedToast({})).toBeNull()
   })
 })

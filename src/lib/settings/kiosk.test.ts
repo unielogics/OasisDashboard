@@ -1,19 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import {
+  REFUSED_WARNING,
+  STEP_WORDS,
   browserOf,
-  codeFormProblem,
-  codeLine,
   customRangeProblem,
   dayLabel,
   deviceNameProblem,
   deviceState,
-  groupCode,
+  groupPin,
   lastSeenLine,
   minutesText,
+  networkLine,
+  networkState,
+  networkTitle,
   paymentsText,
+  pinFormProblem,
+  pinLine,
   rangeLabel,
   rangeOf,
   recentLine,
+  refusedLine,
+  refusedTitle,
   totalsRow,
 } from './kiosk'
 
@@ -21,25 +28,62 @@ const TZ = 'America/New_York'
 const TODAY = '2026-10-13' // a Tuesday
 
 describe('Settings → Kiosk helpers (DV-1010)', () => {
-  it('the shop code line', () => {
-    expect(codeLine({ set: true, setAt: '2026-10-01T14:00:00Z', setBy: 'Rafael M.', ageDays: 12 }, TZ, TODAY)).toBe(
-      'Set Oct 1 by Rafael M. · 12 days ago',
-    )
-    expect(codeLine({ set: true, setAt: '2026-10-13T14:00:00Z', setBy: null, ageDays: 0 }, TZ, TODAY)).toBe(
-      'Set Oct 13 · today',
-    )
-    expect(codeLine({ set: true, setAt: '2025-10-13T14:00:00Z', setBy: 'Amara O.', ageDays: 365 }, TZ, TODAY)).toBe(
-      'Set Oct 13, 2025 by Amara O. · 365 days ago',
-    )
-    expect(codeLine({ set: false, setAt: null, setBy: null, ageDays: null }, TZ, TODAY)).toMatch(/^No shop code yet/)
+  it('a staff PIN’s line never shows the PIN: when and by whom it was set, or that there is none', () => {
+    expect(pinLine({ setAt: '2026-10-01T14:00:00Z', setBy: 'Rafael M.' }, TZ, TODAY)).toBe('PIN set Oct 1 by Rafael M.')
+    expect(pinLine({ setAt: '2025-10-13T14:00:00Z', setBy: null }, TZ, TODAY)).toBe('PIN set Oct 13, 2025')
+    expect(pinLine(null, TZ, TODAY)).toBe('No PIN yet')
   })
-  it('the code form checks 8 digits, the 0218 start and the second entry; the server checks the rest', () => {
-    expect(codeFormProblem('1234', '1234')).toBe('Enter exactly 8 digits.')
-    expect(codeFormProblem('12a45678', '12a45678')).toBe('Enter exactly 8 digits.')
-    expect(codeFormProblem('02184567', '02184567')).toBe('A code can’t start with 0218.')
-    expect(codeFormProblem('24681357', '24681358')).toBe('The two codes don’t match.')
-    expect(codeFormProblem('24681357', '24681357')).toBeNull()
-    expect(groupCode('24681357')).toBe('2468 1357')
+  it('the PIN form checks 8 digits, the 0218 start and the second entry; the server checks the rest', () => {
+    expect(pinFormProblem('1234', '1234')).toBe('Enter exactly 8 digits.')
+    expect(pinFormProblem('12a45678', '12a45678')).toBe('Enter exactly 8 digits.')
+    expect(pinFormProblem('02184567', '02184567')).toBe('A PIN can’t start with 0218.')
+    expect(pinFormProblem('24681357', '24681358')).toBe('The two PINs don’t match.')
+    expect(pinFormProblem('24681357', '24681357')).toBeNull()
+    expect(groupPin('24681357')).toBe('2468 1357')
+  })
+  it('shop networks: name, address, who added it and when it was last used; lockout states', () => {
+    const n = {
+      id: 'net-1',
+      address: '73.12.4.9',
+      label: 'Shop Wi-Fi',
+      addedAt: '2026-10-13T13:00:00Z',
+      addedBy: 'Amara O.',
+      lastSeenAt: '2026-10-13T18:14:00Z',
+      failedAttempts: 0,
+      lockedOut: false,
+    }
+    expect(networkTitle(n)).toBe('Shop Wi-Fi')
+    expect(networkTitle({ ...n, label: null })).toBe('Shop network')
+    expect(networkLine(n, TZ, TODAY)).toBe('73.12.4.9 · added Oct 13 by Amara O. · last used Oct 13, 2:14 PM')
+    expect(networkLine({ ...n, addedBy: null, lastSeenAt: null }, TZ, TODAY)).toBe('73.12.4.9 · added Oct 13 · not used yet')
+    expect(networkState(n)).toBeNull()
+    expect(networkState({ ...n, failedAttempts: 1 })).toEqual({ label: '1 wrong PIN', tone: 'amber' })
+    expect(networkState({ ...n, failedAttempts: 6 })).toEqual({ label: '6 wrong PINs', tone: 'amber' })
+    expect(networkState({ ...n, failedAttempts: 30, lockedOut: true })).toEqual({
+      label: 'Locked out · too many wrong PINs',
+      tone: 'red',
+    })
+  })
+  it('PIN tried from a new network: a known shop browser points at the provider; an unknown one carries a warning', () => {
+    const r = {
+      id: 'ref-1',
+      address: '98.4.2.1',
+      attempts: 3,
+      browserName: 'Front desk tablet',
+      firstSeenAt: '2026-10-13T12:00:00Z',
+      lastSeenAt: '2026-10-13T12:05:00Z',
+      fromKnownBrowser: true,
+    }
+    expect(refusedTitle(r)).toBe(
+      'Front desk tablet tried from a new network — your internet provider probably changed the shop’s address',
+    )
+    expect(refusedTitle({ ...r, browserName: null })).toBe(
+      'A shop browser tried from a new network — your internet provider probably changed the shop’s address',
+    )
+    expect(refusedTitle({ ...r, fromKnownBrowser: false, browserName: null })).toBe('A PIN was tried from a new network')
+    expect(refusedLine(r, TZ, TODAY)).toBe('98.4.2.1 · 3 tries · last Oct 13, 8:05 AM')
+    expect(refusedLine({ ...r, attempts: 1 }, TZ, TODAY)).toBe('98.4.2.1 · 1 try · last Oct 13, 8:05 AM')
+    expect(REFUSED_WARNING).toBe('Not from a shop browser — only add it if you know this address is the shop’s')
   })
   it('device states and names', () => {
     expect(deviceState({ state: 'unlocked', locksAt: '2026-10-14T01:00:00Z', failedAttempts: 0 }, TZ)).toEqual({
@@ -48,7 +92,7 @@ describe('Settings → Kiosk helpers (DV-1010)', () => {
     })
     expect(deviceState({ state: 'locked', locksAt: null, failedAttempts: 0 }, TZ)).toEqual({ label: 'Locked', tone: 'grey' })
     expect(deviceState({ state: 'locked', locksAt: null, failedAttempts: 4 }, TZ)).toEqual({
-      label: 'Locked · 4 wrong codes',
+      label: 'Locked · 4 wrong PINs',
       tone: 'amber',
     })
     expect(deviceState({ state: 'locked_out', locksAt: null, failedAttempts: 20 }, TZ).tone).toBe('red')
@@ -71,6 +115,14 @@ describe('Settings → Kiosk helpers (DV-1010)', () => {
     expect(
       recentLine({ at: '2026-10-13T12:00:00Z', action: 'kiosk.unlock', label: 'Unlocked', by: null, deviceName: 'Front desk' }, TZ, TODAY),
     ).toBe('Oct 13, 8:00 AM · Unlocked · Front desk')
+    // whose PIN opened it (ADR 0180 amendment)
+    expect(
+      recentLine({ at: '2026-10-13T12:00:00Z', action: 'kiosk.unlock', label: 'Unlocked', by: 'Marco R.', deviceName: 'Front desk' }, TZ, TODAY),
+    ).toBe('Oct 13, 8:00 AM · Unlocked · Front desk · Opened by Marco R.')
+    expect(
+      recentLine({ at: '2026-10-13T12:00:00Z', action: 'kiosk.pin.set', label: 'PIN set', by: 'Rafael M.', deviceName: null }, TZ, TODAY),
+    ).toBe('Oct 13, 8:00 AM · PIN set · by Rafael M.')
+    expect(STEP_WORDS.kiosk_unlock).toBe('Opened the kiosk')
   })
 })
 

@@ -376,7 +376,7 @@ export class SettingsLogic extends DCLogic<SettingsState> {
       this.setState({ section: 'assistant' })
     }
     else if (this.data.live && location.hash === '#billing') this.setState({ section: 'billing' })
-    // the user menu's "Make this a kiosk…" and "Team activity…" (ADR 0180, DV-1009, DV-1012), also while Settings is open
+    // the user menu's "Kiosk…" and "Team activity…" (ADR 0180, DV-1009, DV-1012), also while Settings is open
     else if (this.data.live) this.shopFloorHash()
     if (this.data.live && typeof window !== 'undefined') {
       const onHash = () => this.shopFloorHash()

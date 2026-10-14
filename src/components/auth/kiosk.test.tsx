@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// The sign-in page in kiosk mode (ADR 0180, design 6.1; DV-1001): the gate on GET /kiosk/status, the keypad, the 0218
-// way to the email form, the automatic submit at the eighth digit and every message of the keypad.
+// The sign-in page in kiosk mode (ADR 0180 and its 2026-10-14 amendment, design 6.1; DV-1001): the gate on GET /kiosk/status,
+// the PIN keypad, the 0218 way to the email form, the automatic submit at the eighth digit, PINs only at the shop's network
+// (no network set yet / not at the shop: the keypad says so and never sends a PIN) and every message of the keypad.
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
@@ -52,7 +53,8 @@ const mount = async (el: any) => {
 
 const STATUS: KioskStatus = {
   enabled: true,
-  device: { name: 'Front desk tablet' },
+  networkSet: true,
+  atShop: true,
   unlocked: null,
   lockedOut: false,
   retryAfterSec: 0,
@@ -108,10 +110,10 @@ describe('LoginGate', () => {
     expect(k.status).not.toHaveBeenCalled()
     expect(container.querySelector('input[name=email]')).not.toBeNull()
   })
-  it('kiosk mode on: the keypad, titled with the tablet’s name; no email field anywhere', async () => {
+  it('kiosk mode on (the default): the PIN keypad; no email field anywhere', async () => {
     await mount(createElement(LoginGate, { live: true, auth: authApi(), kiosk: kioskApi() }))
-    expect(container.querySelector('h1')!.textContent).toBe('Enter the shop code')
-    expect(text()).toContain('Front desk tablet')
+    expect(container.querySelector('h1')!.textContent).toBe('Enter your PIN')
+    expect(text()).toContain('Your 8-digit PIN opens the board for the whole shop.')
     expect(container.querySelector('input')).toBeNull()
     expect([...container.querySelectorAll('[data-key]')].map((b) => b.getAttribute('data-key'))).toEqual([
       '1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back',
@@ -130,7 +132,7 @@ describe('LoginGate', () => {
     replace.mockClear()
     await mount(createElement(LoginGate, { live: true, auth: authApi(), kiosk: kioskApi(unlocked), replace }))
     expect(replace).not.toHaveBeenCalled()
-    expect(container.querySelector('h1')!.textContent).toBe('Enter the shop code')
+    expect(container.querySelector('h1')!.textContent).toBe('Enter your PIN')
     expect([...container.querySelectorAll('a')].map((a) => a.textContent)).toContain('Back to the board')
   })
 })
@@ -156,7 +158,7 @@ describe('KeypadPage', () => {
     expect(unlock).not.toHaveBeenCalled()
     const back = [...container.querySelectorAll('a')].find((a) => a.textContent === 'Back to keypad')!
     await act(async () => back.click())
-    expect(container.querySelector('h1')!.textContent).toBe('Enter the shop code')
+    expect(container.querySelector('h1')!.textContent).toBe('Enter your PIN')
     expect(dots()).toBe(0)
   })
 
@@ -189,7 +191,7 @@ describe('KeypadPage', () => {
     expect(navigate).toHaveBeenCalledWith('/settings')
   })
 
-  it('sends the code by itself at the eighth digit, then opens the board; the dots empty right away', async () => {
+  it('sends the PIN by itself at the eighth digit, then opens the board; the dots empty right away', async () => {
     let release: () => void = () => {}
     const unlock = vi.fn(() => new Promise<any>((r) => (release = () => r(makeKioskMe()))))
     const navigate = vi.fn()
@@ -204,15 +206,15 @@ describe('KeypadPage', () => {
     expect(dots()).toBe(0)
   })
 
-  it('a wrong code: “That code didn’t work.” and the countdown; the next code waits for it', async () => {
+  it('a wrong PIN: “That PIN didn’t work.” and the countdown; the next PIN waits for it', async () => {
     const unlock = vi
       .fn()
-      .mockRejectedValueOnce(new ApiError({ status: 401, code: 'KIOSK_CODE_WRONG', title: 'Wrong code', meta: { retryAfterSec: 2 } }))
+      .mockRejectedValueOnce(new ApiError({ status: 401, code: 'KIOSK_PIN_WRONG', title: 'Wrong PIN', meta: { retryAfterSec: 2 } }))
       .mockResolvedValueOnce(makeKioskMe())
     const navigate = vi.fn()
     await mount(page({ unlock, navigate }))
     await typeKeys('24681357')
-    expect(text()).toContain('That code didn’t work.')
+    expect(text()).toContain('That PIN didn’t work.')
     expect(text()).toMatch(/Try again in [12] s/)
     expect(dots()).toBe(0)
     // typed while waiting: held until the wait is over, then sent
@@ -227,30 +229,73 @@ describe('KeypadPage', () => {
     expect(navigate).toHaveBeenCalledWith('/operations')
   }, 10_000)
 
-  it('locked out: the manager message; a code is not sent, 0218 still works', async () => {
+  it('a status that says the wait is still running counts down from it', async () => {
+    const unlock = vi.fn()
+    await mount(page({ unlock, status: { ...STATUS, retryAfterSec: 30 } }))
+    await typeKeys('24681357')
+    expect(text()).toMatch(/Try again in (29|30) s/)
+    expect(unlock).not.toHaveBeenCalled()
+  })
+
+  it('locked out (this address or this browser): the manager message; a PIN is not sent, 0218 still works', async () => {
     const unlock = vi.fn()
     await mount(page({ unlock, status: { ...STATUS, lockedOut: true } }))
-    expect(text()).toContain('Too many wrong codes. A manager needs to sign in on this tablet.')
+    expect(text()).toContain('Too many wrong PINs. A manager needs to clear it in Settings → Kiosk.')
     await typeKeys('24681357')
     expect(unlock).not.toHaveBeenCalled()
     await typeKeys('0218')
     expect(container.querySelector('input[name=email]')).not.toBeNull()
   })
 
-  it('a browser that is not a kiosk: “Codes work only on the shop’s kiosk tablet.” and the code is not sent', async () => {
-    const unlock = vi.fn()
-    await mount(page({ unlock, status: { ...STATUS, device: null } }))
-    expect(text()).toContain('Oasis kiosk')
-    await typeKeys('24681357')
-    expect(text()).toContain('Codes work only on the shop’s kiosk tablet.')
-    expect(unlock).not.toHaveBeenCalled()
-  })
-
-  it('a tablet removed while the keypad was open: the server says so', async () => {
-    const unlock = vi.fn().mockRejectedValue(new ApiError({ status: 403, code: 'KIOSK_DEVICE_UNKNOWN', title: 'x' }))
+  it('a lockout the server reports while typing (423): the same message, nothing more is sent', async () => {
+    const unlock = vi.fn().mockRejectedValue(new ApiError({ status: 423, code: 'KIOSK_LOCKED_OUT', title: 'x' }))
     await mount(page({ unlock }))
     await typeKeys('24681357')
-    expect(text()).toContain('Codes work only on the shop’s kiosk tablet.')
+    expect(text()).toContain('Too many wrong PINs. A manager needs to clear it in Settings → Kiosk.')
+    await typeKeys('13572468')
+    expect(unlock).toHaveBeenCalledTimes(1)
+  })
+
+  it('not at the shop: the keypad still shows, says “PINs work only at the shop.” and never sends a PIN; 0218 works', async () => {
+    const unlock = vi.fn()
+    await mount(page({ unlock, status: { ...STATUS, atShop: false } }))
+    expect(container.querySelector('h1')!.textContent).toBe('Enter your PIN')
+    expect(text()).toContain('PINs work only at the shop.')
+    await typeKeys('24681357')
+    expect(unlock).not.toHaveBeenCalled()
+    expect(dots()).toBe(0)
+    expect(text()).toContain('PINs work only at the shop.')
+    await typeKeys('0218')
+    expect(container.querySelector('input[name=email]')).not.toBeNull()
+  })
+
+  it('no shop network yet: “A Super Admin must set the shop network first — Settings → Kiosk” and no PIN is sent', async () => {
+    const unlock = vi.fn()
+    await mount(page({ unlock, status: { ...STATUS, networkSet: false, atShop: false } }))
+    expect(text()).toContain('A Super Admin must set the shop network first — Settings → Kiosk')
+    await typeKeys('24681357')
+    expect(unlock).not.toHaveBeenCalled()
+    await typeKeys('0218')
+    expect(container.querySelector('input[name=email]')).not.toBeNull()
+  })
+
+  it('the network was removed while the keypad was open: the server’s 403 says so and the keypad stops sending', async () => {
+    const unlock = vi
+      .fn()
+      .mockRejectedValue(new ApiError({ status: 403, code: 'KIOSK_NOT_AT_SHOP', title: 'x', meta: { networkSet: true } }))
+    await mount(page({ unlock }))
+    await typeKeys('24681357')
+    expect(text()).toContain('PINs work only at the shop.')
+    await typeKeys('13572468')
+    expect(unlock).toHaveBeenCalledTimes(1)
+  })
+
+  it('kiosk mode turned off meanwhile (409 KIOSK_OFF): the email/password card', async () => {
+    const unlock = vi.fn().mockRejectedValue(new ApiError({ status: 409, code: 'KIOSK_OFF', title: 'x' }))
+    await mount(page({ unlock }))
+    await typeKeys('24681357')
+    expect(container.querySelector('input[name=email]')).not.toBeNull()
+    expect(text()).toContain('Kiosk mode is off.')
   })
 
   it('the physical keyboard: digits, Backspace, Escape', async () => {
@@ -271,7 +316,7 @@ describe('KeypadPage', () => {
   it('after the kiosk locked: the toast names the time it locked', async () => {
     await mount(page({ query: { locked: '1', at: '9:00 PM' } }))
     expect(container.querySelector('[role=status]')!.textContent).toBe(
-      'The kiosk locked at 9:00 PM. Enter the code to open it.',
+      'The kiosk locked at 9:00 PM. Enter your PIN to open it.',
     )
   })
 })

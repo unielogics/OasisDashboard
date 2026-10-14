@@ -1,11 +1,14 @@
-// Pure helpers of Settings → Shop floor (ADR 0180, design 6.6; DEVIATIONS DV-1009..DV-1011): the shop code's line, the
-// code form's checks, device states and "last seen" lines, the recent kiosk events, and the Team activity report's date
-// ranges, figures and step words. Times are in the shop's time zone; money is integer cents.
+// Pure helpers of Settings → Shop floor (ADR 0180 and its 2026-10-14 amendment, design 6.6; DEVIATIONS DV-1009..DV-1011):
+// staff PIN lines and the PIN form's checks, the shop networks and the "PIN tried from a new network" entries, shop browser
+// states and "last seen" lines, the recent kiosk events, and the Team activity report's date ranges, figures and step words.
+// Times are in the shop's time zone; money is integer cents. A PIN is never shown, except a generated one, once.
 import type {
   ActivityTotals,
   KioskDevice,
-  KioskOverview,
+  KioskNetwork,
   KioskRecent,
+  KioskRefusedTry,
+  KioskStaffRow,
   StaffEventKind,
 } from '@/data/ports/kiosk-api'
 import { formatCents } from '@/lib/money'
@@ -29,31 +32,67 @@ export function stamp(iso: string | null | undefined, tz: string, today?: string
   return shortDate(businessToday(ms, tz), today) + ', ' + businessClock(ms, tz)
 }
 
-// ---- the shop code -----------------------------------------------------------------------------------------------------
+// ---- staff PINs ----------------------------------------------------------------------------------------------------------
 
-/** "Set Oct 13 by Rafael M. · 12 days ago", or that there is none yet. */
-export function codeLine(code: KioskOverview['code'], tz: string, today: string): string {
-  if (!code.set || !code.setAt) return 'No shop code yet. Set one before turning kiosk mode on.'
-  const ms = Date.parse(code.setAt)
-  const day = Number.isFinite(ms) ? shortDate(businessToday(ms, tz), today) : ''
-  const age = code.ageDays === null ? '' : code.ageDays === 0 ? 'today' : code.ageDays === 1 ? '1 day ago' : code.ageDays + ' days ago'
-  return ['Set ' + day + (code.setBy ? ' by ' + code.setBy : ''), age].filter(Boolean).join(' · ')
+/** "PIN set Oct 13 by Rafael M.", or "No PIN yet" (the PIN itself is never shown). */
+export function pinLine(pin: KioskStaffRow['pin'], tz: string, today: string): string {
+  if (!pin) return 'No PIN yet'
+  const ms = Date.parse(pin.setAt)
+  const day = Number.isFinite(ms) ? ' ' + shortDate(businessToday(ms, tz), today) : ''
+  return 'PIN set' + day + (pin.setBy ? ' by ' + pin.setBy : '')
 }
 
-/** A code older than this gets a nudge to change it (people who left may know it). */
-export const CODE_NUDGE_DAYS = 90
-
-/** The form's own checks before it asks the server (which has the full rules). */
-export function codeFormProblem(code: string, again: string): string | null {
-  const c = code.trim()
+/** The form's own checks before it asks the server (which has the full rules: runs, dates, last 3, unique in the shop). */
+export function pinFormProblem(pin: string, again: string): string | null {
+  const c = pin.trim()
   if (!/^\d{8}$/.test(c)) return 'Enter exactly 8 digits.'
-  if (c.startsWith('0218')) return 'A code can’t start with 0218.'
-  if (again.trim() !== c) return 'The two codes don’t match.'
+  if (c.startsWith('0218')) return 'A PIN can’t start with 0218.'
+  if (again.trim() !== c) return 'The two PINs don’t match.'
   return null
 }
 
-/** "1234 5678": a generated code, shown once, easier to read aloud in two halves. */
-export const groupCode = (code: string): string => (code.length === 8 ? code.slice(0, 4) + ' ' + code.slice(4) : code)
+/** "1234 5678": a generated PIN, shown once, easier to read aloud in two halves. */
+export const groupPin = (pin: string): string => (pin.length === 8 ? pin.slice(0, 4) + ' ' + pin.slice(4) : pin)
+
+// ---- shop networks ----------------------------------------------------------------------------------------------------
+
+export const networkTitle = (n: Pick<KioskNetwork, 'label'>): string => n.label?.trim() || 'Shop network'
+
+/** "73.12.4.9 · added Oct 13 by Amara O. · last used Oct 14, 8:02 AM". */
+export function networkLine(
+  n: Pick<KioskNetwork, 'address' | 'addedAt' | 'addedBy' | 'lastSeenAt'>,
+  tz: string,
+  today: string,
+): string {
+  const ms = Date.parse(n.addedAt)
+  const added = Number.isFinite(ms) ? 'added ' + shortDate(businessToday(ms, tz), today) + (n.addedBy ? ' by ' + n.addedBy : '') : ''
+  const used = n.lastSeenAt ? 'last used ' + stamp(n.lastSeenAt, tz, today) : 'not used yet'
+  return [n.address, added, used].filter(Boolean).join(' · ')
+}
+
+/** The address's wrong-PIN state (shared by every browser at the shop); null when there is nothing to say. */
+export function networkState(n: Pick<KioskNetwork, 'failedAttempts' | 'lockedOut'>): { label: string; tone: Tone } | null {
+  if (n.lockedOut) return { label: 'Locked out · too many wrong PINs', tone: 'red' }
+  if (n.failedAttempts > 0)
+    return { label: n.failedAttempts + ' wrong ' + (n.failedAttempts === 1 ? 'PIN' : 'PINs'), tone: 'amber' }
+  return null
+}
+
+export const REFUSED_WARNING = 'Not from a shop browser — only add it if you know this address is the shop’s'
+
+/** A "PIN tried from a new network" entry: a known shop browser most likely means the provider changed the address. */
+export function refusedTitle(r: Pick<KioskRefusedTry, 'fromKnownBrowser' | 'browserName'>): string {
+  if (!r.fromKnownBrowser) return 'A PIN was tried from a new network'
+  return (
+    (r.browserName?.trim() || 'A shop browser') +
+    ' tried from a new network — your internet provider probably changed the shop’s address'
+  )
+}
+
+/** "98.4.2.1 · 3 tries · last Oct 14, 8:02 AM". */
+export function refusedLine(r: Pick<KioskRefusedTry, 'address' | 'attempts' | 'lastSeenAt'>, tz: string, today: string): string {
+  return [r.address, r.attempts + (r.attempts === 1 ? ' try' : ' tries'), 'last ' + stamp(r.lastSeenAt, tz, today)].join(' · ')
+}
 
 // ---- devices -------------------------------------------------------------------------------------------------------
 
@@ -72,12 +111,12 @@ export function deviceState(d: Pick<KioskDevice, 'state' | 'locksAt' | 'failedAt
       }
     }
     case 'locked_out':
-      return { label: 'Locked out · too many wrong codes', tone: 'red' }
+      return { label: 'Locked out · too many wrong PINs', tone: 'red' }
     case 'revoked':
       return { label: 'Removed', tone: 'grey' }
     default:
       return {
-        label: d.failedAttempts > 0 ? 'Locked · ' + d.failedAttempts + ' wrong ' + (d.failedAttempts === 1 ? 'code' : 'codes') : 'Locked',
+        label: d.failedAttempts > 0 ? 'Locked · ' + d.failedAttempts + ' wrong ' + (d.failedAttempts === 1 ? 'PIN' : 'PINs') : 'Locked',
         tone: d.failedAttempts > 0 ? 'amber' : 'grey',
       }
   }
@@ -123,11 +162,13 @@ export function lastSeenLine(d: Pick<KioskDevice, 'lastSeenAt' | 'lastIp' | 'las
   return parts.filter(Boolean).join(' · ')
 }
 
+/** "Oct 14, 8:02 AM · Unlocked · Front desk tablet · Opened by Marco R." (an unlock names whose PIN opened it). */
 export function recentLine(r: KioskRecent, tz: string, today: string): string {
-  return [stamp(r.at, tz, today), r.label, r.deviceName ?? '', r.by ? 'by ' + r.by : ''].filter(Boolean).join(' · ')
+  const who = r.by ? (r.action === 'kiosk.unlock' ? 'Opened by ' : 'by ') + r.by : ''
+  return [stamp(r.at, tz, today), r.label, r.deviceName ?? '', who].filter(Boolean).join(' · ')
 }
 
-/** A device name: what the form keeps (trimmed, at most 40 characters, the server's rule). */
+/** A shop browser's name: what the form keeps (trimmed, at most 40 characters, the server's rule). */
 export function deviceNameProblem(name: string): string | null {
   const n = name.trim()
   if (!n) return 'Give this tablet a name, like “Front desk tablet”.'
@@ -259,6 +300,7 @@ export const STEP_WORDS: Record<StaffEventKind, string> = {
   text: 'Texted the client',
   arrival_link: 'Sent the arrival link',
   worker_set: 'Became the worker',
+  kiosk_unlock: 'Opened the kiosk',
 }
 
 export const viaLabel = (via: 'kiosk' | 'signed_in'): string => (via === 'kiosk' ? 'Kiosk' : 'Signed in')

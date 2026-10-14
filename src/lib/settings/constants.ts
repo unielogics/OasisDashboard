@@ -128,7 +128,7 @@ export const SECTION_META: Record<SectionKey, readonly [title: string, descripti
   // live variant only (DV-908)
   billing: ['Billing & integrations', 'Square, payment links, saved-card fees and how memberships billed by Square renew.'],
   // live variant only (DV-1010, DV-1011)
-  kiosk: ['Kiosk', 'The shop tablet that opens with a code: kiosk mode, the shop code, the tablets and who shows on them.'],
+  kiosk: ['Kiosk', 'The shop tablet that opens with a PIN: kiosk mode, the shop network, staff PINs and the browsers at the shop.'],
   activity: ['Team activity', 'Who checked in, washed, finished and handed over each car, and their payments, texts and bookings.'],
 }
 

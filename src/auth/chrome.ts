@@ -6,10 +6,11 @@
 // that merges `liveChrome.vals()` into renderVals() and re-renders the screen when the store changes. A converted view
 // model does the same by calling `liveChrome.vals()` and `liveChrome.subscribe()` directly.
 //
-// Kiosk mode (ADR 0180, DV-1003, DV-1004, DV-1008, DV-1012): on the shop's unlocked tablet the chip names the device and
-// its lock time, the menu says "Lock kiosk" (with a confirm) and "Manager sign-in", and Payments, Settings and the
-// "Manage" links are hidden (`showAdminNav`); the employee picker's values are here too (`kiosk.picker`). A person
-// signed in on a kiosk device sees a bar; a person who may manage kiosks gets "Make this a kiosk…" in the menu.
+// Kiosk mode (ADR 0180 and its 2026-10-14 amendment, DV-1003, DV-1004, DV-1008, DV-1012): on the shop's unlocked tablet
+// the chip names the device, whose PIN opened it and its lock time ("Opened by Marco R. · Locks at 9:00 PM"), the menu
+// says "Lock kiosk" (with a confirm) and "Manager sign-in", and Payments, Settings and the "Manage" links are hidden
+// (`showAdminNav`); the employee picker's values are here too (`kiosk.picker`). A person signed in on a shop browser sees
+// a bar; a person who may manage kiosks gets "Kiosk…" in the menu (Settings → Kiosk: PINs, shop networks, browsers).
 import { toasts } from '@/data/toast'
 import type { ToastSpec } from '@/data/toast'
 import { businessClock } from '@/lib/tz'
@@ -44,9 +45,9 @@ export interface LiveVals {
     /** Kiosk: "Manager sign-in" (the sign-in page; the email form is behind 0218). */
     isKiosk: boolean
     managerSignIn: () => void
-    /** A person who may manage kiosks (team.roles), not already on one: "Make this a kiosk…" opens Settings → Kiosk. */
-    canMakeKiosk: boolean
-    makeKiosk: () => void
+    /** A person who may manage kiosks (team.roles): "Kiosk…" opens Settings → Kiosk (the Settings nav has no room, DV-1009). */
+    canKiosk: boolean
+    openKiosk: () => void
     /** "Team activity…" (team.edit) opens Settings → Team activity (the Settings nav has no room for it, DV-1009). */
     canTeamActivity: boolean
     teamActivity: () => void
@@ -209,14 +210,15 @@ export class LiveChrome {
       this.invalidate()
       this.actions.signOut()
     }
+    const opened = k?.openedBy ? 'Opened by ' + k.openedBy : ''
     this.cached = {
       user: k
         ? {
             initials: 'K',
             name: k.deviceName,
             short: k.deviceName,
-            email: 'Unlocked ' + clock(k.unlockedAt) + ' · locks ' + k.locksAtLabel,
-            roleTitle: 'Locks at ' + k.locksAtLabel,
+            email: (opened ? opened + ' at ' : 'Unlocked ') + clock(k.unlockedAt) + ' · locks ' + k.locksAtLabel,
+            roleTitle: (opened ? opened + ' · ' : '') + 'Locks at ' + k.locksAtLabel,
           }
         : {
             initials: s?.user.initials ?? '',
@@ -244,8 +246,8 @@ export class LiveChrome {
         },
         isKiosk: !!k,
         managerSignIn: () => this.navigate('/login?admin=1'),
-        canMakeKiosk: !k && !!s && !s.kioskDevice && can(s, 'team.roles'),
-        makeKiosk: () => {
+        canKiosk: !k && !!s && can(s, 'team.roles'),
+        openKiosk: () => {
           this.userMenuOpen = false
           this.invalidate()
           this.navigate('/settings#kiosk')

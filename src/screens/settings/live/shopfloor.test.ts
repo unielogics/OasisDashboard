@@ -9,7 +9,7 @@ import type { KioskAdminApi } from '@/data/ports/kiosk-api'
 import { KioskSection } from './kiosk'
 import { activityFixture, overviewFixture } from './shopfloor-fixtures'
 import { TeamActivitySection } from './team-activity'
-import type { RunResult } from './ui'
+import type { RunOptions, RunResult } from './ui'
 
 function fakeApi(): KioskAdminApi & { calls: any[][] } {
   const calls: any[][] = []
@@ -23,8 +23,16 @@ function fakeApi(): KioskAdminApi & { calls: any[][] } {
     calls,
     overview: step('overview', () => overviewFixture()),
     setMode: step('setMode', (enabled: boolean, version: number) => ({ enabled, version: version + 1, signedOut: false })),
-    setCode: step('setCode', (body: any) => (body.generate ? { setAt: 'x', code: '24681357' } : { setAt: 'x' })),
-    register: step('register', (name: string) => ({ device: { ...overviewFixture().devices[0]!, name }, signedOut: false })),
+    setPin: step('setPin', (id: string, body: any) =>
+      body.generate ? { employeeId: id, setAt: 'x', pin: '24681357' } : { employeeId: id, setAt: 'x' },
+    ),
+    removePin: step('removePin', () => undefined),
+    addNetwork: step('addNetwork', (body: any) => ({
+      created: true,
+      network: { ...overviewFixture().networks[0]!, address: body.address ?? body.confirmAddress },
+    })),
+    removeNetwork: step('removeNetwork', () => undefined),
+    clearNetworkLockout: step('clearNetworkLockout', () => overviewFixture().networks[1]),
     rename: step('rename', () => overviewFixture().devices[0]),
     revoke: step('revoke', () => undefined),
     lockDevice: step('lockDevice', () => undefined),
@@ -38,7 +46,7 @@ function fakeApi(): KioskAdminApi & { calls: any[][] } {
   } as any
 }
 
-function kioskSection(o: { allowed?: boolean } = {}) {
+function kioskSection(o: { allowed?: boolean; copy?: (t: string) => Promise<boolean> } = {}) {
   const api = fakeApi()
   const flashes: string[] = []
   const nav = vi.fn()
@@ -46,12 +54,17 @@ function kioskSection(o: { allowed?: boolean } = {}) {
   const busy = new Set<string>()
   const section = new KioskSection({
     api,
-    run: async <T>(name: string, request: (idem: string) => Promise<T>): Promise<RunResult<T>> => {
+    run: async <T>(name: string, request: (idem: string) => Promise<T>, ro: RunOptions = {}): Promise<RunResult<T>> => {
       busy.add(name)
       try {
         return { ok: true, data: await request('idem-' + name) }
       } catch (e) {
-        return { ok: false, message: e instanceof ApiError ? e.errors[0]?.message || e.detail || e.title : 'x' }
+        if (e instanceof ApiError) {
+          const own = ro.explain?.(e)
+          if (own) return { ok: false, message: own }
+          return { ok: false, message: e.errors[0]?.message || e.detail || e.title }
+        }
+        return { ok: false, message: 'x' }
       } finally {
         busy.delete(name)
       }
@@ -63,6 +76,7 @@ function kioskSection(o: { allowed?: boolean } = {}) {
     tz: () => 'America/New_York',
     today: () => '2026-10-13',
     navigate: nav,
+    copy: o.copy,
   })
   return { api, section, flashes, nav, changed }
 }
@@ -72,146 +86,290 @@ const flush = async () => {
 }
 
 describe('Settings → Kiosk (DV-1010)', () => {
-  it('shows mode, code, this browser, the live devices, who shows on the kiosk and recent events', () => {
+  it('shows mode, the shop network, staff PINs, the shop browsers and recent events (with “Opened by”)', () => {
     const { section } = kioskSection()
     const v: any = section.vals(overviewFixture())
     expect(v.has).toBe(true)
-    expect(v.enabled).toBe(false)
-    expect(v.modeText).toMatch(/^Off\./)
-    expect(v.codeLine).toBe('Set Oct 1 by Rafael M. · 12 days ago')
-    expect(v.codeOld).toBe(false)
-    expect(v.notThisKiosk).toBe(true)
-    expect(v.devices.map((d: any) => [d.name, d.state, d.canLock, d.canClear])).toEqual([
-      ['Front desk tablet', 'Unlocked · locks 9:00 PM', true, false],
-      ['Bay tablet', 'Locked out · too many wrong codes', false, true],
+    expect(v.enabled).toBe(true)
+    expect(v.modeText).toMatch(/^On\. The sign-in page is the PIN keypad/)
+    expect(v.yourLine).toBe('Your connection: 73.12.4.9')
+    expect(v.devices.map((d: any) => [d.name, d.state, d.canLock, d.canClear, d.hasOpenedBy, d.openedBy])).toEqual([
+      ['Front desk tablet', 'Unlocked · locks 9:00 PM', true, false, true, 'Opened by Marco R.'],
+      ['Bay tablet', 'Locked out · too many wrong PINs', false, true, false, ''],
     ])
     expect(v.devices[0].seen).toBe('Last seen Oct 13, 2:14 PM · 100.64.1.7 · Chrome on Android')
-    expect(v.staff.map((p: any) => [p.name, p.sub])).toEqual([
-      ['Marco R.', 'Active'],
-      ['Lena K.', 'Invited · no login yet'],
-    ])
-    expect(v.recent).toEqual([{ line: 'Oct 13, 8:00 AM · Unlocked · Front desk tablet' }])
+    expect(v.recent).toEqual([{ line: 'Oct 13, 8:00 AM · Unlocked · Front desk tablet · Opened by Marco R.' }])
     expect(section.vals(undefined)).toMatchObject({ has: false })
   })
 
   it('kiosk mode on and off with the version the view had', async () => {
     const { api, section, flashes } = kioskSection()
-    ;(section.vals(overviewFixture()) as any).modeToggle()
+    ;(section.vals(overviewFixture({ enabled: false })) as any).modeToggle()
     await flush()
     expect(api.calls.find((c) => c[0] === 'setMode')!.slice(1, 3)).toEqual([true, 3])
-    expect(flashes).toEqual(['Kiosk mode is on · the tablet shows the keypad'])
+    expect(flashes).toEqual(['Kiosk mode is on · the sign-in page shows the PIN keypad'])
   })
 
-  it('turned on from the tablet itself: the manager is signed out there and the browser goes to the keypad (K4 review kiosk:F1)', async () => {
+  it('switched on the tablet itself: the manager is signed out there and the browser goes to the keypad (K4 review kiosk:F1)', async () => {
     const { api, section, flashes, nav } = kioskSection()
     api.setMode = (async () => ({ enabled: true, version: 4, signedOut: true })) as any
-    ;(section.vals(overviewFixture()) as any).modeToggle()
+    ;(section.vals(overviewFixture({ enabled: false })) as any).modeToggle()
     await flush()
     expect(nav).toHaveBeenCalledWith('/login')
     expect(flashes).toEqual([])
   })
 
-  it('turning it on without a code shows the server’s words under the switch', async () => {
-    const { api, section } = kioskSection()
-    api.setMode = (async () => {
-      throw new ApiError({ status: 409, code: 'KIOSK_CODE_NOT_SET', title: 'No shop code yet', detail: 'A manager needs to set the shop code first' })
-    }) as any
-    ;(section.vals(overviewFixture()) as any).modeToggle()
-    await flush()
-    expect((section.vals(overviewFixture()) as any).modeError).toBe('A manager needs to set the shop code first')
+  it('no “Make this a kiosk” and no shop code any more', () => {
+    const { section } = kioskSection()
+    const v: any = section.vals(overviewFixture())
+    for (const k of ['register', 'codeLine', 'generatedCode', 'saveCode', 'deviceName']) expect(v[k], k).toBeUndefined()
+  })
+})
+
+describe('Settings → Kiosk → Shop network (Super Admin only to change)', () => {
+  it('a Super Admin on a connection that is no shop network: the address, the button and the help line', () => {
+    const { section } = kioskSection()
+    const v: any = section.vals(overviewFixture())
+    expect(v.canAdd).toBe(true)
+    expect(v.isShop).toBe(false)
+    expect(v.readOnly).toBe(false)
+    expect(v.addLabel).toBe('This is the shop’s network')
+    expect(v.networkHelp).toBe(
+      'Do this from a phone or computer connected to the shop Wi-Fi — not mobile data. Every device on the shop Wi-Fi shares this address, so it doesn’t have to be the tablet.',
+    )
+    expect(v.networks.map((n: any) => [n.title, n.line, n.state, n.canClear, n.canRemove])).toEqual([
+      ['Shop Wi-Fi', '73.12.4.80 · added Oct 1 by Amara O. · last used Oct 13, 8:00 AM', '', false, true],
+      ['Shop network', '2001:db8:1:2::/64 · added Oct 2 · not used yet', 'Locked out · too many wrong PINs', true, true],
+    ])
   })
 
-  it('change the code: two masked entries, digits only, checked before it is sent; every kiosk locks', async () => {
+  it('“This is the shop’s network” sends the address the screen showed (confirmAddress) and the optional name', async () => {
+    const { api, section, flashes } = kioskSection()
+    const v: any = section.vals(overviewFixture())
+    v.setNetworkLabel({ target: { value: 'Shop Wi-Fi 2' } })
+    ;(section.vals(overviewFixture()) as any).addNetwork()
+    await flush()
+    expect(api.calls.find((c) => c[0] === 'addNetwork')![1]).toEqual({ confirmAddress: '73.12.4.9', label: 'Shop Wi-Fi 2' })
+    expect(flashes).toEqual(['73.12.4.9 is a shop network · PINs work there now'])
+    expect((section.vals(overviewFixture()) as any).networkLabel).toBe('')
+  })
+
+  it('the connection changed meanwhile (409 KIOSK_ADDRESS_CHANGED): says so with the new address; the re-read shows it', async () => {
+    const { api, section } = kioskSection()
+    api.addNetwork = (async () => {
+      throw new ApiError({
+        status: 409,
+        code: 'KIOSK_ADDRESS_CHANGED',
+        title: 'Your connection changed',
+        meta: { yourAddress: '172.56.1.9' },
+      })
+    }) as any
+    ;(section.vals(overviewFixture()) as any).addNetwork()
+    await flush()
+    const v: any = section.vals(overviewFixture({ yourAddress: '172.56.1.9' }))
+    expect(v.networkError).toBe(
+      'Your connection changed to 172.56.1.9. Check you’re on the shop Wi-Fi, then press the button again.',
+    )
+    expect(v.yourLine).toBe('Your connection: 172.56.1.9')
+    // the next press confirms the address now shown
+    v.addNetwork()
+    await flush()
+  })
+
+  it('already on a shop network: says so instead of the button', () => {
+    const { section } = kioskSection()
+    const v: any = section.vals(overviewFixture({ yourAddress: '73.12.4.80', yourAddressIsShop: true }))
+    expect(v.isShop).toBe(true)
+    expect(v.shopText).toBe('This is the shop’s network. PINs work here.')
+    expect(v.canAdd).toBe(false)
+  })
+
+  it('a manager (not a Super Admin) sees it read only: no add, no remove, no approve; Clear lockout stays', async () => {
+    const { api, section } = kioskSection()
+    const ro = overviewFixture({ canManageNetworks: false })
+    const v: any = section.vals(ro)
+    expect(v.readOnly).toBe(true)
+    expect(v.readOnlyText).toBe('Only a Super Admin can change the shop network')
+    expect(v.canAdd).toBe(false)
+    expect(v.notShopReadOnly).toBe(true)
+    expect(v.networks.every((n: any) => n.canRemove === false)).toBe(true)
+    expect(v.refused.every((t: any) => t.canAdd === false)).toBe(true)
+    v.addNetwork()
+    v.networks[0].remove()
+    v.refused[0].add()
+    await flush()
+    expect(api.calls).toEqual([])
+    expect((section.vals(ro) as any).networks[0].confirming).toBe(false)
+    expect(v.networks[1].canClear).toBe(true)
+    v.networks[1].clear()
+    await flush()
+    expect(api.calls).toEqual([['clearNetworkLockout', 'net-2', { idempotencyKey: 'idem-kiosk:network:clear:net-2' }]])
+  })
+
+  it('remove a network after a confirm', async () => {
+    const { api, section, flashes } = kioskSection()
+    ;(section.vals(overviewFixture()) as any).networks[0].remove()
+    let v: any = section.vals(overviewFixture())
+    expect(v.networks[0].confirming).toBe(true)
+    expect(v.networks[0].canRemove).toBe(false)
+    expect(api.calls.some((c) => c[0] === 'removeNetwork')).toBe(false)
+    v.networks[0].removeYes()
+    await flush()
+    expect(api.calls.find((c) => c[0] === 'removeNetwork')![1]).toBe('net-1')
+    expect(flashes).toEqual(['73.12.4.80 removed · PINs no longer work from it'])
+    v = section.vals(overviewFixture())
+    expect(v.networks[0].confirming).toBe(false)
+  })
+
+  it('PIN tried from a new network: a known shop browser is added at once; an unknown one warns and asks first', async () => {
     const { api, section, flashes } = kioskSection()
     let v: any = section.vals(overviewFixture())
-    v.openCode()
-    v = section.vals(overviewFixture())
-    expect(v.codeOpen).toBe(true)
-    expect(v.codeWarn).toBe('Changing the code locks every kiosk now.')
-    v.setCode1({ target: { value: '2468-1357x9' } })
-    v.setCode2({ target: { value: '24681358' } })
-    v = section.vals(overviewFixture())
-    expect(v.code1).toBe('24681357')
-    v.saveCode()
+    expect(v.hasRefused).toBe(true)
+    expect(v.refused.map((t: any) => [t.title, t.line, t.warn])).toEqual([
+      [
+        'Front desk tablet tried from a new network — your internet provider probably changed the shop’s address',
+        '98.4.2.1 · 2 tries · last Oct 13, 8:05 AM',
+        false,
+      ],
+      ['A PIN was tried from a new network', '203.0.113.50 · 1 try · last Oct 13, 9:00 AM', true],
+    ])
+    expect(v.refused[1].warning).toBe('Not from a shop browser — only add it if you know this address is the shop’s')
+    v.refused[0].add()
     await flush()
+    expect(api.calls.find((c) => c[0] === 'addNetwork')![1]).toEqual({ address: '98.4.2.1' })
+    expect(flashes).toEqual(['98.4.2.1 is a shop network · PINs work there now'])
     v = section.vals(overviewFixture())
-    expect(v.codeError).toBe('The two codes don’t match.')
-    expect(api.calls.some((c) => c[0] === 'setCode')).toBe(false)
-    v.setCode2({ target: { value: '24681357' } })
-    section.vals(overviewFixture())
-    ;(section.vals(overviewFixture()) as any).saveCode()
+    v.refused[1].add()
+    expect(api.calls.filter((c) => c[0] === 'addNetwork')).toHaveLength(1)
+    v = section.vals(overviewFixture())
+    expect(v.refused[1].confirming).toBe(true)
+    expect(v.refused[1].confirmText).toBe('Add 203.0.113.50 as a shop network? Anyone on it can then use a PIN.')
+    v.refused[1].addYes()
     await flush()
-    expect(api.calls.find((c) => c[0] === 'setCode')![1]).toEqual({ code: '24681357' })
-    expect(flashes).toContain('Shop code changed · every kiosk locked')
-    v = section.vals(overviewFixture())
-    expect(v.codeOpen).toBe(false)
-    expect(v.code1).toBe('')
+    expect(api.calls.filter((c) => c[0] === 'addNetwork')[1]![1]).toEqual({ address: '203.0.113.50' })
   })
 
-  it('the server’s rule message shows under the form (KIOSK_CODE_REJECTED)', async () => {
+  it('no network yet: says PINs don’t work anywhere until one is added', () => {
+    const { section } = kioskSection()
+    expect((section.vals(overviewFixture({ networks: [] })) as any).noNetworksText).toBe(
+      'No shop network yet. PINs don’t work anywhere until you add one.',
+    )
+    expect((section.vals(overviewFixture({ networks: [], canManageNetworks: false })) as any).noNetworksText).toBe(
+      'No shop network yet. PINs don’t work anywhere until a Super Admin adds one.',
+    )
+  })
+})
+
+describe('Settings → Kiosk → Staff PINs', () => {
+  it('one row per active or invited employee: who has a PIN (never the PIN) and “Shows on the kiosk”', async () => {
+    const { api, section, flashes } = kioskSection()
+    const v: any = section.vals(overviewFixture())
+    expect(v.staff.map((p: any) => [p.name, p.sub, p.setLabel, p.canRemove])).toEqual([
+      ['Marco R.', 'PIN set Oct 1 by Rafael M.', 'Change PIN', true],
+      ['Lena K.', 'Invited · No PIN yet · hidden on the kiosk', 'Set PIN', false],
+    ])
+    expect(JSON.stringify(v.staff)).not.toMatch(/\d{8}/)
+    v.staff[1].toggle()
+    await flush()
+    expect(api.calls.find((c) => c[0] === 'setListed')!.slice(1, 3)).toEqual(['emp-lena', true])
+    expect(flashes).toEqual(['Lena K. shows on the kiosk'])
+  })
+
+  it('Set: two masked entries, digits only, checked before it is sent', async () => {
+    const { api, section, flashes } = kioskSection()
+    ;(section.vals(overviewFixture()) as any).staff[1].openSet()
+    let v: any = section.vals(overviewFixture())
+    expect(v.staff[1].editing).toBe(true)
+    expect(v.staff[1].idle).toBe(false)
+    v.staff[1].setPin1({ target: { value: '2468-1357x9' } })
+    v.staff[1].setPin2({ target: { value: '24681358' } })
+    v = section.vals(overviewFixture())
+    expect(v.staff[1].pin1).toBe('24681357')
+    v.staff[1].savePin()
+    await flush()
+    v = section.vals(overviewFixture())
+    expect(v.staff[1].error).toBe('The two PINs don’t match.')
+    expect(api.calls.some((c) => c[0] === 'setPin')).toBe(false)
+    v.staff[1].setPin2({ target: { value: '24681357' } })
+    ;(section.vals(overviewFixture()) as any).staff[1].savePin()
+    await flush()
+    expect(api.calls.find((c) => c[0] === 'setPin')!.slice(1, 3)).toEqual(['emp-lena', { pin: '24681357' }])
+    expect(flashes).toEqual(['Lena K.’s PIN is set'])
+    v = section.vals(overviewFixture())
+    expect(v.staff[1].editing).toBe(false)
+    expect(v.staff[1].pin1).toBe('')
+  })
+
+  it('the server’s rule shows under the row (422 KIOSK_PIN_REJECTED)', async () => {
     const { api, section } = kioskSection()
-    api.setCode = (async () => {
+    api.setPin = (async () => {
       throw new ApiError({
         status: 422,
-        code: 'KIOSK_CODE_REJECTED',
-        title: 'Choose another code',
-        errors: [{ path: 'body.code', message: 'No runs like 12345678' }],
+        code: 'KIOSK_PIN_REJECTED',
+        title: 'Choose another PIN',
+        errors: [{ path: 'body.pin', message: 'Choose another PIN.' }],
       })
     }) as any
     const v: any = section.vals(overviewFixture())
-    v.openCode()
-    v.setCode1({ target: { value: '23456789' } })
-    v.setCode2({ target: { value: '23456789' } })
-    ;(section.vals(overviewFixture()) as any).saveCode()
+    v.staff[0].openSet()
+    const w: any = section.vals(overviewFixture())
+    w.staff[0].setPin1({ target: { value: '58149263' } })
+    w.staff[0].setPin2({ target: { value: '58149263' } })
+    ;(section.vals(overviewFixture()) as any).staff[0].savePin()
     await flush()
-    expect((section.vals(overviewFixture()) as any).codeError).toBe('No runs like 12345678')
+    expect((section.vals(overviewFixture()) as any).staff[0].error).toBe('Choose another PIN.')
   })
 
-  it('generate: the new code is shown once, in two halves, until Done', async () => {
-    const { section } = kioskSection()
-    ;(section.vals(overviewFixture()) as any).generate()
+  it('Generate: shown once, in two halves, with Copy and the write-it-down note, until Done', async () => {
+    const copied: string[] = []
+    const { api, section } = kioskSection({ copy: async (t) => (copied.push(t), true) })
+    ;(section.vals(overviewFixture()) as any).staff[0].generate()
     await flush()
+    expect(api.calls.find((c) => c[0] === 'setPin')!.slice(1, 3)).toEqual(['emp-marco', { generate: true }])
     let v: any = section.vals(overviewFixture())
-    expect(v.hasGenerated).toBe(true)
-    expect(v.generatedCode).toBe('2468 1357')
-    expect(v.codeClosed).toBe(false)
-    v.doneGenerated()
+    expect(v.staff[0].hasGenerated).toBe(true)
+    expect(v.staff[0].generatedPin).toBe('2468 1357')
+    expect(v.staff[0].generatedFor).toBe('The new PIN for Marco')
+    expect(v.staff[0].copyLabel).toBe('Copy')
+    expect(v.staff[1].hasGenerated).toBe(false)
+    v.staff[0].copy()
+    await flush()
+    expect(copied).toEqual(['24681357'])
     v = section.vals(overviewFixture())
-    expect(v.hasGenerated).toBe(false)
-    expect(v.generatedCode).toBe('')
+    expect(v.staff[0].copyLabel).toBe('Copied')
+    v.staff[0].doneGenerated()
+    v = section.vals(overviewFixture())
+    expect(v.staff[0].hasGenerated).toBe(false)
+    expect(v.staff[0].generatedPin).toBe('')
   })
 
-  it('Make this a kiosk: a name, then the device cookie; with kiosk mode on the keypad comes next', async () => {
-    const { api, section, nav, flashes } = kioskSection()
+  it('a browser that refuses to copy says so (write it down instead)', async () => {
+    const { section } = kioskSection({ copy: async () => false })
+    ;(section.vals(overviewFixture()) as any).staff[0].generate()
+    await flush()
+    ;(section.vals(overviewFixture()) as any).staff[0].copy()
+    await flush()
+    expect((section.vals(overviewFixture()) as any).staff[0].copyFailed).toBe(true)
+  })
+
+  it('Remove asks first, then the PIN stops working', async () => {
+    const { api, section, flashes } = kioskSection()
+    ;(section.vals(overviewFixture()) as any).staff[0].remove()
     let v: any = section.vals(overviewFixture())
-    v.register()
+    expect(v.staff[0].removing).toBe(true)
+    expect(v.staff[0].removeText).toBe('Remove Marco’s PIN? It stops opening the kiosk right away.')
+    expect(api.calls.some((c) => c[0] === 'removePin')).toBe(false)
+    v.staff[0].removeYes()
     await flush()
-    expect((section.vals(overviewFixture()) as any).registerError).toMatch(/Give this tablet a name/)
+    expect(api.calls.find((c) => c[0] === 'removePin')![1]).toBe('emp-marco')
+    expect(flashes).toEqual(['Marco R.’s PIN removed · it no longer opens the kiosk'])
     v = section.vals(overviewFixture())
-    v.setDeviceName({ target: { value: '  Front desk 2  ' } })
-    ;(section.vals(overviewFixture()) as any).register()
-    await flush()
-    expect(api.calls.find((c) => c[0] === 'register')![1]).toBe('Front desk 2')
-    expect(flashes[0]).toMatch(/^Front desk 2 is a kiosk now/)
-    expect(nav).not.toHaveBeenCalled()
-    api.register = (async () => ({ device: overviewFixture().devices[0], signedOut: true })) as any
-    v = section.vals(overviewFixture({ enabled: true }))
-    v.setDeviceName({ target: { value: 'Front desk 3' } })
-    ;(section.vals(overviewFixture({ enabled: true })) as any).register()
-    await flush()
-    expect(nav).toHaveBeenCalledWith('/login')
+    expect(v.staff[0].removing).toBe(false)
   })
+})
 
-  it('this browser already is a kiosk: says so instead of the form', () => {
-    const { section } = kioskSection()
-    const v: any = section.vals(overviewFixture({ thisDeviceId: 'dev-1' }))
-    expect(v.isThisKiosk).toBe(true)
-    expect(v.notThisKiosk).toBe(false)
-    expect(v.thisLine).toBe('This browser is the kiosk “Front desk tablet”.')
-    expect(v.devices[0].name).toBe('Front desk tablet (this browser)')
-  })
-
-  it('devices: rename (with its version), lock, clear a lockout, remove after a confirm; Lock all after a confirm', async () => {
+describe('Settings → Kiosk → Browsers at the shop', () => {
+  it('rename (with its version), lock, clear a lockout, remove after a confirm; Lock all after a confirm', async () => {
     const { api, section, flashes } = kioskSection()
     let v: any = section.vals(overviewFixture())
     v.devices[0].startRename()
@@ -235,7 +393,7 @@ describe('Settings → Kiosk (DV-1010)', () => {
     v.devices[1].revokeYes()
     await flush()
     expect(api.calls.some((c) => c[0] === 'revoke' && c[1] === 'dev-2')).toBe(true)
-    expect(flashes).toContain('Bay tablet removed · its code no longer works there')
+    expect(flashes).toContain('Bay tablet removed · a PIN typed there later makes it a new shop browser')
     v = section.vals(overviewFixture())
     v.lockAll()
     expect(api.calls.some((c) => c[0] === 'lockAll')).toBe(false)
@@ -244,30 +402,28 @@ describe('Settings → Kiosk (DV-1010)', () => {
     expect(flashes).toContain('2 kiosks locked')
   })
 
-  it('who shows on the kiosk: one switch per active or invited employee', async () => {
-    const { api, section, flashes } = kioskSection()
-    ;(section.vals(overviewFixture()) as any).staff[1].toggle()
-    await flush()
-    expect(api.calls.find((c) => c[0] === 'setListed')!.slice(1, 3)).toEqual(['emp-lena', true])
-    expect(flashes).toEqual(['Lena K. shows on the kiosk'])
+  it('this browser is named so', () => {
+    const { section } = kioskSection()
+    const v: any = section.vals(overviewFixture({ thisDeviceId: 'dev-1' }))
+    expect(v.devices[0].name).toBe('Front desk tablet (this browser)')
   })
 
   it('without the permission nothing is sent', async () => {
     const { api, section } = kioskSection({ allowed: false })
     const v: any = section.vals(overviewFixture())
     v.modeToggle()
-    v.generate()
+    v.addNetwork()
     v.lockAll()
     v.staff[0].toggle()
+    v.staff[0].generate()
+    v.staff[0].openSet()
+    v.staff[0].remove()
+    v.networks[1].clear()
     await flush()
     expect(api.calls).toEqual([])
-  })
-
-  it('a code older than 90 days gets a nudge', () => {
-    const { section } = kioskSection()
-    const v: any = section.vals(overviewFixture({ code: { set: true, setAt: '2026-06-01T14:00:00Z', setBy: null, ageDays: 134 } }))
-    expect(v.codeOld).toBe(true)
-    expect(v.codeOldText).toBe('This code is 134 days old. If someone who knew it has left, change it.')
+    const w: any = section.vals(overviewFixture())
+    expect(w.staff[0].editing).toBe(false)
+    expect(w.staff[0].removing).toBe(false)
   })
 })
 

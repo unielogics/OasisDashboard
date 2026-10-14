@@ -75,8 +75,8 @@ export function createMeApi(c: ApiClient): MeApi {
 /** The kiosk's own endpoints (ADR 0180, api-spec 31.2). Status and unlock are public; the rest need an unlocked kiosk. */
 export interface KioskApi {
   status(signal?: AbortSignal): Promise<KioskStatus>
-  /** The 8-digit shop code; the answer sets the kiosk session cookie. The code is never kept or logged here. */
-  unlock(code: string): Promise<KioskMe>
+  /** An employee's 8-digit PIN, at the shop; the answer sets the kiosk session cookie. The PIN is never kept or logged here. */
+  unlock(pin: string): Promise<KioskMe>
   me(signal?: AbortSignal): Promise<KioskMe>
   staff(signal?: AbortSignal): Promise<{ items: KioskPerson[] }>
   /** POST /kiosk/lock: the keypad shows again. */
@@ -86,8 +86,8 @@ export interface KioskApi {
 export function createKioskApi(c: ApiClient): KioskApi {
   return {
     status: (signal) => c.get<KioskStatus>('/kiosk/status', { public: true, signal, retries: 1 }),
-    async unlock(code) {
-      const r = await c.post<KioskMe>('/kiosk/unlock', { code }, { public: true })
+    async unlock(pin) {
+      const r = await c.post<KioskMe>('/kiosk/unlock', { pin }, { public: true })
       c.csrf.set(r.csrfToken)
       return r
     },

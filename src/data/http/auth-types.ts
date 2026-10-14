@@ -68,15 +68,18 @@ export interface MeResponse {
 // ---- kiosk mode (ADR 0180, api-spec 31) -----------------------------------------------------------------------------
 
 type Json<R> = R extends { content: { 'application/json': infer B } } ? B : never
-/** GET /kiosk/status (public): kiosk mode on or off, and this browser's kiosk state. */
+/**
+ * GET /kiosk/status (public): kiosk mode on or off, whether a shop network is set (`networkSet`) and this connection is one
+ * (`atShop`), and this browser's kiosk state (lock time, lockout, wait). Amended 2026-10-14: PINs work only at the shop.
+ */
 export type KioskStatus = Json<paths['/api/v1/kiosk/status']['get']['responses'][200]>
 /** GET /kiosk/me and the unlock answer: the unlocked kiosk (device, lock time, permissions, CSRF token, picker list). */
 export type KioskMe = Json<paths['/api/v1/kiosk/me']['get']['responses'][200]>
 /** One name of the employee picker: "Marco R.", bay staff first. */
 export type KioskPerson = KioskMe['staff'][number]
 export interface UnlockRequest {
-  /** Exactly 8 digits; never stored or logged by the dashboard. */
-  code: string
+  /** An employee's own 8-digit PIN; never stored or logged by the dashboard. */
+  pin: string
 }
 
 export interface SignedInResponse {
@@ -146,12 +149,20 @@ export const AUTH_CODES = {
   kioskSession: 'KIOSK_SESSION',
   kioskForbidden: 'KIOSK_FORBIDDEN',
   notAKiosk: 'NOT_A_KIOSK',
-  kioskDeviceUnknown: 'KIOSK_DEVICE_UNKNOWN',
   kioskOff: 'KIOSK_OFF',
-  kioskCodeNotSet: 'KIOSK_CODE_NOT_SET',
-  kioskCodeWrong: 'KIOSK_CODE_WRONG',
+  /** 403 with meta.networkSet: this connection is not a shop network (the PIN was never checked). */
+  kioskNotAtShop: 'KIOSK_NOT_AT_SHOP',
+  kioskPinWrong: 'KIOSK_PIN_WRONG',
   kioskThrottled: 'KIOSK_THROTTLED',
   kioskLockedOut: 'KIOSK_LOCKED_OUT',
+  /** Settings → Kiosk: a PIN the rules refuse (the rule in errors[0].message). */
+  kioskPinRejected: 'KIOSK_PIN_REJECTED',
+  kioskPinInactive: 'KIOSK_PIN_INACTIVE',
+  /** "This is the shop's network": the connection's address is no longer the one the screen showed (meta.yourAddress). */
+  kioskAddressChanged: 'KIOSK_ADDRESS_CHANGED',
+  kioskRefusedUnknown: 'KIOSK_REFUSED_UNKNOWN',
+  /** Shop networks are a Super Admin's alone. */
+  superOnly: 'SUPER_ONLY',
   kioskEmployeeRequired: 'KIOSK_EMPLOYEE_REQUIRED',
   kioskEmployeeInvalid: 'KIOSK_EMPLOYEE_INVALID',
 } as const

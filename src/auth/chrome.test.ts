@@ -148,7 +148,7 @@ describe('LiveChrome store', () => {
 })
 
 describe('LiveChrome in kiosk mode (ADR 0180)', () => {
-  it('the chip names the tablet and its lock time; the menu says Lock kiosk and Manager sign-in (DV-1003)', () => {
+  it('the chip names the tablet, whose PIN opened it and the lock time; the menu says Lock kiosk and Manager sign-in (DV-1003)', () => {
     const c = new LiveChrome()
     c.setSession(makeKioskSession())
     const v = c.vals()
@@ -156,16 +156,23 @@ describe('LiveChrome in kiosk mode (ADR 0180)', () => {
       initials: 'K',
       name: 'Front desk tablet',
       short: 'Front desk tablet',
-      email: 'Unlocked 7:58 AM · locks 9:00 PM',
-      roleTitle: 'Locks at 9:00 PM',
+      email: 'Opened by Marco R. at 7:58 AM · locks 9:00 PM',
+      roleTitle: 'Opened by Marco R. · Locks at 9:00 PM',
     })
     expect(v.menu.signOutLabel).toBe('Lock kiosk')
     expect(v.menu.isKiosk).toBe(true)
-    expect(v.menu.canMakeKiosk).toBe(false)
+    expect(v.menu.canKiosk).toBe(false)
     expect(v.showAdminNav).toBe(false)
     expect(v.kiosk.on).toBe(true)
     expect(v.adminKiosk.on).toBe(false)
     expect(v.canViewAs).toBe(false)
+  })
+
+  it('a kiosk session without an opener (an older answer) keeps the lock time alone', () => {
+    const c = new LiveChrome()
+    c.setSession(makeKioskSession({ openedBy: undefined as never }))
+    expect(c.vals().user.roleTitle).toBe('Locks at 9:00 PM')
+    expect(c.vals().user.email).toBe('Unlocked 7:58 AM · locks 9:00 PM')
   })
 
   it('Lock kiosk asks first; Lock locks (the session’s sign-out), Cancel keeps it open', () => {
@@ -207,26 +214,26 @@ describe('LiveChrome in kiosk mode (ADR 0180)', () => {
     expect(c.vals().menu.signOutLabel).toBe('Sign out')
   })
 
-  it('“Make this a kiosk…” for people who may manage kiosks (team.roles), opening Settings → Kiosk (DV-1012)', () => {
+  it('“Kiosk…” for people who may manage kiosks (team.roles), opening Settings → Kiosk (DV-1012)', () => {
     const navigate = vi.fn()
     const c = new LiveChrome()
     c.bind({ signOut: vi.fn(), viewAs: vi.fn(), navigate })
     c.setSession(makeSession({ role: 'mgmt' }))
-    expect(c.vals().menu.canMakeKiosk).toBe(true)
-    c.vals().menu.makeKiosk()
+    expect(c.vals().menu.canKiosk).toBe(true)
+    c.vals().menu.openKiosk()
     expect(navigate).toHaveBeenCalledWith('/settings#kiosk')
     // Team activity… for team.edit (DV-1009: the Settings nav has no room for a Shop floor group)
     expect(c.vals().menu.canTeamActivity).toBe(true)
     c.vals().menu.teamActivity()
     expect(navigate).toHaveBeenCalledWith('/settings#activity')
     c.setSession(makeSession({ role: 'crew' }))
-    expect(c.vals().menu.canMakeKiosk).toBe(false)
+    expect(c.vals().menu.canKiosk).toBe(false)
     expect(c.vals().menu.canTeamActivity).toBe(false)
     c.setSession(makeKioskSession())
     expect(c.vals().menu.canTeamActivity).toBe(false)
   })
 
-  it('a person signed in on a kiosk tablet sees the bar; no “Make this a kiosk…” there (DV-1008)', () => {
+  it('a person signed in on a shop browser sees the bar and still reaches Settings → Kiosk (DV-1008)', () => {
     const signOut = vi.fn()
     const c = new LiveChrome()
     c.bind({ signOut, viewAs: vi.fn() })
@@ -236,7 +243,8 @@ describe('LiveChrome in kiosk mode (ADR 0180)', () => {
     expect(v.adminKiosk.text).toBe(
       'Signed in as Rafael M. on Front desk tablet · signs out after 15 minutes without use',
     )
-    expect(v.menu.canMakeKiosk).toBe(false)
+    // a Super Admin on the tablet (0218) sets the shop network from there
+    expect(v.menu.canKiosk).toBe(true)
     expect(v.showAdminNav).toBe(true)
     v.adminKiosk.signOut()
     expect(signOut).toHaveBeenCalledTimes(1)

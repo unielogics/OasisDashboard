@@ -121,7 +121,7 @@ export interface ExtrasDeps {
   api: SettingsApi
   /** Settings → Shop floor (ADR 0180): the kiosk controls and the team activity report. */
   kioskApi?: KioskAdminApi
-  /** Full-page navigation ("Make this a kiosk" while kiosk mode is on lands on the keypad). */
+  /** Full-page navigation (kiosk mode switched on the tablet itself lands on the keypad). */
   navigate?: (url: string) => void
   qc: QueryClient
   session: () => Session | null
