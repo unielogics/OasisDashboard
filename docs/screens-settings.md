@@ -502,11 +502,15 @@ Left column:
   /kiosk/networks/:id/clear-lockout`), `Remove` (Super Admin; asks `Remove this network? PINs stop working from it.`;
   `DELETE /kiosk/networks/:id`). Without any: `No shop network yet. PINs don’t work anywhere until you add one.` (`… until a
   Super Admin adds one.` for a manager).
-- `PIN tried from a new network` (only when there are some): a try from a known shop browser reads `Front desk tablet tried
-  from a new network — your internet provider probably changed the shop’s address`; one from an unknown browser `A PIN was
-  tried from a new network` with the warning `Not from a shop browser — only add it if you know this address is the shop’s`;
-  each `98.4.2.1 · 3 tries · last Oct 14, 8:02 AM`. `Add this network` (Super Admin; at once for a known browser, after
-  `Add 203.0.113.50 as a shop network? Anyone on it can then use a PIN.` for an unknown one) → `POST /kiosk/networks
+- `PIN tried from a new network` (only when there are some), worded from the server's `fromKnownBrowser` and
+  `shopActiveSince` (K-PIN-DASH review N1, backend A14): a known shop browser while the shop's own network has been quiet
+  since reads `Front desk tablet tried from a new network, and the shop’s usual network has been quiet since — your internet
+  provider probably changed the shop’s address.`; a known shop browser while the shop's network was still in use reads
+  `Marco’s phone tried from another network while the shop’s network was still in use — probably a phone away from the shop.
+  Don’t add it unless you’re sure.`; one from an unknown browser `A PIN was tried from a new network` with the warning `Not
+  from a shop browser — only add it if you know this address is the shop’s`; each `98.4.2.1 · 3 tries · last Oct 14, 8:02
+  AM`. `Add this network` (Super Admin) **always asks first**, also for a known browser: `Add 98.4.2.1 as a shop network?
+  Anyone on that network can then use a PIN.` `Cancel` / `Add` → `POST /kiosk/networks
   {address}`. A tablet's try gets here even when its keypad loaded after the address changed: a browser that once opened the
   kiosk sends one PIN per page from a new network (the server never checks it), other browsers send none (docs/auth-ui.md,
   "One try from a new network"). After `Add this network` the tablet's open keypad reads the status again within 30 s and

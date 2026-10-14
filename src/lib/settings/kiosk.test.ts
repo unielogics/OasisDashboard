@@ -19,6 +19,8 @@ import {
   rangeLabel,
   rangeOf,
   recentLine,
+  refusedConfirm,
+  refusedKind,
   refusedLine,
   refusedTitle,
   totalsRow,
@@ -64,7 +66,7 @@ describe('Settings → Kiosk helpers (DV-1010)', () => {
       tone: 'red',
     })
   })
-  it('PIN tried from a new network: a known shop browser points at the provider; an unknown one carries a warning', () => {
+  it('PIN tried from a new network: the wording follows fromKnownBrowser and shopActiveSince (review N1)', () => {
     const r = {
       id: 'ref-1',
       address: '98.4.2.1',
@@ -73,14 +75,28 @@ describe('Settings → Kiosk helpers (DV-1010)', () => {
       firstSeenAt: '2026-10-13T12:00:00Z',
       lastSeenAt: '2026-10-13T12:05:00Z',
       fromKnownBrowser: true,
+      shopActiveSince: false,
     }
+    // a known shop browser and the shop's network quiet since: the provider probably changed the address
     expect(refusedTitle(r)).toBe(
-      'Front desk tablet tried from a new network — your internet provider probably changed the shop’s address',
+      'Front desk tablet tried from a new network, and the shop’s usual network has been quiet since — your internet provider probably changed the shop’s address.',
     )
     expect(refusedTitle({ ...r, browserName: null })).toBe(
-      'A shop browser tried from a new network — your internet provider probably changed the shop’s address',
+      'A shop browser tried from a new network, and the shop’s usual network has been quiet since — your internet provider probably changed the shop’s address.',
     )
+    // a known shop browser while the shop's network was still in use: a phone away from the shop
+    expect(refusedTitle({ ...r, shopActiveSince: true })).toBe(
+      'Front desk tablet tried from another network while the shop’s network was still in use — probably a phone away from the shop. Don’t add it unless you’re sure.',
+    )
+    // an unknown browser: the warning
     expect(refusedTitle({ ...r, fromKnownBrowser: false, browserName: null })).toBe('A PIN was tried from a new network')
+    expect(refusedTitle({ ...r, fromKnownBrowser: false, browserName: null, shopActiveSince: true })).toBe(
+      'A PIN was tried from a new network',
+    )
+    expect(refusedKind(r)).toBe('providerChanged')
+    expect(refusedKind({ ...r, shopActiveSince: true })).toBe('awayFromShop')
+    expect(refusedKind({ ...r, fromKnownBrowser: false })).toBe('unknownBrowser')
+    expect(refusedConfirm('98.4.2.1')).toBe('Add 98.4.2.1 as a shop network? Anyone on that network can then use a PIN.')
     expect(refusedLine(r, TZ, TODAY)).toBe('98.4.2.1 · 3 tries · last Oct 13, 8:05 AM')
     expect(refusedLine({ ...r, attempts: 1 }, TZ, TODAY)).toBe('98.4.2.1 · 1 try · last Oct 13, 8:05 AM')
     expect(REFUSED_WARNING).toBe('Not from a shop browser — only add it if you know this address is the shop’s')

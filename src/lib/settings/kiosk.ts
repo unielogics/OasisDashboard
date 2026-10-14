@@ -80,14 +80,41 @@ export function networkState(n: Pick<KioskNetwork, 'failedAttempts' | 'lockedOut
 
 export const REFUSED_WARNING = 'Not from a shop browser — only add it if you know this address is the shop’s'
 
-/** A "PIN tried from a new network" entry: a known shop browser most likely means the provider changed the address. */
-export function refusedTitle(r: Pick<KioskRefusedTry, 'fromKnownBrowser' | 'browserName'>): string {
-  if (!r.fromKnownBrowser) return 'A PIN was tried from a new network'
-  return (
-    (r.browserName?.trim() || 'A shop browser') +
-    ' tried from a new network — your internet provider probably changed the shop’s address'
-  )
+/**
+ * What a "PIN tried from a new network" entry most likely is (K-PIN-DASH review N1, backend A14):
+ *   - providerChanged: a browser that unlocked at the shop before, and no shop network was in use since (shopActiveSince
+ *     false): the internet provider probably changed the shop's address;
+ *   - awayFromShop: a known shop browser while the shop's network was still in use: probably a phone away from the shop;
+ *   - unknownBrowser: no shop browser at all (the warning).
+ */
+export type RefusedKind = 'providerChanged' | 'awayFromShop' | 'unknownBrowser'
+
+export function refusedKind(r: Pick<KioskRefusedTry, 'fromKnownBrowser' | 'shopActiveSince'>): RefusedKind {
+  if (!r.fromKnownBrowser) return 'unknownBrowser'
+  return r.shopActiveSince ? 'awayFromShop' : 'providerChanged'
 }
+
+export function refusedTitle(r: Pick<KioskRefusedTry, 'fromKnownBrowser' | 'browserName' | 'shopActiveSince'>): string {
+  const who = r.browserName?.trim() || 'A shop browser'
+  switch (refusedKind(r)) {
+    case 'providerChanged':
+      return (
+        who +
+        ' tried from a new network, and the shop’s usual network has been quiet since — your internet provider probably changed the shop’s address.'
+      )
+    case 'awayFromShop':
+      return (
+        who +
+        ' tried from another network while the shop’s network was still in use — probably a phone away from the shop. Don’t add it unless you’re sure.'
+      )
+    default:
+      return 'A PIN was tried from a new network'
+  }
+}
+
+/** "Add this network" always asks first: anyone on that network can then use a PIN. */
+export const refusedConfirm = (address: string): string =>
+  'Add ' + address + ' as a shop network? Anyone on that network can then use a PIN.'
 
 /** "98.4.2.1 · 3 tries · last Oct 14, 8:02 AM". */
 export function refusedLine(r: Pick<KioskRefusedTry, 'address' | 'attempts' | 'lastSeenAt'>, tz: string, today: string): string {

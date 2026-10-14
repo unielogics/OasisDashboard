@@ -164,7 +164,8 @@ describe('Settings live template: Shop floor', () => {
       '73.12.4.80 · added Oct 1 by Amara O.',
       'Locked out · too many wrong PINs',
       'PIN tried from a new network',
-      'Front desk tablet tried from a new network — your internet provider probably changed the shop’s address',
+      'Front desk tablet tried from a new network, and the shop’s usual network has been quiet since — your internet provider probably changed the shop’s address.',
+      'Marco’s phone tried from another network while the shop’s network was still in use — probably a phone away from the shop. Don’t add it unless you’re sure.',
       'Not from a shop browser — only add it if you know this address is the shop’s',
       'Add this network',
       '>Staff PINs<',
@@ -201,6 +202,35 @@ describe('Settings live template: Shop floor', () => {
     expect(gen).toContain('2468 1357')
     expect(gen).toContain('Write it down now and give it to them. It isn’t shown again.')
     expect(gen).toContain('>Copy<')
+  })
+
+  it('Add this network asks first for every kind of entry (review N1): the confirm says anyone on that network can then use a PIN', async () => {
+    const { logic } = make('mgmt')
+    logic.renderVals().live.goKiosk()
+    await vi.waitFor(() => expect(logic.renderVals().live.secKiosk).toBe(true))
+    const refusedHtml = () =>
+      renderToStaticMarkup(render(logic.renderVals(), { name: 'settings' }))
+        .split('data-kiosk-refused="1"')
+        .slice(1)
+    for (const [i, address] of [
+      [0, '98.4.2.1'],
+      [1, '203.0.113.50'],
+      [2, '172.58.10.7'],
+    ] as const) {
+      logic.renderVals().live.kio.refused[i].add()
+      await vi.waitFor(() => expect(logic.renderVals().live.kio.refused[i].confirming).toBe(true))
+      const entries = refusedHtml()
+      expect(entries[i]).toContain('Add ' + address + ' as a shop network? Anyone on that network can then use a PIN.')
+      expect(entries[i]).toContain('>Cancel<')
+      expect(entries[i]).not.toContain('Add this network')
+      logic.renderVals().live.kio.refused[i].addNo()
+      await vi.waitFor(() => expect(logic.renderVals().live.kio.refused[i].confirming).toBe(false))
+    }
+    const entries = refusedHtml()
+    expect(entries[0]).not.toContain('Not from a shop browser')
+    expect(entries[1]).toContain('Not from a shop browser — only add it if you know this address is the shop’s')
+    expect(entries[2]).toContain('probably a phone away from the shop. Don’t add it unless you’re sure.')
+    expect(entries[2]).not.toContain('Not from a shop browser')
   })
 
   it('a manager who is not a Super Admin sees Shop network read only', async () => {

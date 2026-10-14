@@ -3,7 +3,8 @@
 //   - kiosk mode on or off (on by default: the sign-in page is the PIN keypad);
 //   - Shop network: "Your connection: 73.x.x.x" and "This is the shop's network" (sends confirmAddress = the address shown;
 //     a 409 KIOSK_ADDRESS_CHANGED re-reads it and shows the new one), the networks (Remove after a confirm, Clear lockout),
-//     and "PIN tried from a new network" (Add this network). Adding and removing are a Super Admin's alone
+//     and "PIN tried from a new network" (Add this network, always after a confirm; the wording tells a provider change
+//     from a phone away from the shop by fromKnownBrowser and shopActiveSince). Adding and removing are a Super Admin's alone
 //     (`canManageNetworks`); other managers see it read only. Clearing an address's lockout is any manager's;
 //   - Staff PINs: per employee Set (typed twice) / Generate (shown once, with Copy) / Remove (after a confirm), never the PIN
 //     itself, and "Shows on the kiosk";
@@ -25,6 +26,7 @@ import {
   pinFormProblem,
   pinLine,
   recentLine,
+  refusedConfirm,
   refusedLine,
   refusedTitle,
 } from '@/lib/settings/kiosk'
@@ -438,14 +440,13 @@ export class KioskSection {
       warn: !t.fromKnownBrowser,
       warning: REFUSED_WARNING,
       canAdd: v.canManageNetworks && !confirming,
-      // a known shop browser: added at once; an unknown one asks first
-      add: () => {
-        if (!this.ctx.allowed() || !v.canManageNetworks) return
-        if (t.fromKnownBrowser) void this.approve(v, t)
-        else this.edit(() => (this.confirmApprove = t.id))
-      },
+      // always asks first, also for a known shop browser (review N1): anyone on that network can then use a PIN
+      add: () =>
+        this.edit(() => {
+          if (this.ctx.allowed() && v.canManageNetworks) this.confirmApprove = t.id
+        }),
       confirming,
-      confirmText: 'Add ' + t.address + ' as a shop network? Anyone on it can then use a PIN.',
+      confirmText: refusedConfirm(t.address),
       addYes: () => void this.approve(v, t),
       addNo: () => this.edit(() => (this.confirmApprove = null)),
       buttonStyle: ghostButton,

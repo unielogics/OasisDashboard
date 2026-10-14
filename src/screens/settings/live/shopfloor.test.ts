@@ -222,32 +222,52 @@ describe('Settings → Kiosk → Shop network (Super Admin only to change)', () 
     expect(v.networks[0].confirming).toBe(false)
   })
 
-  it('PIN tried from a new network: a known shop browser is added at once; an unknown one warns and asks first', async () => {
+  it('PIN tried from a new network: the wording says what it most likely is, and Add this network always asks first (review N1)', async () => {
     const { api, section, flashes } = kioskSection()
     let v: any = section.vals(overviewFixture())
     expect(v.hasRefused).toBe(true)
     expect(v.refused.map((t: any) => [t.title, t.line, t.warn])).toEqual([
       [
-        'Front desk tablet tried from a new network — your internet provider probably changed the shop’s address',
+        'Front desk tablet tried from a new network, and the shop’s usual network has been quiet since — your internet provider probably changed the shop’s address.',
         '98.4.2.1 · 2 tries · last Oct 13, 8:05 AM',
         false,
       ],
       ['A PIN was tried from a new network', '203.0.113.50 · 1 try · last Oct 13, 9:00 AM', true],
+      [
+        'Marco’s phone tried from another network while the shop’s network was still in use — probably a phone away from the shop. Don’t add it unless you’re sure.',
+        '172.58.10.7 · 1 try · last Oct 13, 6:00 PM',
+        false,
+      ],
     ])
     expect(v.refused[1].warning).toBe('Not from a shop browser — only add it if you know this address is the shop’s')
+    // every kind asks first, also a known shop browser
+    for (const [i, address] of [
+      [0, '98.4.2.1'],
+      [1, '203.0.113.50'],
+      [2, '172.58.10.7'],
+    ] as const) {
+      v = section.vals(overviewFixture())
+      v.refused[i].add()
+      await flush()
+      expect(api.calls.filter((c) => c[0] === 'addNetwork')).toHaveLength(i)
+      v = section.vals(overviewFixture())
+      expect(v.refused[i].confirming).toBe(true)
+      expect(v.refused[i].canAdd).toBe(false)
+      expect(v.refused[i].confirmText).toBe('Add ' + address + ' as a shop network? Anyone on that network can then use a PIN.')
+      v.refused[i].addYes()
+      await flush()
+      expect(api.calls.filter((c) => c[0] === 'addNetwork')[i]![1]).toEqual({ address })
+      expect(flashes[i]).toBe(address + ' is a shop network · PINs work there now')
+      expect((section.vals(overviewFixture()) as any).refused[i].confirming).toBe(false)
+    }
+    // Cancel sends nothing
+    v = section.vals(overviewFixture())
     v.refused[0].add()
-    await flush()
-    expect(api.calls.find((c) => c[0] === 'addNetwork')![1]).toEqual({ address: '98.4.2.1' })
-    expect(flashes).toEqual(['98.4.2.1 is a shop network · PINs work there now'])
     v = section.vals(overviewFixture())
-    v.refused[1].add()
-    expect(api.calls.filter((c) => c[0] === 'addNetwork')).toHaveLength(1)
-    v = section.vals(overviewFixture())
-    expect(v.refused[1].confirming).toBe(true)
-    expect(v.refused[1].confirmText).toBe('Add 203.0.113.50 as a shop network? Anyone on it can then use a PIN.')
-    v.refused[1].addYes()
+    v.refused[0].addNo()
     await flush()
-    expect(api.calls.filter((c) => c[0] === 'addNetwork')[1]![1]).toEqual({ address: '203.0.113.50' })
+    expect(api.calls.filter((c) => c[0] === 'addNetwork')).toHaveLength(3)
+    expect((section.vals(overviewFixture()) as any).refused[0].confirming).toBe(false)
   })
 
   it('no network yet: says PINs don’t work anywhere until one is added', () => {
