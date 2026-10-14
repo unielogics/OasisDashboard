@@ -159,6 +159,7 @@ describe('Settings live template: Shop floor', () => {
       'Your connection: 73.12.4.9',
       'This is the shop’s network',
       'Do this from a phone or computer connected to the shop Wi-Fi — not mobile data.',
+      'Turn off any VPN or iCloud Private Relay on that device first.',
       'Shop Wi-Fi',
       '73.12.4.80 · added Oct 1 by Amara O.',
       'Locked out · too many wrong PINs',

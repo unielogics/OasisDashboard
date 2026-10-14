@@ -38,6 +38,8 @@ export const KIOSK_PERMISSION = 'team.roles' as const
 
 export const NETWORK_HELP =
   'Do this from a phone or computer connected to the shop Wi-Fi — not mobile data. Every device on the shop Wi-Fi shares this address, so it doesn’t have to be the tablet.'
+/** Runbook section 11 (K-PIN review F1): a VPN or Private Relay hides the shop's address, and the server cannot tell. */
+export const NETWORK_VPN_NOTE = 'Turn off any VPN or iCloud Private Relay on that device first.'
 export const SUPER_ONLY_NOTE = 'Only a Super Admin can change the shop network'
 
 export interface KioskCtx {
@@ -375,6 +377,7 @@ export class KioskSection {
       addStyle: saveButtonStyle(!addBusy),
       addLabel: addBusy ? 'Adding…' : 'This is the shop’s network',
       networkHelp: NETWORK_HELP,
+      networkVpn: NETWORK_VPN_NOTE,
       hasNetworkError: !!this.networkError,
       networkError: this.networkError,
       networks: v.networks.map((n) => this.networkVals(v, n, tz, today)),

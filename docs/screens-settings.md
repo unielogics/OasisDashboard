@@ -492,7 +492,8 @@ Left column:
   only** (`canManageNetworks`): an optional name (`Name (optional), like Shop Wi-Fi`, ≤ 40) and `This is the shop’s network`
   → `POST /kiosk/networks {confirmAddress: <the address shown>, label}`, with `Do this from a phone or computer connected to
   the shop Wi-Fi — not mobile data. Every device on the shop Wi-Fi shares this address, so it doesn’t have to be the
-  tablet.` A 409 `KIOSK_ADDRESS_CHANGED` (the phone left the Wi-Fi between reading and pressing) reads `Your connection
+  tablet.` and `Turn off any VPN or iCloud Private Relay on that device first.` (runbook section 11: the server cannot tell
+  such an address from the shop's). A 409 `KIOSK_ADDRESS_CHANGED` (the phone left the Wi-Fi between reading and pressing) reads `Your connection
   changed to 172.56.1.9. Check you’re on the shop Wi-Fi, then press the button again.` and the page reads `GET /kiosk` again,
   so the line shows the new address (the next press confirms that one). A manager who is not a Super Admin sees the section
   read only: `Only a Super Admin can change the shop network` (and `This connection isn’t a shop network.` when it isn't).

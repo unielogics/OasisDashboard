@@ -137,6 +137,7 @@ describe('Settings → Kiosk → Shop network (Super Admin only to change)', () 
     expect(v.networkHelp).toBe(
       'Do this from a phone or computer connected to the shop Wi-Fi — not mobile data. Every device on the shop Wi-Fi shares this address, so it doesn’t have to be the tablet.',
     )
+    expect(v.networkVpn).toBe('Turn off any VPN or iCloud Private Relay on that device first.')
     expect(v.networks.map((n: any) => [n.title, n.line, n.state, n.canClear, n.canRemove])).toEqual([
       ['Shop Wi-Fi', '73.12.4.80 · added Oct 1 by Amara O. · last used Oct 13, 8:00 AM', '', false, true],
       ['Shop network', '2001:db8:1:2::/64 · added Oct 2 · not used yet', 'Locked out · too many wrong PINs', true, true],

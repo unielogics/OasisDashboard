@@ -14,6 +14,7 @@
         <sc-if value="{{ live.kio.canAdd }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;gap:8px;margin-top:12px;"><input title="Network name" value="{{ live.kio.networkLabel }}" sc-camel-on-input="{{ live.kio.setNetworkLabel }}" placeholder="Name (optional), like Shop Wi-Fi" style="flex:1;min-width:0;height:44px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;"><button sc-camel-on-click="{{ live.kio.addNetwork }}" style="{{ live.kio.addStyle }}">{{ live.kio.addLabel }}</button></div>
           <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:8px;line-height:1.45;">{{ live.kio.networkHelp }}</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:4px;line-height:1.45;">{{ live.kio.networkVpn }}</div>
         </sc-if>
         <sc-if value="{{ live.kio.hasNetworkError }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#C2410C;line-height:1.45;">{{ live.kio.networkError }}</div></sc-if>
         <sc-if value="{{ live.kio.readOnly }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12.5px;font-weight:700;color:#8A5A06;">{{ live.kio.readOnlyText }}</div></sc-if>
