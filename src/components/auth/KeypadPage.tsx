@@ -185,7 +185,11 @@ export function KeypadPage({ status, kiosk, auth, query, navigate, now = serverN
         const p = unlockProblem(err)
         setMessage(p.text)
         if (p.lockedOut) setLockedOut(true)
-        if (p.block) setBlock(p.block)
+        if (p.block) {
+          // the server refused this page as away from the shop: that was its one try (review N2), never a second PIN
+          triedHere.current = true
+          setBlock(p.block)
+        }
         setWaitUntil(p.waitSec > 0 ? now() + p.waitSec * 1000 : 0)
         if (p.showForm) {
           setToast(p.text)

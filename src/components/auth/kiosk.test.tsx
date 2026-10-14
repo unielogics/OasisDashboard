@@ -434,6 +434,24 @@ describe('KeypadPage', () => {
     expect(unlock).toHaveBeenCalledTimes(1)
   })
 
+  // K-PIN-DASH review N2: the page opened at the shop, the first PIN is refused as away (the address changed meanwhile);
+  // that refusal is this page's one try, so a browser that opened the kiosk before sends no second PIN from here
+  it('one PIN per page from a new network: a 403 KIOSK_NOT_AT_SHOP on a page that opened at the shop counts as the try', async () => {
+    localStorage.setItem('oasis-kiosk-opened-here', '1')
+    const unlock = vi
+      .fn()
+      .mockRejectedValue(new ApiError({ status: 403, code: 'KIOSK_NOT_AT_SHOP', title: 'x', meta: { networkSet: true } }))
+    const reread = vi.fn(async () => AWAY)
+    await mount(page({ status: STATUS, unlock, reread }))
+    await typeKeys('24681357')
+    expect(unlock).toHaveBeenCalledTimes(1)
+    expect(text()).toContain('PINs work only at the shop.')
+    await typeKeys('13572468')
+    expect(reread).toHaveBeenCalled()
+    expect(unlock).toHaveBeenCalledTimes(1)
+    expect(text()).toContain('PINs work only at the shop.')
+  })
+
   it('that browser before any shop network exists, or a browser that never opened it: no PIN is sent', async () => {
     const unlock = vi.fn()
     await mount(page({ status: AWAY, unlock }))
