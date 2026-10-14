@@ -6,7 +6,7 @@ import type { Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SessionProvider } from '@/auth/session'
-import { makeMe } from '@/auth/test-fixtures'
+import { makeKioskMe, makeMe } from '@/auth/test-fixtures'
 import { ApiClient, createCsrfStore } from '../http/client'
 import { toasts } from '../toast'
 import type { ToastSpec } from '../toast'
@@ -223,5 +223,70 @@ describe('<RealtimeProvider>', () => {
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
     act(() => void document.dispatchEvent(new Event('visibilitychange')))
     expect(FakeSource.all.length).toBe(before + 1)
+  })
+})
+
+// ADR 0180 A13 (K-PIN-DASH D3): a kiosk away from the shop has no stream until it is back on the shop's Wi-Fi
+describe('<RealtimeProvider> on a kiosk away from the shop', () => {
+  it('the stream closes and is not reopened while the board is covered; back at the shop it opens again', async () => {
+    const where = { away: false }
+    const res = (b: unknown, status = 200) =>
+      new Response(JSON.stringify(b), {
+        status,
+        headers: { 'content-type': status >= 400 ? 'application/problem+json' : 'application/json' },
+      })
+    const f = vi.fn(async (url: string) => {
+      const p = url.replace('/api/v1', '').split('?')[0]
+      if (p === '/kiosk/status')
+        return res({
+          enabled: true,
+          networkSet: true,
+          atShop: !where.away,
+          unlocked: { locksAt: '2026-06-14T01:00:00.000Z', locksAtLabel: '9:00 PM' },
+          lockedOut: false,
+          retryAfterSec: 0,
+        })
+      if (where.away) return res({ title: 'x', status: 403, code: 'KIOSK_NOT_AT_SHOP', meta: { networkSet: true } }, 403)
+      if (p === '/me') return res({ title: 'x', status: 403, code: 'KIOSK_SESSION' }, 403)
+      if (p === '/kiosk/me') return res(makeKioskMe())
+      if (p === '/kiosk/staff') return res({ items: [] })
+      return res({ now: '2026-06-13T14:36:00.000Z', tz: 'America/New_York' })
+    })
+    const client = new ApiClient({ fetch: f as any, csrf: createCsrfStore(), sleep: async () => {} })
+    const nav = { pathname: '/operations', search: '', hash: '', replace: vi.fn(), assign: vi.fn() }
+    await act(async () =>
+      root.render(
+        createElement(
+          QueryClientProvider,
+          { client: qc },
+          createElement(
+            SessionProvider,
+            { client, nav, awayRecheckMs: 60_000 },
+            createElement(RealtimeProvider, { createSource: (u) => new FakeSource(u), timers }, createElement('div', { id: 'app' })),
+          ),
+        ),
+      ),
+    )
+    await flush()
+    expect(FakeSource.all).toHaveLength(1)
+    where.away = true
+    await client.get('/ops/snapshot').catch(() => undefined)
+    await flush()
+    expect(container.querySelector('[data-kiosk-away]')).not.toBeNull()
+    expect(FakeSource.last.closed).toBe(true)
+    // no reconnects, no poll fallback, while covered
+    act(() => timers.advance(5 * 60_000))
+    await flush()
+    expect(FakeSource.all).toHaveLength(1)
+    expect(timers.pending).toBe(0)
+    // back on the shop's Wi-Fi (focus reads the status at once)
+    where.away = false
+    await act(async () => void window.dispatchEvent(new Event('focus')))
+    await flush()
+    await flush()
+    expect(container.querySelector('[data-kiosk-away]')).toBeNull()
+    expect(FakeSource.all).toHaveLength(2)
+    expect(FakeSource.last.closed).toBe(false)
+    expect(nav.replace).not.toHaveBeenCalled()
   })
 })

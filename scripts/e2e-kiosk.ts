@@ -15,11 +15,13 @@
 // Steps: no shop network yet → the keypad says a Super Admin must set it and sends nothing → the Super Admin, on a phone on
 // the shop Wi-Fi (not the tablet), presses "This is the shop's network" (the phone drops to mobile data first: 409, the screen
 // re-reads the address) → a manager sees it read only and sets Marco's PIN and generates Lena's → the tablet's keypad takes
-// Marco's PIN (a wrong one first) and opens Operations: "Opened by Marco R. · Locks at …" → each car step asks who (the
+// Marco's PIN (a wrong one first) and opens Operations: "Opened by Marco R. · Locks at …" → carried to a café's Wi-Fi the
+// unlocked tablet is covered ("This tablet works only on the shop's Wi-Fi", nothing else is sent) and back on the shop Wi-Fi
+// the cover goes by itself, the session kept → each car step asks who (the
 // picker) and sends X-Oasis-Employee → a direct PUT /settings/hours answers 403, /settings goes back to /operations → Lock
 // kiosk → wrong PINs show the countdown → a PIN from outside the shop is never sent (and the API refuses it) → the provider
-// changes the shop's address: the tablet, reloaded there, sends one PIN (it opened the kiosk before), the try is listed as "Front desk tablet tried from a new network", the Super Admin adds
-// it, the tablet's open keypad is ready again by itself and Lena's PIN opens it → the manager removes Marco's PIN, it no longer works → Team activity.
+// changes the shop's address: the tablet, reloaded there, sends one PIN (it opened the kiosk before), the try is listed as "Front desk tablet tried from a new network, and the shop's usual
+// network has been quiet since …", the Super Admin adds it (after the confirm), the tablet's open keypad is ready again by itself and Lena's PIN opens it → the manager removes Marco's PIN, it no longer works → Team activity.
 // Exit code 1 when any check fails, a page errors or the API answers 5xx. PENDING lines never fail the run.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -47,6 +49,8 @@ const NEW_SHOP_IP = '203.0.113.99'
 const MOBILE_IP = '172.56.1.9'
 const OFFICE_IP = '192.0.2.10'
 const AWAY_IP = '198.51.100.23'
+/** A café's Wi-Fi the unlocked tablet is carried to (ADR 0180 A13). */
+const CAFE_IP = '198.51.100.77'
 
 let passed = 0
 const failures: string[] = []
@@ -279,6 +283,7 @@ async function main(): Promise<void> {
       'the keypad: “A Super Admin must set the shop network first — Settings → Kiosk”',
     )
     let mark = T.seen.length
+    let r: { status: number; body: any }
     await keypadType(tablet, MARCO_PIN)
     await sleep(500)
     ok(unlockSent(T.seen, mark).length === 0, 'a PIN typed before any network is never sent')
@@ -352,7 +357,7 @@ async function main(): Promise<void> {
       (await M.page.locator('[data-kiosk-networks]').getByRole('button', { name: 'Remove', exact: true }).count()) === 0,
       'no Remove on the networks for the manager',
     )
-    let r = await api(M.page, 'POST', '/kiosk/networks', { confirmAddress: OFFICE_IP })
+    r = await api(M.page, 'POST', '/kiosk/networks', { confirmAddress: OFFICE_IP })
     ok(r.status === 403 && (r.body as any)?.code === 'SUPER_ONLY', 'POST /kiosk/networks answers 403 SUPER_ONLY to a manager', r)
     // Marco's PIN, typed twice
     await staffRow(M.page, 'Marco R.').getByRole('button', { name: 'Set PIN' }).click()
@@ -414,6 +419,43 @@ async function main(): Promise<void> {
       /Opened by Marco R\./.test((await S.page.locator('text=Recent kiosk events').locator('..').textContent()) ?? ''),
       'Recent kiosk events: “Unlocked … Opened by Marco R.”',
     )
+
+    // ---------------------------------------------------------------------------------------------------------------
+    section('the unlocked tablet carried off the shop Wi-Fi: covered, and back at the shop the board works (ADR 0180 A13)')
+    await moveTo(T.ctx, CAFE_IP)
+    r = await api(tablet, 'GET', '/kiosk/me')
+    ok(r.status === 403 && (r.body as any)?.code === 'KIOSK_NOT_AT_SHOP', 'from another network the kiosk answers 403 KIOSK_NOT_AT_SHOP', r)
+    // the board reads its snapshot every few seconds: the next read is refused and the cover goes up
+    const away = tablet.locator('[data-kiosk-away]')
+    await away.waitFor({ timeout: 30_000 })
+    ok(
+      ((await away.textContent()) ?? '').includes('This tablet works only on the shop’s Wi-Fi'),
+      'the cover: “This tablet works only on the shop’s Wi-Fi”',
+      await away.textContent(),
+    )
+    ok((await away.locator('button').allTextContents()).join('|') === 'Manager sign-in', 'its only button: “Manager sign-in”')
+    ok((await tablet.locator('#dc-root').count()) === 1, 'the board stays under the cover')
+    await shot(tablet, '05b-away-cover')
+    // nothing loops while covered: only the public GET /kiosk/status may go out (every 30 s, on focus)
+    mark = T.seen.length
+    await tablet.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await sleep(5000)
+    const whileAway = T.seen.slice(mark).map((x) => x.method + ' ' + x.path)
+    ok(
+      whileAway.every((x) => x === 'GET /api/v1/kiosk/status') && whileAway.length <= 2,
+      'while covered nothing else is sent (the calls wait)',
+      whileAway,
+    )
+    // back on the shop Wi-Fi: the tablet comes back into view and the cover goes by itself, no PIN
+    await moveTo(T.ctx, SHOP_IP)
+    await tablet.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await until(async () => (await away.count()) === 0, 15_000)
+    ok((await away.count()) === 0, 'back on the shop Wi-Fi the cover goes by itself (no PIN)')
+    r = await api(tablet, 'GET', '/kiosk/me')
+    ok(r.status === 200 && (r.body as any)?.openedBy?.name === 'Marco R.', 'the kiosk session was kept (not revoked): still opened by Marco R.', r.status)
+    ok(new URL(tablet.url()).pathname === '/operations', 'and the tablet is still on the board')
+    await tablet.waitForSelector('text=Appointments 24h', { timeout: 30_000 })
+    ok(/Opened by Marco R\. · Locks at/.test(await text(tablet)), 'the board works again: “Opened by Marco R. · Locks at …”')
 
     // ---------------------------------------------------------------------------------------------------------------
     section('one job through every step from its file, each step asking who (Grace Adeyemi)')
@@ -611,9 +653,9 @@ async function main(): Promise<void> {
     await until(async () => (await known.count()) > 0, 10_000)
     ok(
       ((await known.textContent()) ?? '').includes(
-        'Front desk tablet tried from a new network — your internet provider probably changed the shop’s address',
+        'Front desk tablet tried from a new network, and the shop’s usual network has been quiet since — your internet provider probably changed the shop’s address.',
       ),
-      '“Front desk tablet tried from a new network — your internet provider probably changed the shop’s address”',
+      '“Front desk tablet tried from a new network, and the shop’s usual network has been quiet since — your internet provider probably changed the shop’s address.”',
       await known.textContent(),
     )
     ok(
@@ -629,6 +671,13 @@ async function main(): Promise<void> {
     await until(async () => (await browsers.getByRole('button', { name: 'Clear lockout' }).count()) === 0, 10_000)
     ok((await browsers.getByRole('button', { name: 'Clear lockout' }).count()) === 0, 'Clear lockout starts the tablet’s counter over')
     await known.getByRole('button', { name: 'Add this network' }).click()
+    // it always asks first, also for a known shop browser (review N1)
+    ok(
+      ((await known.textContent()) ?? '').includes('Add ' + NEW_SHOP_IP + ' as a shop network? Anyone on that network can then use a PIN.'),
+      'Add this network asks first: “Anyone on that network can then use a PIN.”',
+      await known.textContent(),
+    )
+    await known.getByRole('button', { name: 'Add', exact: true }).click()
     await until(async () => (await S.page.locator('[data-kiosk-networks]').textContent())?.includes(NEW_SHOP_IP + ' · added'), 10_000)
     ok((await S.page.locator('[data-kiosk-networks]').textContent())?.includes(NEW_SHOP_IP + ' · added'), 'Add this network adds 203.0.113.99')
     // no reload on the tablet: its keypad reads the status again by itself (review F1)

@@ -355,7 +355,7 @@ action until it succeeds, the server's toast or `Card removed`, `Card link texte
 Tests: `src/lib/operations/live/billing.test.ts`, `src/screens/operations/live-billing.test.ts` (view model, commands, permissions,
 the live template). End to end: `pnpm e2e:billing` (docs/screens-payments-live.md, "Running the end to end").
 
-## Kiosk mode (ADR 0180 and its 2026-10-14 amendment; DV-1003..DV-1007, DV-1013)
+## Kiosk mode (ADR 0180 and its 2026-10-14 amendment; DV-1003..DV-1007, DV-1013, DV-1016, DV-1017)
 
 On the shop's unlocked kiosk (docs/auth-ui.md "Kiosk mode": opened by an employee's own PIN on the shop's network; the
 header chip reads `Opened by Marco R. · Locks at 9:00 PM`) Operations is the only screen: no Payments or Settings tab and
@@ -382,6 +382,16 @@ The worker on a bay card, the History line `Today · Marco R.` and the Staff vie
 (DV-1013) come from the server (the attribution package, wave K1b): the dashboard renders the snapshot's `worker` and
 `staff` columns and the file's `activity[].actorName` as before.
 
+Away from the shop's Wi-Fi the unlocked tablet's board is covered until it is back (docs/auth-ui.md "Away from the shop",
+DV-1016); a board read refused with 403 `KIOSK_NOT_AT_SHOP` does not toast under the cover.
+
+**The kiosk alert for Super Admins** (ADR 0180 A15, DV-1017): Needs Attention (Bay Board) shows the server's
+`kiosk_address_changed` alert as it comes (amber `!`, `The shop’s internet address may have changed`, `Front desk tablet was
+refused from a new address. A Super Admin can add it in Settings → Kiosk.`, `Open Settings`). It is about no appointment:
+its button and `Open` go to Settings → Kiosk (`/settings#kiosk`, `alertPage` in `src/lib/operations/live/kiosk-alert.ts`)
+instead of opening a file or flashing its text.
+
 Tests: `src/screens/operations/live-kiosk.test.ts` (who is asked when, what each request carries, a signed-in person never
-asked, and through the real ApiClient that the client's fallback picker is never reached) and
-`LiveLogic.kiosk.render.test.ts` (the live template: hidden tabs, chip and menu, picker, acting chip, the admin bar).
+asked, and through the real ApiClient that the client's fallback picker is never reached; no toast away from the shop),
+`LiveLogic.kiosk.render.test.ts` (the live template: hidden tabs, chip and menu, picker, acting chip, the admin bar, the
+kiosk alert) and `LiveLogic.test.ts` (the kiosk alert opens Settings → Kiosk).

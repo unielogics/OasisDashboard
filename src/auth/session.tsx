@@ -6,12 +6,15 @@
 // is GET /kiosk/me instead. Then the API client refuses the routes the kiosk may not call and asks the employee picker for
 // a write that forgot its employee; "Lock kiosk" is POST /kiosk/lock; the page goes to the keypad by itself at the lock
 // time (/login?locked=1) or when the kiosk was locked elsewhere (a 401); the theme is kept on the tablet only; the picker
-// list follows Settings (GET /kiosk/staff on `settings.changed` kiosk or employees).
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+// list follows Settings (GET /kiosk/staff on `settings.changed` kiosk or employees). Away from the shop (403
+// KIOSK_NOT_AT_SHOP, ADR 0180 A13; DV-1016) the board is covered, the client holds every call and the cover reads
+// GET /kiosk/status until the tablet is back on the shop's Wi-Fi; the session is kept.
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import { BootSplash, FailureCard } from '@/components/auth/Boot'
+import { KioskAwayCover } from '@/components/auth/KioskAwayCover'
 import { api } from '@/data/http/client'
 import type { ApiClient } from '@/data/http/client'
 import { createAuthApi, createKioskApi, createMeApi } from '@/data/http/endpoints'
@@ -26,6 +29,8 @@ import { serverClock } from '@/lib/clock'
 import { DEFAULT_TZ } from '@/lib/tz'
 import { isPublicPath, loginUrl } from '@/lib/url'
 import { installLiveChrome, liveChrome } from './chrome'
+import { awayOf } from './kiosk-away'
+import type { KioskAway } from './kiosk-away'
 import { can as canFn, limit as limitFn, toKioskSession, toSession } from './session-model'
 import type { Session } from './session-model'
 import type { MoneyKind } from '@/data/http/auth-types'
@@ -74,6 +79,8 @@ export interface SessionApi {
   refresh(): Promise<void>
   viewAs(roleId: string | null): Promise<void>
   signOut(): Promise<void>
+  /** The kiosk is away from the shop and its board is covered (the event stream pauses meanwhile). */
+  kioskAway?: boolean
 }
 
 // The bridge appended to the live logic sources finds the store through window.__oasisLive.
@@ -104,15 +111,19 @@ interface ProviderProps {
   client?: ApiClient
   /** Full-page navigation (window.location by default; replaced in tests). */
   nav?: Pick<Location, 'pathname' | 'search' | 'hash' | 'replace' | 'assign'>
+  /** How often the away cover reads GET /kiosk/status (30 s; replaced in tests). */
+  awayRecheckMs?: number
 }
 
-export function SessionProvider({ children, client = api, nav }: ProviderProps) {
+export function SessionProvider({ children, client = api, nav, awayRecheckMs }: ProviderProps) {
   const qc = useQueryClient()
   const meApi = useMemo(() => createMeApi(client), [client])
   const authApi = useMemo(() => createAuthApi(client), [client])
   const kioskApi = useMemo(() => createKioskApi(client), [client])
   const redirecting = useRef(false)
   const kioskRef = useRef<Session['kiosk']>(null)
+  // an unlocked kiosk away from the shop (ADR 0180 A13): the board is covered and every call is held
+  const [away, setAway] = useState<KioskAway | null>(null)
 
   useEffect(() => {
     client.configure({
@@ -123,7 +134,18 @@ export function SessionProvider({ children, client = api, nav }: ProviderProps) 
         if (kioskRef.current) (nav ?? window.location).replace(lockedUrl())
         else redirectToLogin(nav, { expired: true })
       },
+      onKioskAway: (e) => {
+        const a = awayOf(e)
+        if (!a) return
+        // nothing more is sent (no request loops) until GET /kiosk/status says the tablet is back
+        client.holdKiosk()
+        setAway((prev) => (prev && prev.networkSet === a.networkSet ? prev : a))
+      },
     })
+    return () => {
+      client.configure({ onKioskAway: undefined })
+      client.releaseKiosk()
+    }
   }, [client, nav])
 
   const q = useQuery({
@@ -134,6 +156,25 @@ export function SessionProvider({ children, client = api, nav }: ProviderProps) 
   const session = q.data ?? null
   const kiosk = session?.kiosk ?? null
   kioskRef.current = kiosk
+  // opened away from the shop: GET /me itself answered 403 KIOSK_NOT_AT_SHOP (no board yet, only the cover)
+  const awayNow = away ?? (session ? null : awayOf(q.error))
+
+  // back on the shop's Wi-Fi: the calls that waited go out and everything is read again (the session was kept)
+  const backAtShop = useCallback(() => {
+    setAway(null)
+    client.releaseKiosk()
+    void qc.invalidateQueries()
+    // the screens' reads that failed meanwhile (read through the query store, so not active here)
+    void qc.refetchQueries({ type: 'inactive', predicate: (query) => query.state.status === 'error' })
+  }, [client, qc])
+  const awayEnded = useCallback(() => {
+    redirecting.current = true
+    ;(nav ?? window.location).replace(lockedUrl())
+  }, [nav])
+  const awayStay = useCallback((a: KioskAway) => {
+    setAway((prev) => (prev && prev.networkSet === a.networkSet ? prev : a))
+  }, [])
+  const managerSignIn = useCallback(() => (nav ?? window.location).assign('/login?admin=1'), [nav])
 
   // Kiosk mode in the API client: the route list, and the fallback picker for a write that forgot its employee.
   useLayoutEffect(() => {
@@ -240,13 +281,27 @@ export function SessionProvider({ children, client = api, nav }: ProviderProps) 
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
+  const kioskAway = !!awayNow
   const value = useMemo<SessionApi | null>(
-    () => (session ? { session, refresh, viewAs, signOut } : null),
-    [session, refresh, viewAs, signOut],
+    () => (session ? { session, refresh, viewAs, signOut, kioskAway } : null),
+    [session, refresh, viewAs, signOut, kioskAway],
   )
+
+  const cover = awayNow ? (
+    <KioskAwayCover
+      away={awayNow}
+      kiosk={kioskApi}
+      onBack={backAtShop}
+      onEnded={awayEnded}
+      onStay={awayStay}
+      managerSignIn={managerSignIn}
+      recheckMs={awayRecheckMs}
+    />
+  ) : null
 
   if (q.isPending) return <BootSplash />
   if (!session || !value) {
+    if (cover) return cover
     const err = q.error
     if (err instanceof ApiError && err.status === 401) return <BootSplash label="Redirecting to sign in" />
     return (
@@ -257,7 +312,12 @@ export function SessionProvider({ children, client = api, nav }: ProviderProps) 
       />
     )
   }
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={value}>
+      {children}
+      {cover}
+    </Ctx.Provider>
+  )
 }
 
 /** "Lock kiosk": POST /kiosk/lock, drop client state, then the keypad. A failed call still leaves for the keypad. */

@@ -83,6 +83,8 @@ import { calVM, navigate, summaryRange } from '@/lib/operations/live/calendar'
 import type { CalHandlers } from '@/lib/operations/live/calendar'
 import { fileVM } from '@/lib/operations/live/file'
 import { aiThreadLine, alertTab, identityVM } from '@/lib/operations/live/assistant'
+import { alertPage } from '@/lib/operations/live/kiosk-alert'
+import { awayOf } from '@/auth/kiosk-away'
 import { categoryCountVMs, categoryInfoOf } from '@/lib/operations/live/categories'
 import { categoryChips } from '@/lib/categories'
 import type { FileHandlers, FileUi } from '@/lib/operations/live/file'
@@ -603,6 +605,8 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
     if (!err || typeof err !== 'object' || this.reported.has(err)) return
     this.reported.add(err)
     if (err instanceof ApiError && (err.isUnauthenticated || err.kind === 'aborted')) return
+    // a kiosk away from the shop: the cover over the board says it (ADR 0180 A13), not a toast under it
+    if (awayOf(err)) return
     const t = toastForError(err)
     // never set state while rendering
     setTimeout(() => {
@@ -1008,6 +1012,12 @@ export class LiveOperationsLogic extends DCLogic<LiveState> {
 
   /** Opens what an alert is about: a reply opens the Messages tab, money waiting on Squarespace the Payments tab. */
   private alertOpen(a: OpsAlert): void {
+    // the kiosk's "address may have changed" alert opens Settings → Kiosk (ADR 0180 A15)
+    const page = alertPage(a.kind)
+    if (page) {
+      this.deps.chrome()?.navigate(page)
+      return
+    }
     const id = a.appointmentId ?? a.action.appointmentId
     if (!id) {
       // device and sync alerts have no appointment: say what they say

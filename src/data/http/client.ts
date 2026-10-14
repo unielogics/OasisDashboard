@@ -2,7 +2,8 @@
 // caller, RFC 9457 errors as ApiError, 401 -> sign-in redirect, one CSRF refresh retry, bounded retries for
 // network failures that reuse the SAME Idempotency-Key (so a retried money action can never be applied twice).
 // In kiosk mode (ADR 0180) it also refuses, without sending them, the routes the kiosk may not call, and names the
-// acting employee of a write in X-Oasis-Employee (asking the fallback picker when a write forgot to).
+// acting employee of a write in X-Oasis-Employee (asking the fallback picker when a write forgot to); away from the shop
+// (403 KIOSK_NOT_AT_SHOP) it tells the app and holds every call until the kiosk is back on the shop's network.
 import { newIdempotencyKey } from '@/lib/id'
 import { serverNow } from '@/lib/clock'
 import { AUTH_CODES } from './auth-types'
@@ -57,6 +58,11 @@ export interface ApiClientConfig {
   retryBaseMs?: number
   /** Set while the page is an unlocked kiosk (src/auth/session.tsx); null or absent for a signed-in person. */
   kiosk?: KioskClientConfig | null
+  /**
+   * An unlocked kiosk answered 403 KIOSK_NOT_AT_SHOP (ADR 0180 A13: it works only on the shop's network): the app covers
+   * the board and holds every call (`holdKiosk`) until GET /kiosk/status says it is back. Never for a public call.
+   */
+  onKioskAway?: (e: ApiError) => void
 }
 
 const MUTATING = new Set<Method>(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -65,6 +71,8 @@ const defaultSleep = (ms: number): Promise<void> => new Promise((r) => setTimeou
 export class ApiClient {
   readonly csrf: CsrfStore
   private cfg: ApiClientConfig
+  /** While the kiosk is away from the shop: every non-public call waits here, unsent (no request loops). */
+  private held: { wait: Promise<void>; release: () => void } | null = null
 
   constructor(cfg: ApiClientConfig = {}) {
     this.cfg = cfg
@@ -73,6 +81,40 @@ export class ApiClient {
 
   configure(patch: Partial<ApiClientConfig>): void {
     this.cfg = { ...this.cfg, ...patch }
+  }
+
+  /** Holds every non-public call, unsent, until `releaseKiosk()` (the kiosk is away from the shop; public calls pass). */
+  holdKiosk(): void {
+    if (this.held) return
+    let release = (): void => {}
+    const wait = new Promise<void>((r) => (release = r))
+    this.held = { wait, release }
+  }
+
+  /** Back at the shop: the calls that waited go out. */
+  releaseKiosk(): void {
+    const h = this.held
+    this.held = null
+    h?.release()
+  }
+
+  get kioskHeld(): boolean {
+    return this.held !== null
+  }
+
+  private async waitWhileHeld(signal: AbortSignal | undefined): Promise<void> {
+    while (this.held) {
+      const h = this.held
+      if (signal?.aborted) throw new ApiError({ status: 0, kind: 'aborted' })
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = () => reject(new ApiError({ status: 0, kind: 'aborted' }))
+        signal?.addEventListener('abort', onAbort, { once: true })
+        void h.wait.then(() => {
+          signal?.removeEventListener('abort', onAbort)
+          resolve()
+        })
+      })
+    }
   }
 
   get<T = unknown>(path: string, opts: Omit<RequestOptions, 'body'> = {}): Promise<T> {
@@ -105,6 +147,7 @@ export class ApiClient {
 
   async request<T = unknown>(method: Method, path: string, opts: RequestOptions = {}): Promise<T> {
     const mutating = MUTATING.has(method)
+    if (this.held && !opts.public) await this.waitWhileHeld(opts.signal)
     if (this.cfg.kiosk && !opts.public) opts = await this.kioskGate(method, path, opts, this.cfg.kiosk)
     // One key per action, shared by every retry of this call.
     const key =
@@ -129,6 +172,7 @@ export class ApiClient {
           continue
         }
         if (e.status === 401 && !opts.public) this.cfg.onUnauthorized?.(e)
+        if (e.status === 403 && e.code === AUTH_CODES.kioskNotAtShop && !opts.public) this.cfg.onKioskAway?.(e)
         if (!e.isRetryable || attempt >= maxRetries) throw e
         await (this.cfg.sleep ?? defaultSleep)(this.backoff(attempt, e))
       }

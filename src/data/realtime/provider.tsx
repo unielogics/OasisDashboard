@@ -19,10 +19,12 @@ interface Props {
 /** Runs the SSE client while a person is signed in; events invalidate query families, 'down' toasts and polls. */
 export function RealtimeProvider({ children, createSource, timers }: Props) {
   const qc = useQueryClient()
-  const { session } = useSession()
+  const { session, kioskAway } = useSession()
   const userId = session.user.id
 
   useEffect(() => {
+    // a kiosk away from the shop (ADR 0180 A13): no stream (it would only be refused) until it is back on the shop's Wi-Fi
+    if (kioskAway) return
     const coalescer = new InvalidationCoalescer(qc, 250, timers)
     const client = new RealtimeClient({
       createSource,
@@ -50,7 +52,7 @@ export function RealtimeProvider({ children, createSource, timers }: Props) {
       client.stop()
       coalescer.dispose()
     }
-  }, [qc, userId, createSource, timers])
+  }, [qc, userId, createSource, timers, kioskAway])
 
   return <>{children}</>
 }

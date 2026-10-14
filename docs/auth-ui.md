@@ -108,7 +108,7 @@ pnpm start:live                 # :3200 (PORT=... to change)
 `scripts/fake-api.test.ts` runs the real `ApiClient`, the identity endpoints and the `RealtimeClient` against it over
 a socket (login, throttle, CSRF heal, view-as, invite, reset, SSE resume and resync).
 
-## Kiosk mode (ADR 0180 and its 2026-10-14 amendment; DEVIATIONS DV-1001, DV-1002, DV-1003, DV-1008, DV-1012, DV-1014)
+## Kiosk mode (ADR 0180 and its 2026-10-14 amendment; DEVIATIONS DV-1001, DV-1002, DV-1003, DV-1008, DV-1012, DV-1014, DV-1016)
 
 The shop's shared tablet stays open all day without an email login. Kiosk mode is **on by default**: the sign-in page is a PIN
 keypad. Every employee has their own 8-digit PIN (set by a manager in Settings → Kiosk → Staff PINs); any listed employee's PIN,
@@ -149,9 +149,10 @@ leaves the keypad as it is. The reads stop once it is at the shop. `Back to keyp
 (`oasis-kiosk-opened-here` = `1`, set after a successful unlock; never the PIN or a name; storage that is blocked just means
 no flag). On a connection the status calls "not at the shop" (a shop network exists), such a browser sends **one** full PIN
 per page, after re-reading the status, so the server lists it under Settings → Kiosk → `PIN tried from a new network` with
-the browser's name ("Front desk tablet tried from a new network — your internet provider probably changed the shop's
-address") and the Super Admin can add it from anywhere, also when the tablet reloaded after the address changed. The server
-never checks that PIN (403 `KIOSK_NOT_AT_SHOP`); the keypad then says `PINs work only at the shop.` and sends no more. Before
+the browser's name ("Front desk tablet tried from a new network, and the shop's usual network has been quiet since — …")
+and the Super Admin can add it from anywhere, also when the tablet reloaded after the address changed. The server
+never checks that PIN (403 `KIOSK_NOT_AT_SHOP`); the keypad then says `PINs work only at the shop.` and sends no more. Any
+403 `KIOSK_NOT_AT_SHOP` to a PIN counts as that page's one try, also on a page that opened at the shop (review N2). Before
 any shop network exists, and in a browser that never opened the kiosk, nothing is sent. This deviates from the K-PIN-DASH
 brief's literal "never sends a PIN" to keep the plan's promise (the try is listed and approved from anywhere); removing the
 exception is one line (`mayTryFromHere` in `src/auth/keypad.ts`).
@@ -182,6 +183,19 @@ the event stream's auth probe) finds the client already in kiosk mode, which ref
 - the picker list follows Settings: `GET /kiosk/staff` under `['settings', 'kiosk', 'staff']`, refetched on
   `settings.changed {section: kiosk | employees}`; the theme is kept on the tablet only (no `PUT /me/preferences`).
 
+**Away from the shop** (ADR 0180 A13, DV-1016): an unlocked kiosk works only on the shop's network. When any call of the
+kiosk session (a board read, `GET /kiosk/me`, the session's own `GET /me`) answers 403 `KIOSK_NOT_AT_SHOP` (the tablet was
+carried off the shop Wi-Fi, or the shop network was removed) the API client tells the session (`onKioskAway`) and **holds
+every call unsent** (`holdKiosk`; public calls pass), the event stream closes, and a full-screen cover goes over the board
+(`KioskAwayCover`, pure words and rules in `src/auth/kiosk-away.ts`): `This tablet works only on the shop’s Wi-Fi` and
+`Connect it to the shop Wi-Fi. The board comes back by itself — no PIN needed.` (`meta.networkSet` false: `A Super Admin must
+set the shop network first — Settings → Kiosk`), with one button, `Manager sign-in` (`/login?admin=1`). The session is kept
+(the server does not revoke it). The cover reads the public `GET /kiosk/status` every 30 s and on focus, visibility and
+online, one read at a time; `atShop` true removes it, sends the held calls and reads every query again (the stream reopens);
+a status that says the tablet is no longer unlocked (or kiosk mode is off) goes to the keypad (`/login?locked=1`); an
+unreadable one keeps the cover. A tablet opened away from the shop (its `GET /me` refused) shows only the cover until it is
+back. A board read refused this way does not toast under the cover.
+
 **Header chip and menu** (`src/auth/chrome.ts`, partial `user-menu.html`): on a kiosk `K`, the tablet's name and `Opened by
 Marco R. · Locks at 9:00 PM` (`KioskMe.openedBy`, whose PIN opened it; without it `Locks at 9:00 PM`); the menu reads the
 tablet and `Opened by Marco R. at 7:58 AM · locks 9:00 PM`, then `Manager sign-in` (`/login?admin=1`: the keypad, where 0218
@@ -196,7 +210,9 @@ out after 15 minutes without use` and `Sign out`.
 
 Tests: `src/auth/keypad.test.ts`, `kiosk-picker.test.ts`, `chrome.test.ts`, `session.test.tsx`, `middleware-logic.test.ts`,
 `src/components/auth/kiosk.test.tsx` (every keypad state: at the shop, not at the shop, no network yet, locked out, wrong PIN,
-0218; the status read again by itself, on focus and before a full PIN; the one try from a browser that opened the kiosk), `gate.test.tsx`, `src/data/http/kiosk.test.ts`; end to end `pnpm e2e:kiosk` (`scripts/e2e-kiosk.ts`, on a stack
+0218; the status read again by itself, on focus and before a full PIN; the one try from a browser that opened the kiosk, and
+only one per page), `gate.test.tsx`, `src/data/http/kiosk.test.ts` (also the hold), `src/auth/kiosk-away.test.ts`, the away
+cover in `session.test.tsx` and `src/data/realtime/provider.test.tsx`; end to end `pnpm e2e:kiosk` (`scripts/e2e-kiosk.ts`, on a stack
 started with `--trust-proxy` so each browser says which address it comes from; `bash scripts/e2e-kiosk-stack.sh <backend>`
 runs it start to end). With kiosk mode on by default, the e2e and live-parity sign-ins type 0218 on the keypad first
 (`revealEmailForm` in `scripts/live-e2e.ts`, `signIn` in `tools/parity/live.ts`).

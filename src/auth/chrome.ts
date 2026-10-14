@@ -153,7 +153,8 @@ export class LiveChrome {
     this.invalidate()
   }
 
-  private navigate(url: string): void {
+  /** Full-page navigation (the bound action, else window.location.assign); the board's kiosk alert opens Settings with it. */
+  navigate(url: string): void {
     if (this.actions.navigate) this.actions.navigate(url)
     else if (typeof window !== 'undefined') window.location.assign(url)
   }

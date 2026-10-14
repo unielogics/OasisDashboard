@@ -67,6 +67,33 @@ describe('Operations live template in kiosk mode', () => {
     expect(confirm).not.toContain('Lock kiosk')
   })
 
+  it('a Super Admin’s board: “The shop’s internet address may have changed” in Needs attention (ADR 0180 A15, DV-1017)', async () => {
+    const port = stubPort()
+    port.snap.alerts = [
+      {
+        key: 'kiosk_address_changed:ref-1',
+        kind: 'kiosk_address_changed',
+        tone: 'amber',
+        glyph: '!',
+        appointmentId: null,
+        priority: 1,
+        title: 'The shop’s internet address may have changed',
+        desc: 'Front desk tablet was refused from a new address. A Super Admin can add it in Settings → Kiosk.',
+        actionLabel: 'Open Settings',
+        action: { type: 'open', appointmentId: null },
+      } as any,
+    ]
+    const l = makeLive(makeSession({ role: 'super' }), port)
+    l.vals()
+    await l.settle()
+    // Needs Attention is the Bay Board's side panel
+    l.logic.setState({ view: 'bay' })
+    const h = html(l.vals())
+    expect(h).toContain('The shop’s internet address may have changed')
+    expect(h).toContain('Front desk tablet was refused from a new address. A Super Admin can add it in Settings → Kiosk.')
+    expect(h).toContain('>Open Settings<')
+  })
+
   it('the picker: the question, a tile per name (88 px), Cancel; nothing preselected (DV-1005)', async () => {
     const l = await live()
     void l.chrome.picker.pick({ title: 'Who’s putting Maria’s Camry in Bay 2?' })

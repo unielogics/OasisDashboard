@@ -266,6 +266,34 @@ describe('alerts that are not about a booking', () => {
       desc: 'Details of SMS device offline',
     })
   })
+
+  // ADR 0180 A15 (K-PIN review O3): a Super Admin's alert when the shop's internet address probably changed
+  it('the shop’s address may have changed: both the button and the card open Settings → Kiosk (no appointment)', async () => {
+    const port = stubPort()
+    port.snap.alerts = [
+      {
+        ...extra('kiosk_address_changed', null, 'The shop’s internet address may have changed'),
+        tone: 'amber',
+        desc: 'Front desk tablet was refused from a new address. A Super Admin can add it in Settings → Kiosk.',
+        actionLabel: 'Open Settings',
+      },
+    ]
+    const l = await boot({ role: 'super' }, port)
+    const urls: string[] = []
+    l.chrome.bind({ signOut: () => {}, viewAs: () => {}, navigate: (u) => void urls.push(u) })
+    const [a] = l.vals().alerts
+    expect([a.title, a.desc, a.actionLabel]).toEqual([
+      'The shop’s internet address may have changed',
+      'Front desk tablet was refused from a new address. A Super Admin can add it in Settings → Kiosk.',
+      'Open Settings',
+    ])
+    a.action()
+    await flushed(l)
+    a.open()
+    expect(urls).toEqual(['/settings#kiosk', '/settings#kiosk'])
+    expect(l.logic.state.selectedId).toBeNull()
+    expect(l.logic.state.toast).toBeFalsy()
+  })
 })
 
 describe('roles: no request, the design toast', () => {

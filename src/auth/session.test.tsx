@@ -602,6 +602,164 @@ describe('kiosk sessions (ADR 0180, DV-1002, DV-1014)', () => {
     expect(n.replace).toHaveBeenCalledWith('/login?locked=1')
   })
 
+  // ADR 0180 A13 (K-PIN review O1, K-PIN-DASH D3): an unlocked kiosk works only on the shop's network
+  describe('away from the shop (403 KIOSK_NOT_AT_SHOP)', () => {
+    const notAtShop = (networkSet = true) =>
+      new Response(
+        JSON.stringify({
+          title: 'Only at the shop',
+          status: 403,
+          code: 'KIOSK_NOT_AT_SHOP',
+          detail: 'The kiosk works only at the shop, on the shop’s Wi-Fi. It works again once this device is back on it.',
+          meta: { networkSet },
+        }),
+        { status: 403, headers: { 'content-type': 'application/problem+json' } },
+      )
+    const status = (o: { atShop: boolean; networkSet?: boolean; unlocked?: boolean; enabled?: boolean }) =>
+      json({
+        enabled: o.enabled ?? true,
+        networkSet: o.networkSet ?? true,
+        atShop: o.atShop,
+        unlocked: o.unlocked === false ? null : { locksAt: '2026-06-14T01:00:00.000Z', locksAtLabel: '9:00 PM' },
+        lockedOut: false,
+        retryAfterSec: 0,
+      })
+    const wait = async (ms: number) => {
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, ms))
+      })
+      await flush()
+    }
+    const cover = () => container.querySelector('[data-kiosk-away]')
+    const sent = (log: Array<{ method: string; path: string }>, from: number) =>
+      log.slice(from).map((r) => r.method + ' ' + r.path.split('?')[0])
+
+    it('covers the board, holds every call, reads the status again; back at the shop the cover goes and the board reads again (session kept)', async () => {
+      const where = { away: false }
+      const { fn, log } = kioskRoutes([
+        (req) => (where.away && req.path !== '/kiosk/status' ? notAtShop() : undefined),
+        on('GET', '/kiosk/status', () => status({ atShop: !where.away })),
+        on('GET', '/ops/snapshot', () => json({ ok: true })),
+      ])
+      const c = client(fn)
+      const n = nav()
+      let seen: ReturnType<typeof useSession> | undefined
+      await mount(
+        createElement(
+          SessionProvider,
+          { client: c, nav: n, awayRecheckMs: 40 },
+          createElement(Probe, { out: (v) => (seen = v) }),
+        ),
+      )
+      expect(seen!.session.kind).toBe('kiosk')
+      expect(cover()).toBeNull()
+      expect(seen!.kioskAway).toBe(false)
+      // the tablet leaves the shop's Wi-Fi: the next call answers 403 KIOSK_NOT_AT_SHOP
+      where.away = true
+      await expect(c.get('/ops/snapshot')).rejects.toMatchObject({ code: 'KIOSK_NOT_AT_SHOP' })
+      await flush()
+      expect(cover()).not.toBeNull()
+      expect(cover()!.textContent).toContain('This tablet works only on the shop’s Wi-Fi')
+      expect(cover()!.textContent).toContain('Connect it to the shop Wi-Fi. The board comes back by itself — no PIN needed.')
+      expect([...cover()!.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Manager sign-in'])
+      expect(cover()!.querySelectorAll('a')).toHaveLength(0)
+      // the board stays under it, the session is kept
+      expect(container.querySelector('#app')!.textContent).toBe('hello Front desk tablet')
+      expect(seen!.kioskAway).toBe(true)
+      // nothing more is sent but the public status, read again every 40 ms here (30 s in the app), one at a time
+      const mark = log.length
+      let held = false
+      const pending = c.get('/ops/snapshot').then(() => (held = true))
+      await wait(150)
+      const out = sent(log, mark)
+      expect(out.length).toBeGreaterThanOrEqual(2)
+      expect(out.every((x) => x === 'GET /kiosk/status')).toBe(true)
+      expect(held).toBe(false)
+      expect(n.replace).not.toHaveBeenCalled()
+      expect(n.assign).not.toHaveBeenCalled()
+      expect(log.some((r) => r.method === 'POST' && r.path === '/kiosk/lock')).toBe(false)
+      // back on the shop's Wi-Fi: the cover goes by itself, what waited is sent, the board reads again
+      where.away = false
+      const back = log.length
+      await wait(120)
+      await pending
+      expect(held).toBe(true)
+      expect(cover()).toBeNull()
+      expect(seen!.kioskAway).toBe(false)
+      expect(c.kioskHeld).toBe(false)
+      expect(sent(log, back)).toContain('GET /ops/snapshot')
+      expect(sent(log, back)).toContain('GET /kiosk/me')
+      const reads = log.length
+      await wait(120)
+      expect(sent(log, reads).filter((x) => x === 'GET /kiosk/status')).toHaveLength(0) // no more status reads
+      expect(n.replace).not.toHaveBeenCalled()
+    })
+
+    it('opened away from the shop: only the cover (no board yet); the no-network words; back: the board loads', async () => {
+      const where = { away: true, networkSet: false }
+      const { fn } = kioskRoutes([
+        (req) => (where.away && req.path !== '/kiosk/status' ? notAtShop(where.networkSet) : undefined),
+        on('GET', '/kiosk/status', () => status({ atShop: !where.away, networkSet: where.networkSet })),
+      ])
+      const c = client(fn)
+      const n = nav()
+      await mount(createElement(SessionProvider, { client: c, nav: n, awayRecheckMs: 40 }, createElement(Probe, { out: () => {} })))
+      await flush()
+      expect(container.querySelector('#app')).toBeNull()
+      expect(cover()!.textContent).toContain('A Super Admin must set the shop network first — Settings → Kiosk')
+      expect(cover()!.textContent).toContain('The board comes back by itself once it’s set.')
+      expect(container.textContent).not.toContain('Couldn’t load your session')
+      // the Super Admin adds a network that is not this one: the words change, the cover stays
+      where.networkSet = true
+      await wait(100)
+      expect(cover()!.textContent).toContain('This tablet works only on the shop’s Wi-Fi')
+      where.away = false
+      await wait(150)
+      expect(cover()).toBeNull()
+      expect(container.querySelector('#app')!.textContent).toBe('hello Front desk tablet')
+      expect(n.replace).not.toHaveBeenCalled()
+    })
+
+    it('the kiosk locked meanwhile (status: not unlocked) goes to the keypad; Manager sign-in is the sign-in page', async () => {
+      const where = { unlocked: true }
+      const { fn } = kioskRoutes([
+        on('GET', '/kiosk/status', () => status({ atShop: false, unlocked: where.unlocked })),
+        on('GET', '/ops/snapshot', () => notAtShop()),
+      ])
+      const c = client(fn)
+      const n = nav()
+      await mount(createElement(SessionProvider, { client: c, nav: n, awayRecheckMs: 60_000 }, createElement('div', { id: 'x' })))
+      await c.get('/ops/snapshot').catch(() => undefined)
+      await flush()
+      const btn = [...cover()!.querySelectorAll('button')].find((b) => b.textContent === 'Manager sign-in')!
+      await act(async () => btn.click())
+      expect(n.assign).toHaveBeenCalledWith('/login?admin=1')
+      // focus reads the status at once
+      where.unlocked = false
+      await act(async () => void window.dispatchEvent(new Event('focus')))
+      await flush()
+      expect(n.replace).toHaveBeenCalledWith('/login?locked=1')
+    })
+
+    it('a status that cannot be read keeps the cover (and sends nothing else)', async () => {
+      const { fn, log } = kioskRoutes([
+        on('GET', '/kiosk/status', () => {
+          throw new TypeError('offline')
+        }),
+        on('GET', '/ops/snapshot', () => notAtShop()),
+      ])
+      const c = new ApiClient({ fetch: fn as any, csrf: createCsrfStore(), sleep: async () => {}, retryBaseMs: 1 })
+      const n = nav()
+      await mount(createElement(SessionProvider, { client: c, nav: n, awayRecheckMs: 30 }, createElement('div', { id: 'x' })))
+      await c.get('/ops/snapshot').catch(() => undefined)
+      const mark = log.length
+      await wait(120)
+      expect(cover()).not.toBeNull()
+      expect(sent(log, mark).every((x) => x === 'GET /kiosk/status')).toBe(true)
+      expect(n.replace).not.toHaveBeenCalled()
+    })
+  })
+
   it('helpers: lockedUrl and msUntil', () => {
     expect(lockedUrl()).toBe('/login?locked=1')
     expect(lockedUrl('9:00 PM')).toBe('/login?locked=1&at=9%3A00%20PM')

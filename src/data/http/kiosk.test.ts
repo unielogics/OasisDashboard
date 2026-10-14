@@ -183,3 +183,73 @@ describe('ApiClient in kiosk mode', () => {
     expect(c.csrf.get()).toBeNull()
   })
 })
+
+// ADR 0180 A13 (K-PIN review O1, K-PIN-DASH D3): an unlocked kiosk works only on the shop's network
+describe('ApiClient: a kiosk away from the shop', () => {
+  const away = () =>
+    new Response(
+      JSON.stringify({
+        title: 'Only at the shop',
+        status: 403,
+        code: 'KIOSK_NOT_AT_SHOP',
+        detail: 'The kiosk works only at the shop, on the shop’s Wi-Fi. It works again once this device is back on it.',
+        meta: { networkSet: true },
+      }),
+      { status: 403, headers: { 'content-type': 'application/problem+json' } },
+    )
+
+  it('a 403 KIOSK_NOT_AT_SHOP calls onKioskAway once, is not retried, and the error reaches the caller', async () => {
+    const fetch = vi.fn(async () => away())
+    const seen: ApiError[] = []
+    const c = new ApiClient({ fetch: fetch as any, sleep: async () => {}, onKioskAway: (e) => void seen.push(e) })
+    const e = await c.get('/ops/snapshot').catch((x: unknown) => x as ApiError)
+    expect(e).toMatchObject({ status: 403, code: 'KIOSK_NOT_AT_SHOP' })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(seen).toHaveLength(1)
+    expect(seen[0]!.meta.networkSet).toBe(true)
+    // a public call (the keypad's own unlock) is an answer, not a kiosk away from the shop
+    await c.post('/kiosk/unlock', { pin: '1' }, { public: true }).catch(() => undefined)
+    expect(seen).toHaveLength(1)
+  })
+
+  it('while held nothing is sent; release sends what waited; a public call (GET /kiosk/status) still goes out', async () => {
+    const calls: string[] = []
+    const fetch = vi.fn(async (url: string) => {
+      calls.push(url)
+      return json({ ok: true })
+    })
+    const c = new ApiClient({ fetch: fetch as any, sleep: async () => {} })
+    c.holdKiosk()
+    expect(c.kioskHeld).toBe(true)
+    let done = false
+    const waiting = c.get('/ops/snapshot').then(() => (done = true))
+    await c.get('/kiosk/status', { public: true })
+    await new Promise((r) => setTimeout(r, 5))
+    expect(calls).toEqual(['/api/v1/kiosk/status'])
+    expect(done).toBe(false)
+    c.holdKiosk() // twice is once
+    c.releaseKiosk()
+    await waiting
+    expect(done).toBe(true)
+    expect(calls).toEqual(['/api/v1/kiosk/status', '/api/v1/ops/snapshot'])
+    expect(c.kioskHeld).toBe(false)
+    c.releaseKiosk() // nothing to release
+  })
+
+  it('a held call that is aborted rejects as aborted and is never sent', async () => {
+    const fetch = vi.fn(async () => json({ ok: true }))
+    const c = new ApiClient({ fetch: fetch as any, sleep: async () => {} })
+    c.holdKiosk()
+    const ctl = new AbortController()
+    const p = c.get('/ops/snapshot', { signal: ctl.signal }).catch((x: unknown) => x as ApiError)
+    ctl.abort()
+    expect(await p).toMatchObject({ kind: 'aborted' })
+    c.releaseKiosk()
+    await new Promise((r) => setTimeout(r, 5))
+    expect(fetch).not.toHaveBeenCalled()
+    // already aborted before it was asked
+    c.holdKiosk()
+    await expect(c.get('/ops/snapshot', { signal: ctl.signal })).rejects.toMatchObject({ kind: 'aborted' })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})

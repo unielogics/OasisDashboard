@@ -359,4 +359,31 @@ describe('the fallback picker of the API client is never reached by the Operatio
   })
 })
 
+// ADR 0180 A13 (K-PIN-DASH D3): the cover over the board says it; a failed read under it does not toast too
+describe('kiosk away from the shop', () => {
+  it('a read refused with 403 KIOSK_NOT_AT_SHOP shows no toast (the cover says it); another refused read still does', async () => {
+    const port = stubPort()
+    port.fail.set(
+      'appointment',
+      new ApiError({ status: 403, code: 'KIOSK_NOT_AT_SHOP', title: 'Only at the shop', meta: { networkSet: true } }),
+    )
+    const l = makeLive(makeKioskSession(), port)
+    l.vals()
+    await l.settle()
+    l.logic.select(id('late'))
+    l.vals()
+    await l.settle()
+    l.vals()
+    await new Promise((r) => setTimeout(r, 5))
+    expect(l.vals().toast).toBeFalsy()
+    port.fail.set('appointment', new ApiError({ status: 500, title: 'Server error', detail: 'Try again' }))
+    l.logic.select(id('completed'))
+    l.vals()
+    await l.settle()
+    l.vals()
+    await new Promise((r) => setTimeout(r, 5))
+    expect(l.vals().toast).toBeTruthy()
+  })
+})
+
 void clone
