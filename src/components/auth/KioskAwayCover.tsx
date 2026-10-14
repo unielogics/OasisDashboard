@@ -28,6 +28,8 @@ interface Props {
 }
 
 export function KioskAwayCover({ away, kiosk, onBack, onEnded, onStay, managerSignIn, recheckMs = AWAY_RECHECK_MS }: Props) {
+  const root = useRef<HTMLDivElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
   const reading = useRef(false)
   const alive = useRef(true)
   const handlers = useRef({ onBack, onEnded, onStay })
@@ -73,9 +75,34 @@ export function KioskAwayCover({ away, kiosk, onBack, onEnded, onStay, managerSi
     }
   }, [recheck, recheckMs])
 
+  // The board under the cover takes no keys and no focus (K-PIN-DASH recheck V1): every keydown stops at the window's capture
+  // phase, before the board's window shortcuts see it (Enter/Space still press the focused button: that is the browser's default
+  // action, not a listener), Tab stays on "Manager sign-in", and focus that lands outside the cover comes back to it.
+  useEffect(() => {
+    const inside = (t: EventTarget | null) => t instanceof Node && !!root.current?.contains(t)
+    const onKey = (e: KeyboardEvent) => {
+      e.stopPropagation()
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        button.current?.focus()
+      }
+    }
+    const onFocus = (e: FocusEvent) => {
+      if (!inside(e.target)) button.current?.focus()
+    }
+    if (!inside(document.activeElement)) button.current?.focus()
+    window.addEventListener('keydown', onKey, true)
+    document.addEventListener('focusin', onFocus, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      document.removeEventListener('focusin', onFocus, true)
+    }
+  }, [])
+
   const copy = awayCopy(away)
   return (
     <div
+      ref={root}
       data-kiosk-away="1"
       role="dialog"
       aria-modal="true"
@@ -84,7 +111,7 @@ export function KioskAwayCover({ away, kiosk, onBack, onEnded, onStay, managerSi
     >
       <AuthFrame>
         <Card title={copy.title} text={copy.text} icon="lock">
-          <button type="button" onClick={managerSignIn} style={{ ...secondaryButtonStyle, width: '100%' }}>
+          <button ref={button} type="button" onClick={managerSignIn} style={{ ...secondaryButtonStyle, width: '100%' }}>
             {AWAY_TEXT.managerSignIn}
           </button>
         </Card>

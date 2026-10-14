@@ -695,6 +695,52 @@ describe('kiosk sessions (ADR 0180, DV-1002, DV-1014)', () => {
       expect(n.replace).not.toHaveBeenCalled()
     })
 
+    it('the board under the cover takes no keys and no focus: its window shortcuts never fire, Tab stays on Manager sign-in (V1)', async () => {
+      const where = { away: false }
+      const { fn } = kioskRoutes([
+        (req) => (where.away && req.path !== '/kiosk/status' ? notAtShop() : undefined),
+        on('GET', '/kiosk/status', () => status({ atShop: !where.away })),
+        on('GET', '/ops/snapshot', () => json({ ok: true })),
+      ])
+      const c = client(fn)
+      const shortcut = vi.fn()
+      window.addEventListener('keydown', shortcut) // like the board's shortcuts (LiveLogic)
+      const outside = document.createElement('button')
+      document.body.appendChild(outside)
+      try {
+        await mount(createElement(SessionProvider, { client: c, nav: nav(), awayRecheckMs: 60_000 }, createElement('div', { id: 'x' })))
+        const key = (target: Element, k: string) =>
+          act(() => {
+            target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }))
+          })
+        key(document.body, 'n')
+        expect(shortcut).toHaveBeenCalledTimes(1) // no cover yet: the board's shortcuts work
+        where.away = true
+        await expect(c.get('/ops/snapshot')).rejects.toMatchObject({ code: 'KIOSK_NOT_AT_SHOP' })
+        await flush()
+        const signIn = cover()!.querySelector('button')!
+        expect(document.activeElement).toBe(signIn)
+        key(document.body, 'n')
+        key(container.querySelector('#x')!, 'Escape')
+        key(signIn, 'Enter')
+        expect(shortcut).toHaveBeenCalledTimes(1)
+        act(() => outside.focus())
+        expect(document.activeElement).toBe(signIn)
+        key(signIn, 'Tab')
+        expect(document.activeElement).toBe(signIn)
+        // back at the shop: the cover goes and the board's keys work again
+        where.away = false
+        act(() => window.dispatchEvent(new Event('focus')))
+        await wait(30)
+        expect(cover()).toBeNull()
+        key(document.body, 'n')
+        expect(shortcut).toHaveBeenCalledTimes(2)
+      } finally {
+        window.removeEventListener('keydown', shortcut)
+        outside.remove()
+      }
+    })
+
     it('opened away from the shop: only the cover (no board yet); the no-network words; back: the board loads', async () => {
       const where = { away: true, networkSet: false }
       const { fn } = kioskRoutes([

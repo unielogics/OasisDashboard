@@ -228,8 +228,7 @@ describe('<RealtimeProvider>', () => {
 
 // ADR 0180 A13 (K-PIN-DASH D3): a kiosk away from the shop has no stream until it is back on the shop's Wi-Fi
 describe('<RealtimeProvider> on a kiosk away from the shop', () => {
-  it('the stream closes and is not reopened while the board is covered; back at the shop it opens again', async () => {
-    const where = { away: false }
+  async function mountKiosk(where: { away: boolean }) {
     const res = (b: unknown, status = 200) =>
       new Response(JSON.stringify(b), {
         status,
@@ -268,6 +267,12 @@ describe('<RealtimeProvider> on a kiosk away from the shop', () => {
       ),
     )
     await flush()
+    return { client, nav }
+  }
+
+  it('the stream closes and is not reopened while the board is covered; back at the shop it opens again', async () => {
+    const where = { away: false }
+    const { client, nav } = await mountKiosk(where)
     expect(FakeSource.all).toHaveLength(1)
     where.away = true
     await client.get('/ops/snapshot').catch(() => undefined)
@@ -288,5 +293,31 @@ describe('<RealtimeProvider> on a kiosk away from the shop', () => {
     expect(FakeSource.all).toHaveLength(2)
     expect(FakeSource.last.closed).toBe(false)
     expect(nav.replace).not.toHaveBeenCalled()
+  })
+
+  it('a stream refused at connect (no other call made) brings the cover up: the stream errors, the session is read again (K-PIN-DASH recheck V2)', async () => {
+    const where = { away: false }
+    await mountKiosk(where)
+    expect(FakeSource.all).toHaveLength(1)
+    // the tablet leaves the shop's Wi-Fi while the board is idle: only the stream notices (the server answers its connect 403)
+    where.away = true
+    FakeSource.last.onerror?.({})
+    act(() => timers.advance(1000))
+    FakeSource.last.onerror?.({})
+    await flush()
+    await flush()
+    expect(container.querySelector('[data-kiosk-away]')).not.toBeNull()
+    expect(FakeSource.last.closed).toBe(true)
+    const opened = FakeSource.all.length
+    act(() => timers.advance(5 * 60_000))
+    await flush()
+    expect(FakeSource.all).toHaveLength(opened) // no reconnect loop under the cover
+    where.away = false
+    await act(async () => void window.dispatchEvent(new Event('focus')))
+    await flush()
+    await flush()
+    expect(container.querySelector('[data-kiosk-away]')).toBeNull()
+    expect(FakeSource.all).toHaveLength(opened + 1)
+    expect(FakeSource.last.closed).toBe(false)
   })
 })
