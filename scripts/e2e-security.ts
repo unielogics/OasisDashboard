@@ -17,7 +17,7 @@
 // checked where live data lists them at any time (Settings > VIP program).
 import { chromium } from '@playwright/test'
 import type { Browser, BrowserContext, Page } from '@playwright/test'
-import { EMAILS, loadStack, login } from './live-e2e'
+import { EMAILS, loadStack, login, revealEmailForm } from './live-e2e'
 
 process.env.PLAYWRIGHT_HOST_PLATFORM_OVERRIDE ??= 'ubuntu24.04-arm64'
 
@@ -258,6 +258,7 @@ async function main(): Promise<void> {
       const ctx = await browser.newContext()
       const page = await ctx.newPage()
       await page.goto(`${stack.webUrl}/login?next=${encodeURIComponent(next)}`)
+      await revealEmailForm(page)
       await page.getByLabel(/email/i).fill(EMAILS.crew)
       await page.getByLabel(/password/i).fill(stack.devPassword)
       await Promise.all([

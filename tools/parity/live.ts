@@ -292,6 +292,10 @@ export async function signIn(browser: Browser, t: LiveTarget, theme: Theme, next
     await ctx.route('**/api/v1/events*', (route) => route.abort())
     const page = await ctx.newPage()
     await page.goto(`${t.webUrl}/login?next=${encodeURIComponent(next)}`, { waitUntil: 'load' })
+    // kiosk mode is on by default (ADR 0180 amendment): the sign-in page is the PIN keypad; 0218 reveals the email form
+    const email = page.locator('input[name=email]')
+    await email.or(page.locator('[data-key="0"]')).first().waitFor({ timeout: 30_000 })
+    if ((await email.count()) === 0) for (const d of '0218') await page.locator(`[data-key="${d}"]`).click()
     await page.getByLabel(/email/i).fill(t.email)
     await page.getByLabel(/password/i).fill(t.devPassword)
     await Promise.all([

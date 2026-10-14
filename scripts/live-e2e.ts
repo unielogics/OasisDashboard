@@ -30,9 +30,22 @@ export const EMAILS = {
   accounting: 'daniel@oasisautospa.com',
 } as const
 
-/** Signs in through the real /login page and waits for the redirect to the app. */
+/**
+ * Kiosk mode is on by default (ADR 0180 amendment): the sign-in page is then the PIN keypad, and 0218 typed first reveals
+ * the email/password form. Waits for either and types 0218 on the keypad; nothing else is sent.
+ */
+export async function revealEmailForm(page: Page): Promise<void> {
+  const email = page.locator('input[name=email]')
+  await email.or(page.locator('[data-key="0"]')).first().waitFor({ timeout: 30_000 })
+  if ((await email.count()) > 0) return
+  for (const d of '0218') await page.locator(`[data-key="${d}"]`).click()
+  await email.waitFor({ timeout: 5000 })
+}
+
+/** Signs in through the real /login page (past the kiosk keypad) and waits for the redirect to the app. */
 export async function login(page: Page, stack: LiveStack, email: string, next = '/operations'): Promise<void> {
   await page.goto(`${stack.webUrl}/login?next=${encodeURIComponent(next)}`)
+  await revealEmailForm(page)
   await page.getByLabel(/email/i).fill(email)
   await page.getByLabel(/password/i).fill(stack.devPassword)
   await Promise.all([

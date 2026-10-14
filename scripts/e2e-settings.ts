@@ -15,7 +15,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from '@playwright/test'
 import type { APIRequestContext, BrowserContext, Locator, Page } from '@playwright/test'
-import { EMAILS, loadStack, login } from './live-e2e'
+import { EMAILS, loadStack, login, revealEmailForm } from './live-e2e'
 import { effective } from '../src/lib/settings'
 import { mapEmployeeDetail, mapRoles } from '../src/screens/settings/live/mapping'
 
@@ -382,6 +382,7 @@ try {
         await op.goto(`${stack.webUrl}/settings#emergency`, { waitUntil: 'load' })
         await op.waitForURL((u) => u.pathname === '/login')
         eq(new URL(op.url()).hash, '#emergency', 'the browser carried the fragment onto the sign-in page')
+        await revealEmailForm(op)
         await op.getByLabel(/email/i).fill(EMAILS.manager)
         await op.getByLabel(/password/i).fill(stack.devPassword)
         await Promise.all([

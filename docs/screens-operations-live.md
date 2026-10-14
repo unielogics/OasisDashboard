@@ -355,11 +355,12 @@ action until it succeeds, the server's toast or `Card removed`, `Card link texte
 Tests: `src/lib/operations/live/billing.test.ts`, `src/screens/operations/live-billing.test.ts` (view model, commands, permissions,
 the live template). End to end: `pnpm e2e:billing` (docs/screens-payments-live.md, "Running the end to end").
 
-## Kiosk mode (ADR 0180; DV-1004..DV-1007, DV-1013)
+## Kiosk mode (ADR 0180 and its 2026-10-14 amendment; DV-1003..DV-1007, DV-1013)
 
-On the shop's unlocked kiosk (docs/auth-ui.md "Kiosk mode") Operations is the only screen: no Payments or Settings tab and
-no "Manage" links (`wrap-if live.showAdminNav` on tpl 18, 19, 53, 351). Nobody is signed in, so **every write names the
-employee who taps their name** in the picker (`src/auth/kiosk-picker.ts`, partial `kiosk-picker.html`, the file modal's
+On the shop's unlocked kiosk (docs/auth-ui.md "Kiosk mode": opened by an employee's own PIN on the shop's network; the
+header chip reads `Opened by Marco R. · Locks at 9:00 PM`) Operations is the only screen: no Payments or Settings tab and
+no "Manage" links (`wrap-if live.showAdminNav` on tpl 18, 19, 53, 351). Nobody is signed in (whoever's PIN opened it), so
+**every write names the employee who taps their name** in the picker (`src/auth/kiosk-picker.ts`, partial `kiosk-picker.html`, the file modal's
 overlay at z-index 80 under the toast): a 88 px tile per name (avatar colour and initials, `Marco R.`, title), bay staff
 first, then by first name, nothing preselected; Cancel, a tap outside or Esc stops the action (no request, no toast); Tab
 stays in the dialog and the board's shortcuts (s, r, n, m, p, Esc) wait. The name goes in `X-Oasis-Employee`

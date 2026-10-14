@@ -470,11 +470,11 @@ edit with the usual message, a 422 is said under the block. Memberships (DV-909)
 Tests: `src/lib/settings/billing.test.ts`, `src/screens/settings/live/billing.test.ts` (the section, the forms, permissions,
 Move members, the live template).
 
-## Shop floor: Kiosk and Team activity (live only; ADR 0180; DEVIATIONS DV-1009..DV-1012)
+## Shop floor: Kiosk and Team activity (live only; ADR 0180 and its 2026-10-14 amendment; DEVIATIONS DV-1009..DV-1012)
 
 No nav entry (DV-1009): the design's nav is full at 1000 px (DV-322), and a group under it turned the nav into a scrolling
 box, which changed how Chromium drew the whole screen (live parity: anti-aliasing pixels on every Settings step). The two
-sections open from the user menu on every screen (`Make this a kiosk…` → `/settings#kiosk` for `team.roles`; `Team
+sections open from the user menu on every screen (`Kiosk…` → `/settings#kiosk` for `team.roles`; `Team
 activity…` → `/settings#activity` for `team.edit`; the hash is followed while Settings is open too), and a `Kiosk` / `Team
 activity` tab strip moves between them for a person who may open both. Both sections are live extras (`live/extras.ts` delegates to
 `live/kiosk.ts` and `live/team-activity.ts`; pure helpers in `src/lib/settings/kiosk.ts`; endpoints in
@@ -483,21 +483,51 @@ activity` tab strip moves between them for a person who may open both. Both sect
 **Kiosk** (`GET /kiosk` under `['settings', 'kiosk', 'overview']`, refetched on `settings.changed {section: kiosk |
 employees}`; locked card without `team.roles`):
 
-- `Kiosk mode` switch → `PUT /kiosk/settings {enabled, version}`; turning it on without a code shows the server's
-  `A manager needs to set the shop code first` under the switch; off ends every kiosk session.
-- `Shop code`: `Set Oct 1 by Rafael M. · 12 days ago` (a nudge after 90 days). `Change code`: two masked 8-digit boxes
-  (digits only), checked here first (8 digits, not starting with 0218, the same twice), then `PUT /kiosk/code {code}`; the
-  server's rule (`KIOSK_CODE_REJECTED`, `errors[0].message`) shows under the form. `Generate a code` → `PUT /kiosk/code
-  {generate: true}`: the code is shown once, in two halves, until `Done`. `Changing the code locks every kiosk now.`
-- `This tablet`: a name (≤ 40) and `Make this a kiosk` → `POST /kiosk/devices {name}` (the answer sets the device cookie);
-  with kiosk mode on the manager's own session ends there and the page goes to the keypad (`signedOut`). A browser that is
-  a kiosk reads `This browser is the kiosk “Front desk tablet”.`
-- `Kiosk tablets` (removed ones are not listed): state (`Unlocked · locks 9:00 PM`, `Locked`, `Locked · 4 wrong codes`,
-  `Locked out · too many wrong codes`), `Last seen Oct 13, 2:14 PM · 100.64.1.7 · Chrome on Android`; `Rename` (`PATCH` with
-  the version), `Lock`, `Clear lockout`, `Remove` (asks first; `DELETE`); `Lock all kiosks` (asks first; `POST
-  /kiosk/lock-all`, `2 kiosks locked`).
-- `Who shows on the kiosk`: a switch per active or invited employee → `PUT /kiosk/staff/:id {listed}`.
-- `Recent kiosk events` from the same read.
+Left column:
+
+- `Kiosk mode` switch → `PUT /kiosk/settings {enabled, version}` (on by default: the sign-in page is the PIN keypad); off
+  ends every kiosk session; switched on the tablet itself, the manager there is signed out and the page goes to the keypad.
+- `Shop network` (`PINs work only from the shop’s internet connection.`): `Your connection: 73.12.4.9` (`yourAddress`, the
+  address the server sees). On a shop network: `This is the shop’s network. PINs work here.` Otherwise, **for a Super Admin
+  only** (`canManageNetworks`): an optional name (`Name (optional), like Shop Wi-Fi`, ≤ 40) and `This is the shop’s network`
+  → `POST /kiosk/networks {confirmAddress: <the address shown>, label}`, with `Do this from a phone or computer connected to
+  the shop Wi-Fi — not mobile data. Every device on the shop Wi-Fi shares this address, so it doesn’t have to be the
+  tablet.` A 409 `KIOSK_ADDRESS_CHANGED` (the phone left the Wi-Fi between reading and pressing) reads `Your connection
+  changed to 172.56.1.9. Check you’re on the shop Wi-Fi, then press the button again.` and the page reads `GET /kiosk` again,
+  so the line shows the new address (the next press confirms that one). A manager who is not a Super Admin sees the section
+  read only: `Only a Super Admin can change the shop network` (and `This connection isn’t a shop network.` when it isn't).
+  The networks: name (`Shop network` without one), `73.12.4.9 · added Oct 13 by Amara O. · last used Oct 14, 8:02 AM`, the
+  address's wrong-PIN state (`3 wrong PINs`, `Locked out · too many wrong PINs`) with `Clear lockout` (any manager; `POST
+  /kiosk/networks/:id/clear-lockout`), `Remove` (Super Admin; asks `Remove this network? PINs stop working from it.`;
+  `DELETE /kiosk/networks/:id`). Without any: `No shop network yet. PINs don’t work anywhere until you add one.` (`… until a
+  Super Admin adds one.` for a manager).
+- `PIN tried from a new network` (only when there are some): a try from a known shop browser reads `Front desk tablet tried
+  from a new network — your internet provider probably changed the shop’s address`; one from an unknown browser `A PIN was
+  tried from a new network` with the warning `Not from a shop browser — only add it if you know this address is the shop’s`;
+  each `98.4.2.1 · 3 tries · last Oct 14, 8:02 AM`. `Add this network` (Super Admin; at once for a known browser, after
+  `Add 203.0.113.50 as a shop network? Anyone on it can then use a PIN.` for an unknown one) → `POST /kiosk/networks
+  {address}`. The keypad never sends a PIN from a connection the status calls "not at the shop", so these come from a keypad
+  that was opened at the shop before the address changed, or from direct calls (docs/auth-ui.md).
+- `Recent kiosk events` from the same read; an unlock names whose PIN opened it (`Oct 14, 8:02 AM · Unlocked · Front desk
+  tablet · Opened by Marco R.`).
+
+Right column:
+
+- `Staff PINs`: a row per active or invited employee: name, `PIN set Oct 1 by Rafael M.` / `No PIN yet` (never the PIN;
+  `Invited · …`, `· hidden on the kiosk`) and the `Shows on the kiosk` switch (`PUT /kiosk/staff/:id {listed}`). `Set PIN` /
+  `Change PIN`: two masked 8-digit boxes (digits only), checked here first (8 digits, not starting with 0218, the same twice),
+  then `PUT /kiosk/staff/:id/pin {pin}`; the server's rule (422 `KIOSK_PIN_REJECTED`, `errors[0].message`, e.g. `Choose
+  another PIN.`) shows under the row. `Generate` → `{generate: true}`: `The new PIN for Marco`, the PIN in two halves, `Write
+  it down now and give it to them. It isn’t shown again.`, `Copy` (`Copied`, or `This browser didn’t allow copying. Write it
+  down instead.`) and `Done`, after which it is gone. `Remove PIN` asks `Remove Marco’s PIN? It stops opening the kiosk right
+  away.` → `DELETE /kiosk/staff/:id/pin`.
+- `Browsers at the shop` (`A browser joins this list the first time a PIN opens it at the shop.`; removed ones are not
+  listed): state (`Unlocked · locks 9:00 PM` with `Opened by Marco R.`, `Locked`, `Locked · 4 wrong PINs`, `Locked out · too
+  many wrong PINs`), `Last seen Oct 13, 2:14 PM · 100.64.1.7 · Chrome on Android`; `Rename` (`PATCH` with the version),
+  `Lock`, `Clear lockout`, `Remove` (asks `Remove this browser? It locks now.`; `DELETE`); `Lock all kiosks` (asks first;
+  `POST /kiosk/lock-all`, `2 kiosks locked`).
+
+The shop code, `This tablet` and `Make this a kiosk` are gone (amendment: no registration step).
 
 Every write goes through the extras' `run()` (Idempotency-Key, the "Your role can’t …" toast, the refetch; 422/409 inline,
 412 "changed meanwhile").
@@ -511,7 +541,8 @@ their timeline (`…/:employeeId/events`, `Show more` pages by cursor). Until th
 501 `NOT_BUILT` and the section reads `Team activity isn’t ready yet.`; another failure offers `Try again`.
 
 Tests: `src/lib/settings/kiosk.test.ts`, `src/screens/settings/live/shopfloor.test.ts` (fixtures in
-`shopfloor-fixtures.ts`), `shopfloor.render.test.ts` (the live template).
+`shopfloor-fixtures.ts`; Super Admin and manager views of Shop network, the 409 path, Staff PINs), `shopfloor.render.test.ts`
+(the live template), end to end `pnpm e2e:kiosk`.
 
 ## Square item library and the sales tax (live only; ADR 0172, ADR 0173, wave K3; DEVIATIONS DV-911..DV-914)
 

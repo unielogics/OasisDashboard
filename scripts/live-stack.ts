@@ -2,7 +2,7 @@
 //
 //   pnpm tsx scripts/live-stack.ts up --name settings [--profile design[,parity-pay]] [--api-port 4010] [--web-port 3210]
 //        [--backend ~/oasis/backend] [--dev-password oasis-dev-pass-1234] [--freeze 2026-06-13T10:36:00-04:00] [--skip-build]
-//        [--host 127.0.0.1] [--origin http://100.x.y.z:3240[,https://...]] [--secure-cookies] [--jobs]
+//        [--host 127.0.0.1] [--origin http://100.x.y.z:3240[,https://...]] [--secure-cookies] [--jobs] [--trust-proxy]
 //   pnpm tsx scripts/live-stack.ts down --name settings [--drop]
 //   pnpm tsx scripts/live-stack.ts status --name settings
 //
@@ -12,6 +12,9 @@
 // API accepts --origin as extra browser origins (CSRF origin check), so a remote browser can sign in. --secure-cookies marks
 // the session cookie Secure, for a stack reached over HTTPS (a tunnel or proxy in front of it). --jobs also runs the real
 // worker (src/worker.ts) on its own pg-boss schema, so crons, reminders and the SMS dispatcher run as in production.
+// --trust-proxy starts the API with TRUST_PROXY=true (one trusted hop, as behind production's nginx): the dashboard's own
+// proxy passes the browser's X-Forwarded-For through, so a test browser can say which internet address it comes from
+// (kiosk PINs work only from the shop's network, ADR 0180 amendment; scripts/e2e-kiosk.ts). Never for a stack others reach.
 // Each stack has its own dashboard build (.next-live/stacks/<name>, made for its own API origin), so several stacks of one
 // worktree run side by side; --skip-build reuses it only when it was built for the same API origin. A plain `pnpm build:live`
 // empties .next-live, stacks included: stop the stacks first.
@@ -169,6 +172,7 @@ async function up(): Promise<void> {
     SMS_DISPATCH_MODE: jobs ? 'jobs' : 'inline',
     HOOKS_PORT: '0',
     COOKIE_SECURE: has('--secure-cookies') ? 'true' : 'false',
+    TRUST_PROXY: has('--trust-proxy') ? 'true' : 'false',
     SESSION_SECRET: randomBytes(32).toString('base64'),
     // what the browser uses: the API's own links (dev object store, arrival links) go through the dashboard origin
     PUBLIC_API_URL: extraOrigins[0] ?? webUrl,

@@ -108,33 +108,43 @@ pnpm start:live                 # :3200 (PORT=... to change)
 `scripts/fake-api.test.ts` runs the real `ApiClient`, the identity endpoints and the `RealtimeClient` against it over
 a socket (login, throttle, CSRF heal, view-as, invite, reset, SSE resume and resync).
 
-## Kiosk mode (ADR 0180; DEVIATIONS DV-1001, DV-1002, DV-1003, DV-1008, DV-1012, DV-1014)
+## Kiosk mode (ADR 0180 and its 2026-10-14 amendment; DEVIATIONS DV-1001, DV-1002, DV-1003, DV-1008, DV-1012, DV-1014)
 
-The shop's shared tablet stays open all day without an email login. A manager signs in once on the tablet, opens Settings →
-Kiosk (or the user menu's `Make this a kiosk…`), names it and taps `Make this a kiosk` (a registered device: an HttpOnly
-device cookie the page never sees). With kiosk mode on, the shop's 8-digit code unlocks the tablet into a **kiosk session**
-until closing + 2 hours (api-spec 31). Everything below is live-only and inert while `kiosk.enabled` is off.
+The shop's shared tablet stays open all day without an email login. Kiosk mode is **on by default**: the sign-in page is a PIN
+keypad. Every employee has their own 8-digit PIN (set by a manager in Settings → Kiosk → Staff PINs); any listed employee's PIN,
+typed **on the shop's internet connection**, opens the tablet into a **kiosk session** for everyone until closing + 2 hours,
+recorded as "Opened by Marco R." (api-spec 31). The shop's connection is set once by a Super Admin, from any device on the shop
+Wi-Fi (Settings → Kiosk → Shop network, docs/screens-settings.md). There is no registration step: a browser gets its device
+cookie (HttpOnly, never seen by the page) at its first unlock at the shop. Everything below is live-only.
 
 **The sign-in page** (`pages/login.tsx` → `components/auth/LoginGate.tsx`) asks `GET /kiosk/status` (public) first:
 
 | status                                     | `/login` shows                                                                                       |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | kiosk mode off, unreadable, fixture build  | today's `LoginPage`, unchanged (its card is `EmailPasswordCard`, extracted so the keypad can show it) |
-| on                                         | the keypad (`KeypadPage`)                                                                            |
+| on (the default)                           | the keypad (`KeypadPage`)                                                                            |
 | on, this tablet unlocked, no `?admin=1`    | `/operations` at once                                                                                |
 
-The keypad (`KeypadPage`, pure rules in `src/auth/keypad.ts`): title `Enter the shop code`, the tablet's name (or `Oasis
-kiosk` in a browser that is not a kiosk), eight dots, keys 1-9 / Clear / 0 / Delete (76 px tall), the physical keyboard
-(digits, Backspace, Esc or Delete = Clear). At the eighth digit the code goes to `POST /kiosk/unlock` by itself and the dots
-empty; the code lives only in component state and is never logged. **0218:** when the first four digits typed since the
-last Clear are `0218` (Backspace does not take a typed digit back; `10218` does not count) the email/password card replaces
-the keypad at once and nothing is sent; `Back to keypad` returns. No shop code starts with 0218 (the server refuses one).
-The server's answers, in the keypad's words: `That code didn’t work.` and `Try again in 8 s` (`meta.retryAfterSec`; a code
-typed during the wait is sent when it ends), `Too many tries. Wait a moment.` (429, Retry-After), `Too many wrong codes. A
-manager needs to sign in on this tablet.` (423; codes are no longer sent, 0218 still works), `Codes work only on the shop’s
-kiosk tablet.` (403 `KIOSK_DEVICE_UNKNOWN`, or a browser the status says is not a kiosk: then the code is not sent at all),
-`A manager needs to set the shop code first.` (409), and kiosk mode turned off meanwhile shows the email card. After a lock
-the page opens with `?locked=1[&at=9:00 PM]`: `The kiosk locked at 9:00 PM. Enter the code to open it.`
+The keypad (`KeypadPage`, pure rules in `src/auth/keypad.ts`): title `Enter your PIN`, `Your 8-digit PIN opens the board for
+the whole shop.`, eight dots, keys 1-9 / Clear / 0 / Delete (76 px tall), the physical keyboard (digits, Backspace, Esc or
+Delete = Clear). At the eighth digit the PIN goes to `POST /kiosk/unlock {pin}` by itself and the dots empty; the PIN lives
+only in component state and is never logged. **0218:** when the first four digits typed since the last Clear are `0218`
+(Backspace does not take a typed digit back; `10218` does not count) the email/password card replaces the keypad at once and
+nothing is sent; `Back to keypad` returns. No PIN starts with 0218 (the server refuses one).
+
+**Only at the shop.** `GET /kiosk/status` says whether a shop network exists (`networkSet`) and whether this connection is one
+(`atShop`). Without a network the keypad says `A Super Admin must set the shop network first — Settings → Kiosk`; on another
+connection `PINs work only at the shop.` In both cases the keypad still shows, 0218 still works, and a PIN is **never sent**
+(the dots just empty). A 403 `KIOSK_NOT_AT_SHOP` (the network was removed, or the address changed, while the keypad was open)
+says the same (`meta.networkSet` picks the line) and the keypad stops sending from then on.
+
+The server's other answers, in the keypad's words: `That PIN didn’t work.` and `Try again in 8 s` (401 `KIOSK_PIN_WRONG`,
+`meta.retryAfterSec`; a PIN typed during the wait is sent when it ends; a wait still running when the page opens counts down
+too), `Too many tries. Wait a moment.` (429, Retry-After), `Too many wrong PINs. A manager needs to clear it in Settings →
+Kiosk.` (423 `KIOSK_LOCKED_OUT`, this address or this browser, or `lockedOut` in the status; PINs are no longer sent, 0218
+still works), and kiosk mode turned off meanwhile (409 `KIOSK_OFF`) shows the email card with `Kiosk mode is off. Sign in with
+your email and password.` After a lock the page opens with `?locked=1[&at=9:00 PM]`: `The kiosk locked at 9:00 PM. Enter your
+PIN to open it.`
 
 **The kiosk session** (`src/auth/session.tsx`): `GET /me` answers 403 `KIOSK_SESSION` on an unlocked tablet, and the session
 is then `GET /kiosk/me` (`toKioskSession`: kind `kiosk`, a synthetic user named after the tablet with initials `K`, the
@@ -154,16 +164,21 @@ the event stream's auth probe) finds the client already in kiosk mode, which ref
 - the picker list follows Settings: `GET /kiosk/staff` under `['settings', 'kiosk', 'staff']`, refetched on
   `settings.changed {section: kiosk | employees}`; the theme is kept on the tablet only (no `PUT /me/preferences`).
 
-**Header chip and menu** (`src/auth/chrome.ts`, partial `user-menu.html`): on a kiosk `K`, the tablet's name and `Locks at
-9:00 PM`; the menu reads the tablet and `Unlocked 7:58 AM · locks 9:00 PM`, then `Manager sign-in` (`/login?admin=1`: the
-keypad, where 0218 reveals the form, and `Back to the board`) and `Lock kiosk`, which asks first (`Lock the kiosk now? The shop
-code opens it again.` `Lock` / `Cancel`) → `POST /kiosk/lock` → the keypad. Payments, Settings and the "Manage" links are not
-rendered (`live.showAdminNav`). For everyone else the menu reads `Sign out` as before, plus `Make this a kiosk…` for people
-with `team.roles` (→ `/settings#kiosk`) and `Team activity…` for `team.edit` (→ `/settings#activity`; the Settings nav has no
-room for a Shop floor group, DV-1009). A person signed in on a kiosk tablet (the short session of ADR 0180: 15 minutes idle,
+**Header chip and menu** (`src/auth/chrome.ts`, partial `user-menu.html`): on a kiosk `K`, the tablet's name and `Opened by
+Marco R. · Locks at 9:00 PM` (`KioskMe.openedBy`, whose PIN opened it; without it `Locks at 9:00 PM`); the menu reads the
+tablet and `Opened by Marco R. at 7:58 AM · locks 9:00 PM`, then `Manager sign-in` (`/login?admin=1`: the keypad, where 0218
+reveals the form, and `Back to the board`) and `Lock kiosk`, which asks first (`Lock the kiosk now? A PIN opens it again.`
+`Lock` / `Cancel`) → `POST /kiosk/lock` → the keypad. Payments, Settings and the "Manage" links are not rendered
+(`live.showAdminNav`). For everyone else the menu reads `Sign out` as before, plus `Kiosk…` for people with `team.roles`
+(→ `/settings#kiosk`; also on a shop browser, so a Super Admin on the tablet itself can set the shop network) and `Team
+activity…` for `team.edit` (→ `/settings#activity`; the Settings nav has no room for a Shop floor group, DV-1009). A person
+signed in on a shop browser (the short session of ADR 0180: 15 minutes idle,
 4 hours at most; `/me` `kioskDevice`) sees a bar on all three screens: `Signed in as Rafael M. on Front desk tablet · signs
 out after 15 minutes without use` and `Sign out`.
 
 Tests: `src/auth/keypad.test.ts`, `kiosk-picker.test.ts`, `chrome.test.ts`, `session.test.tsx`, `middleware-logic.test.ts`,
-`src/components/auth/kiosk.test.tsx`, `gate.test.tsx`, `src/data/http/kiosk.test.ts`; end to end `pnpm e2e:kiosk`
-(`scripts/e2e-kiosk.ts`).
+`src/components/auth/kiosk.test.tsx` (every keypad state: at the shop, not at the shop, no network yet, locked out, wrong PIN,
+0218), `gate.test.tsx`, `src/data/http/kiosk.test.ts`; end to end `pnpm e2e:kiosk` (`scripts/e2e-kiosk.ts`, on a stack
+started with `--trust-proxy` so each browser says which address it comes from; `bash scripts/e2e-kiosk-stack.sh <backend>`
+runs it start to end). With kiosk mode on by default, the e2e and live-parity sign-ins type 0218 on the keypad first
+(`revealEmailForm` in `scripts/live-e2e.ts`, `signIn` in `tools/parity/live.ts`).

@@ -87,7 +87,7 @@
           </div>
         </sc-for>
       </div>
-      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
+      <div data-kiosk-browsers="1" style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;">
         <div style="display:flex;align-items:center;gap:12px;"><div style="flex:1;font-weight:800;font-size:15px;">Browsers at the shop</div>
           <sc-if value="{{ live.kio.lockAllShow }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ live.kio.lockAll }}" style="height:38px;padding:0 13px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:12.5px;color:var(--ink);">Lock all kiosks</button></sc-if>
         </div>
