@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The sign-in page in kiosk mode (ADR 0180 and its 2026-10-14 amendment, design 6.1; DV-1001): the gate on GET /kiosk/status,
 // the PIN keypad, the 0218 way to the email form, the automatic submit at the eighth digit, PINs only at the shop's network
-// (no network set yet / not at the shop: the keypad says so and never sends a PIN) and every message of the keypad.
+// (no network set yet / not at the shop: the keypad says so and sends no PIN, re-reads the status, one try from a browser that opened the kiosk) and every message of the keypad.
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
@@ -32,6 +32,11 @@ beforeEach(() => {
   root = createRoot(container)
   router.isReady = true
   router.query = {}
+  try {
+    localStorage.clear()
+  } catch {
+    // jsdom always has it
+  }
 })
 afterEach(() => {
   act(() => root.unmount())
@@ -138,14 +143,37 @@ describe('LoginGate', () => {
 })
 
 describe('KeypadPage', () => {
-  const page = (o: { status?: KioskStatus; unlock?: KioskApi['unlock']; navigate?: any; query?: any; auth?: AuthApi } = {}) =>
+  const page = (
+    o: {
+      status?: KioskStatus
+      unlock?: KioskApi['unlock']
+      /** GET /kiosk/status read again by the keypad (default: the same status it opened with). */
+      reread?: KioskApi['status']
+      recheckMs?: number
+      navigate?: any
+      query?: any
+      auth?: AuthApi
+    } = {},
+  ) =>
     createElement(KeypadPage, {
       status: o.status ?? STATUS,
-      kiosk: { unlock: o.unlock ?? vi.fn(async () => makeKioskMe()) },
+      kiosk: {
+        unlock: o.unlock ?? vi.fn(async () => makeKioskMe()),
+        status: o.reread ?? vi.fn(async () => o.status ?? STATUS),
+      },
       auth: o.auth ?? authApi(),
       query: o.query ?? {},
       navigate: o.navigate ?? vi.fn(),
+      recheckMs: o.recheckMs,
     })
+  const wait = async (ms: number) => {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, ms))
+    })
+    await flush()
+  }
+  const AWAY: KioskStatus = { ...STATUS, atShop: false }
+  const NO_NETWORK: KioskStatus = { ...STATUS, networkSet: false, atShop: false }
 
   it('0218 swaps in the email/password card at once and sends nothing; Back to keypad returns', async () => {
     const unlock = vi.fn(async () => makeKioskMe())
@@ -256,7 +284,7 @@ describe('KeypadPage', () => {
     expect(unlock).toHaveBeenCalledTimes(1)
   })
 
-  it('not at the shop: the keypad still shows, says “PINs work only at the shop.” and never sends a PIN; 0218 works', async () => {
+  it('not at the shop: the keypad still shows, says “PINs work only at the shop.” and never sends a PIN (a browser that never opened the kiosk); 0218 works', async () => {
     const unlock = vi.fn()
     await mount(page({ unlock, status: { ...STATUS, atShop: false } }))
     expect(container.querySelector('h1')!.textContent).toBe('Enter your PIN')
@@ -283,11 +311,140 @@ describe('KeypadPage', () => {
     const unlock = vi
       .fn()
       .mockRejectedValue(new ApiError({ status: 403, code: 'KIOSK_NOT_AT_SHOP', title: 'x', meta: { networkSet: true } }))
-    await mount(page({ unlock }))
+    await mount(page({ unlock, reread: vi.fn(async () => AWAY) }))
     await typeKeys('24681357')
     expect(text()).toContain('PINs work only at the shop.')
     await typeKeys('13572468')
     expect(unlock).toHaveBeenCalledTimes(1)
+  })
+
+  // K-PIN-DASH review F1: a blocked keypad reads the status again, so the tablet works once the network is set (no reload)
+  it('no shop network yet, then the Super Admin adds it from a phone: the keypad reads the status again by itself and says it is ready', async () => {
+    const reread = vi.fn(async () => NO_NETWORK)
+    const unlock = vi.fn(async () => makeKioskMe())
+    const navigate = vi.fn()
+    await mount(page({ status: NO_NETWORK, reread, unlock, navigate, recheckMs: 40 }))
+    expect(text()).toContain('A Super Admin must set the shop network first')
+    await wait(120)
+    expect(reread).toHaveBeenCalled()
+    expect(text()).toContain('A Super Admin must set the shop network first')
+    reread.mockResolvedValue(STATUS)
+    await wait(120)
+    expect(text()).not.toContain('Super Admin')
+    expect(container.querySelector('[role=status]')?.textContent).toBe('Ready — PINs work here now.')
+    const calls = reread.mock.calls.length
+    await wait(150)
+    expect(reread.mock.calls.length).toBe(calls) // no more reads once it is at the shop
+    await typeKeys('24681357')
+    expect(unlock).toHaveBeenCalledWith('24681357')
+    await flush()
+    expect(navigate).toHaveBeenCalledWith('/operations')
+  })
+
+  it('blocked, a full PIN reads the status first: still away → nothing is sent; at the shop now → the PIN goes out', async () => {
+    const reread = vi.fn(async () => AWAY)
+    const unlock = vi.fn(async () => makeKioskMe())
+    await mount(page({ status: NO_NETWORK, reread, unlock }))
+    await typeKeys('24681357')
+    expect(reread).toHaveBeenCalledTimes(1)
+    expect(unlock).not.toHaveBeenCalled()
+    expect(dots()).toBe(0)
+    expect(text()).toContain('PINs work only at the shop.')
+    reread.mockResolvedValue(STATUS)
+    await typeKeys('13572468')
+    expect(reread).toHaveBeenCalledTimes(2)
+    expect(unlock).toHaveBeenCalledTimes(1)
+    expect(unlock).toHaveBeenCalledWith('13572468')
+  })
+
+  it('a refused try (403 KIOSK_NOT_AT_SHOP), then the address is approved: the next PIN reads the status and goes out', async () => {
+    const reread = vi.fn(async () => AWAY)
+    const unlock = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError({ status: 403, code: 'KIOSK_NOT_AT_SHOP', title: 'x', meta: { networkSet: true } }))
+      .mockResolvedValueOnce(makeKioskMe())
+    await mount(page({ unlock, reread }))
+    await typeKeys('24681357')
+    expect(text()).toContain('PINs work only at the shop.')
+    reread.mockResolvedValue(STATUS)
+    await typeKeys('24681357')
+    expect(unlock).toHaveBeenCalledTimes(2)
+  })
+
+  it('coming back into view (focus, visibility) reads the status again while blocked', async () => {
+    const reread = vi.fn(async () => STATUS)
+    await mount(page({ status: AWAY, reread, recheckMs: 60_000 }))
+    expect(reread).not.toHaveBeenCalled()
+    await act(async () => void window.dispatchEvent(new Event('focus')))
+    await flush()
+    expect(reread).toHaveBeenCalledTimes(1)
+    expect(text()).not.toContain('PINs work only at the shop.')
+    await act(async () => void document.dispatchEvent(new Event('visibilitychange')))
+    await flush()
+    expect(reread).toHaveBeenCalledTimes(1) // at the shop now: nothing more to wait for
+  })
+
+  it('a status that cannot be read keeps the keypad as it is (still blocked, nothing sent)', async () => {
+    const reread = vi.fn(async () => {
+      throw new ApiError({ status: 0, kind: 'network' })
+    })
+    const unlock = vi.fn()
+    await mount(page({ status: AWAY, reread, unlock }))
+    await typeKeys('24681357')
+    expect(unlock).not.toHaveBeenCalled()
+    expect(text()).toContain('PINs work only at the shop.')
+  })
+
+  it('0218, then Back to keypad: a blocked keypad still says why', async () => {
+    await mount(page({ status: NO_NETWORK }))
+    await typeKeys('0218')
+    const back = [...container.querySelectorAll('a')].find((a) => a.textContent === 'Back to keypad')!
+    await act(async () => back.click())
+    expect(text()).toContain('A Super Admin must set the shop network first — Settings → Kiosk')
+  })
+
+  it('kiosk mode switched off while blocked: the re-read shows the email/password card', async () => {
+    const reread = vi.fn(async () => ({ ...AWAY, enabled: false }))
+    await mount(page({ status: AWAY, reread }))
+    await typeKeys('24681357')
+    expect(container.querySelector('input[name=email]')).not.toBeNull()
+    expect(text()).toContain('Kiosk mode is off.')
+  })
+
+  // K-PIN-DASH review F2: the plan's "approve it from anywhere" also after the tablet reloaded on the new address
+  it('a successful unlock remembers this browser (one flag, never the PIN)', async () => {
+    await mount(page())
+    await typeKeys('24681357')
+    expect(localStorage.getItem('oasis-kiosk-opened-here')).toBe('1')
+    expect(localStorage.length).toBe(1)
+  })
+
+  it('a browser that opened the kiosk before, loaded on a new address: one PIN goes out so the try is listed, then none', async () => {
+    localStorage.setItem('oasis-kiosk-opened-here', '1')
+    const unlock = vi
+      .fn()
+      .mockRejectedValue(new ApiError({ status: 403, code: 'KIOSK_NOT_AT_SHOP', title: 'x', meta: { networkSet: true } }))
+    await mount(page({ status: AWAY, unlock }))
+    expect(text()).toContain('PINs work only at the shop.')
+    await typeKeys('24681357')
+    expect(unlock).toHaveBeenCalledTimes(1)
+    expect(text()).toContain('PINs work only at the shop.')
+    expect(dots()).toBe(0)
+    await typeKeys('13572468')
+    expect(unlock).toHaveBeenCalledTimes(1)
+  })
+
+  it('that browser before any shop network exists, or a browser that never opened it: no PIN is sent', async () => {
+    const unlock = vi.fn()
+    await mount(page({ status: AWAY, unlock }))
+    await typeKeys('24681357')
+    expect(unlock).not.toHaveBeenCalled()
+    act(() => root.unmount())
+    root = createRoot(container)
+    localStorage.setItem('oasis-kiosk-opened-here', '1')
+    await mount(page({ status: NO_NETWORK, unlock }))
+    await typeKeys('24681357')
+    expect(unlock).not.toHaveBeenCalled()
   })
 
   it('kiosk mode turned off meanwhile (409 KIOSK_OFF): the email/password card', async () => {

@@ -45,7 +45,7 @@ export function keyOf(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; al
 
 /**
  * Why this connection may not send a PIN at all: no shop network exists yet, or this connection is not one. The keypad
- * still shows (0218 still works), says why, and never sends a PIN.
+ * still shows (0218 still works), says why, and sends no PIN (but see `mayTryFromHere`).
  */
 export type KeypadBlock = 'noNetwork' | 'notAtShop'
 
@@ -75,6 +75,7 @@ export const KEYPAD_TEXT = {
   lockedOut: 'Too many wrong PINs. A manager needs to clear it in Settings → Kiosk.',
   notAtShop: 'PINs work only at the shop.',
   noNetwork: 'A Super Admin must set the shop network first — Settings → Kiosk',
+  ready: 'Ready — PINs work here now.',
   off: 'Kiosk mode is off. Sign in with your email and password.',
   throttled: 'Too many tries. Wait a moment.',
   network: 'Can’t reach Oasis. Check the connection and try again.',
@@ -82,6 +83,51 @@ export const KEYPAD_TEXT = {
 } as const
 
 export const blockText = (b: KeypadBlock): string => (b === 'noNetwork' ? KEYPAD_TEXT.noNetwork : KEYPAD_TEXT.notAtShop)
+
+/** While blocked the keypad reads GET /kiosk/status again this often (and when the page comes back into view), so a
+ *  network the Super Admin adds from a phone opens the tablet's keypad without a reload (K-PIN-DASH review F1). */
+export const RECHECK_MS = 30_000
+
+/**
+ * A browser that once opened the kiosk (a successful unlock) remembers it in one localStorage flag: no PIN, no name.
+ * The server knows such a browser by its device cookie; the page cannot read that cookie (HttpOnly), so it keeps its own.
+ */
+export const OPENED_HERE_KEY = 'oasis-kiosk-opened-here'
+
+type FlagStore = Pick<Storage, 'getItem' | 'setItem'> | null | undefined
+
+const browserStore = (): FlagStore => {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage
+  } catch {
+    return null
+  }
+}
+
+export function openedHere(store: FlagStore = browserStore()): boolean {
+  try {
+    return store?.getItem(OPENED_HERE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function rememberOpenedHere(store: FlagStore = browserStore()): void {
+  try {
+    store?.setItem(OPENED_HERE_KEY, '1')
+  } catch {
+    // private mode or blocked site data: the one try from a new network just isn't made
+  }
+}
+
+/**
+ * The one exception to "never send a PIN away from the shop" (K-PIN-DASH review F2): a browser that opened the kiosk before
+ * sends one PIN per page from a connection that is not a shop network, so the server lists it under "PIN tried from a new
+ * network" with the browser's name (the internet provider changed the shop's address) and the Super Admin can add it from
+ * anywhere. The server never checks that PIN (403 KIOSK_NOT_AT_SHOP). Never before any shop network exists.
+ */
+export const mayTryFromHere = (b: KeypadBlock, o: { openedHere: boolean; triedHere: boolean }): boolean =>
+  b === 'notAtShop' && o.openedHere && !o.triedHere
 
 const secondsOf = (e: ApiError): number => {
   const meta = e.meta.retryAfterSec

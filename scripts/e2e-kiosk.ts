@@ -18,8 +18,8 @@
 // Marco's PIN (a wrong one first) and opens Operations: "Opened by Marco R. · Locks at …" → each car step asks who (the
 // picker) and sends X-Oasis-Employee → a direct PUT /settings/hours answers 403, /settings goes back to /operations → Lock
 // kiosk → wrong PINs show the countdown → a PIN from outside the shop is never sent (and the API refuses it) → the provider
-// changes the shop's address: the tablet's try is listed as "Front desk tablet tried from a new network", the Super Admin adds
-// it, Lena's PIN opens the tablet → the manager removes Marco's PIN, it no longer works → Team activity.
+// changes the shop's address: the tablet, reloaded there, sends one PIN (it opened the kiosk before), the try is listed as "Front desk tablet tried from a new network", the Super Admin adds
+// it, the tablet's open keypad is ready again by itself and Lena's PIN opens it → the manager removes Marco's PIN, it no longer works → Team activity.
 // Exit code 1 when any check fails, a page errors or the API answers 5xx. PENDING lines never fail the run.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -290,6 +290,7 @@ async function main(): Promise<void> {
     await tablet.getByRole('link', { name: 'Back to keypad' }).click()
     await tablet.waitForSelector('text=Enter your PIN')
     ok((await tablet.locator('input[name=email]').count()) === 0, 'Back to keypad hides the form again')
+    ok((await text(tablet)).includes('A Super Admin must set the shop network first'), 'and the keypad still says why')
 
     // ---------------------------------------------------------------------------------------------------------------
     section('the Super Admin adds the shop network from a phone on the shop Wi-Fi (not the tablet)')
@@ -327,11 +328,18 @@ async function main(): Promise<void> {
     ok(nets.length === 1 && nets[0].address === SHOP_IP && nets[0].label === 'Shop Wi-Fi', 'the shop network is 203.0.113.7 “Shop Wi-Fi”', nets)
     ok((await text(S.page)).includes(SHOP_IP + ' · added Jun 13 by Amara'), 'the list says who added it and when')
     await shot(S.page, '03-network-added')
-    // the tablet's keypad is ready now
-    await onKeypad(tablet)
+    // the tablet's keypad is ready now, by itself: it reads the status again every 30 s while blocked (no reload; review F1)
     st = (await api(tablet, 'GET', '/kiosk/status')).body
     ok(st.networkSet === true && st.atShop === true, 'the tablet is at the shop now', st)
-    ok(!/PINs work only|must set the shop network/.test(await text(tablet)), 'the keypad has no warning any more')
+    let toastSeen = false
+    await until(async () => {
+      const t = await text(tablet)
+      if (t.includes('Ready — PINs work here now.')) toastSeen = true
+      return !/PINs work only|must set the shop network/.test(t)
+    }, 45_000)
+    ok(!/PINs work only|must set the shop network/.test(await text(tablet)), 'the open keypad drops its warning by itself (no reload)')
+    await until(async () => toastSeen || (await text(tablet)).includes('Ready — PINs work here now.'), 2000)
+    ok(toastSeen || (await text(tablet)).includes('Ready — PINs work here now.'), 'and says “Ready — PINs work here now.”')
 
     // ---------------------------------------------------------------------------------------------------------------
     section('a manager (not a Super Admin) sees the shop network read only and sets the PINs')
@@ -563,7 +571,7 @@ async function main(): Promise<void> {
     mark = A.seen.length
     await keypadType(A.page, MARCO_PIN)
     await sleep(500)
-    ok(unlockSent(A.seen, mark).length === 0, 'the keypad never sends the PIN from there')
+    ok(unlockSent(A.seen, mark).length === 0, 'the keypad never sends the PIN from there (this browser never opened the kiosk)')
     ok(new URL(A.page.url()).pathname === '/login', 'and it stays on the keypad')
     await shot(A.page, '09-not-at-shop')
     r = await api(A.page, 'POST', '/kiosk/unlock', { pin: MARCO_PIN })
@@ -580,13 +588,23 @@ async function main(): Promise<void> {
     section('the provider changes the shop’s address: the tablet’s try is listed, the Super Admin adds it')
     // (the stack's clock is frozen, so the tablet's wrong-PIN wait never runs out by itself: a manager clears it below;
     // an unknown network is refused before any wait is looked at)
-    await onKeypad(tablet)
+    // the tablet (re)loads its keypad after the change (a reboot, a purged tab): the status already says it is not at the shop
     await moveTo(T.ctx, NEW_SHOP_IP)
+    await onKeypad(tablet)
+    ok((await text(tablet)).includes('PINs work only at the shop.'), 'the tablet on the new address: “PINs work only at the shop.”')
     mark = T.seen.length
     await keypadType(tablet, MARCO_PIN)
-    await until(async () => (await text(tablet)).includes('PINs work only at the shop.'), 20_000)
-    ok((await text(tablet)).includes('PINs work only at the shop.'), 'the tablet on the new address: “PINs work only at the shop.”')
-    ok(unlockSent(T.seen, mark).length === 1, 'its PIN went out once (the page still thought it was at the shop), then the keypad stops')
+    await until(async () => unlockSent(T.seen, mark).length === 1, 10_000)
+    await sleep(500)
+    ok(
+      unlockSent(T.seen, mark).length === 1,
+      'it opened the kiosk before, so its PIN goes out once and the try is listed (review F2; the server never checks it)',
+    )
+    ok((await text(tablet)).includes('PINs work only at the shop.'), 'and the keypad still says “PINs work only at the shop.”')
+    mark = T.seen.length
+    await keypadType(tablet, MARCO_PIN)
+    await sleep(800)
+    ok(unlockSent(T.seen, mark).length === 0, 'a second PIN from there is not sent')
     await openKioskSettings(S.page)
     const known = S.page.locator('[data-kiosk-refused]').filter({ hasText: NEW_SHOP_IP })
     const unknown = S.page.locator('[data-kiosk-refused]').filter({ hasText: AWAY_IP })
@@ -604,16 +622,18 @@ async function main(): Promise<void> {
       await unknown.textContent(),
     )
     await shot(S.page, '10-refused')
-    await known.getByRole('button', { name: 'Add this network' }).click()
-    await until(async () => (await S.page.locator('[data-kiosk-networks]').textContent())?.includes(NEW_SHOP_IP + ' · added'), 10_000)
-    ok((await S.page.locator('[data-kiosk-networks]').textContent())?.includes(NEW_SHOP_IP + ' · added'), 'Add this network adds 203.0.113.99')
-    // the tablet's wrong PINs: Clear lockout (Browsers at the shop) starts its counter over
+    // the tablet's wrong PINs (the stack's clock is frozen, so its wait never ends by itself): Clear lockout (Browsers at the
+    // shop) starts its counter over
     ok((await browsers.textContent())?.includes('wrong PIN'), 'Browsers at the shop: the tablet’s wrong PINs', await browsers.textContent())
     await browsers.getByRole('button', { name: 'Clear lockout' }).first().click()
     await until(async () => (await browsers.getByRole('button', { name: 'Clear lockout' }).count()) === 0, 10_000)
     ok((await browsers.getByRole('button', { name: 'Clear lockout' }).count()) === 0, 'Clear lockout starts the tablet’s counter over')
-    await onKeypad(tablet)
-    ok(!(await text(tablet)).includes('PINs work only'), 'the tablet’s keypad is ready again')
+    await known.getByRole('button', { name: 'Add this network' }).click()
+    await until(async () => (await S.page.locator('[data-kiosk-networks]').textContent())?.includes(NEW_SHOP_IP + ' · added'), 10_000)
+    ok((await S.page.locator('[data-kiosk-networks]').textContent())?.includes(NEW_SHOP_IP + ' · added'), 'Add this network adds 203.0.113.99')
+    // no reload on the tablet: its keypad reads the status again by itself (review F1)
+    await until(async () => !(await text(tablet)).includes('PINs work only'), 45_000)
+    ok(!(await text(tablet)).includes('PINs work only'), 'the tablet’s open keypad is ready again by itself')
     await keypadType(tablet, LENA_PIN)
     await tablet.waitForURL((u) => u.pathname === '/operations', { timeout: 15_000 })
     await tablet.waitForSelector('text=Appointments 24h', { timeout: 30_000 })

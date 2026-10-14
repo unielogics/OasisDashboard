@@ -134,9 +134,27 @@ nothing is sent; `Back to keypad` returns. No PIN starts with 0218 (the server r
 
 **Only at the shop.** `GET /kiosk/status` says whether a shop network exists (`networkSet`) and whether this connection is one
 (`atShop`). Without a network the keypad says `A Super Admin must set the shop network first — Settings → Kiosk`; on another
-connection `PINs work only at the shop.` In both cases the keypad still shows, 0218 still works, and a PIN is **never sent**
-(the dots just empty). A 403 `KIOSK_NOT_AT_SHOP` (the network was removed, or the address changed, while the keypad was open)
-says the same (`meta.networkSet` picks the line) and the keypad stops sending from then on.
+connection `PINs work only at the shop.` In both cases the keypad still shows, 0218 still works, and a PIN is **not sent**
+(the dots just empty; the one exception below). A 403 `KIOSK_NOT_AT_SHOP` (the network was removed, or the address changed,
+while the keypad was open) says the same (`meta.networkSet` picks the line) and the keypad stops sending.
+
+While blocked the keypad **reads `GET /kiosk/status` again** (K-PIN-DASH review F1): every 30 s (`RECHECK_MS`), when the
+page comes back into view or online (`focus`, `visibilitychange`, `online`), and before it acts on a full PIN. Once the
+status says the connection is a shop network (the Super Admin added it from a phone, or approved the tablet's try), the
+warning goes, the toast says `Ready — PINs work here now.` and PINs are sent again, with no reload (a tablet in Guided
+Access has no reload button). A re-read that finds kiosk mode switched off shows the email/password card; an unreadable one
+leaves the keypad as it is. The reads stop once it is at the shop. `Back to keypad` after 0218 shows the reason again.
+
+**One try from a new network** (review F2): a browser that once opened the kiosk remembers it in one localStorage flag
+(`oasis-kiosk-opened-here` = `1`, set after a successful unlock; never the PIN or a name; storage that is blocked just means
+no flag). On a connection the status calls "not at the shop" (a shop network exists), such a browser sends **one** full PIN
+per page, after re-reading the status, so the server lists it under Settings → Kiosk → `PIN tried from a new network` with
+the browser's name ("Front desk tablet tried from a new network — your internet provider probably changed the shop's
+address") and the Super Admin can add it from anywhere, also when the tablet reloaded after the address changed. The server
+never checks that PIN (403 `KIOSK_NOT_AT_SHOP`); the keypad then says `PINs work only at the shop.` and sends no more. Before
+any shop network exists, and in a browser that never opened the kiosk, nothing is sent. This deviates from the K-PIN-DASH
+brief's literal "never sends a PIN" to keep the plan's promise (the try is listed and approved from anywhere); removing the
+exception is one line (`mayTryFromHere` in `src/auth/keypad.ts`).
 
 The server's other answers, in the keypad's words: `That PIN didn’t work.` and `Try again in 8 s` (401 `KIOSK_PIN_WRONG`,
 `meta.retryAfterSec`; a PIN typed during the wait is sent when it ends; a wait still running when the page opens counts down
@@ -178,7 +196,7 @@ out after 15 minutes without use` and `Sign out`.
 
 Tests: `src/auth/keypad.test.ts`, `kiosk-picker.test.ts`, `chrome.test.ts`, `session.test.tsx`, `middleware-logic.test.ts`,
 `src/components/auth/kiosk.test.tsx` (every keypad state: at the shop, not at the shop, no network yet, locked out, wrong PIN,
-0218), `gate.test.tsx`, `src/data/http/kiosk.test.ts`; end to end `pnpm e2e:kiosk` (`scripts/e2e-kiosk.ts`, on a stack
+0218; the status read again by itself, on focus and before a full PIN; the one try from a browser that opened the kiosk), `gate.test.tsx`, `src/data/http/kiosk.test.ts`; end to end `pnpm e2e:kiosk` (`scripts/e2e-kiosk.ts`, on a stack
 started with `--trust-proxy` so each browser says which address it comes from; `bash scripts/e2e-kiosk-stack.sh <backend>`
 runs it start to end). With kiosk mode on by default, the e2e and live-parity sign-ins type 0218 on the keypad first
 (`revealEmailForm` in `scripts/live-e2e.ts`, `signIn` in `tools/parity/live.ts`).

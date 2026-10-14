@@ -507,8 +507,10 @@ Left column:
   tried from a new network` with the warning `Not from a shop browser — only add it if you know this address is the shop’s`;
   each `98.4.2.1 · 3 tries · last Oct 14, 8:02 AM`. `Add this network` (Super Admin; at once for a known browser, after
   `Add 203.0.113.50 as a shop network? Anyone on it can then use a PIN.` for an unknown one) → `POST /kiosk/networks
-  {address}`. The keypad never sends a PIN from a connection the status calls "not at the shop", so these come from a keypad
-  that was opened at the shop before the address changed, or from direct calls (docs/auth-ui.md).
+  {address}`. A tablet's try gets here even when its keypad loaded after the address changed: a browser that once opened the
+  kiosk sends one PIN per page from a new network (the server never checks it), other browsers send none (docs/auth-ui.md,
+  "One try from a new network"). After `Add this network` the tablet's open keypad reads the status again within 30 s and
+  says `Ready — PINs work here now.` (no reload).
 - `Recent kiosk events` from the same read; an unlock names whose PIN opened it (`Oct 14, 8:02 AM · Unlocked · Front desk
   tablet · Opened by Marco R.`).
 

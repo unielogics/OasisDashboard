@@ -7,7 +7,10 @@ import {
   keyOf,
   keypadBlock,
   lockedToast,
+  mayTryFromHere,
+  openedHere,
   press,
+  rememberOpenedHere,
   revealsForm,
   unlockProblem,
   waitText,
@@ -123,5 +126,39 @@ describe('keypad: the toast after the kiosk locked', () => {
     expect(lockedToast({ locked: '1', at: '<b>evil</b>' })).toBe('The kiosk is locked. Enter your PIN to open it.')
     expect(lockedToast({ expired: '1' })).toBe('The kiosk locked. Enter your PIN to open it.')
     expect(lockedToast({})).toBeNull()
+  })
+})
+
+describe('keypad: a browser that opened the kiosk before (K-PIN-DASH review F2)', () => {
+  const store = () => {
+    const m = new Map<string, string>()
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), m }
+  }
+  it('remembers a successful unlock in this browser (no PIN, no name: one flag)', () => {
+    const s = store()
+    expect(openedHere(s)).toBe(false)
+    rememberOpenedHere(s)
+    expect(openedHere(s)).toBe(true)
+    expect([...s.m.values()]).toEqual(['1'])
+  })
+  it('storage that throws or is missing (private mode, blocked site data): never opened, nothing breaks', () => {
+    const bad = {
+      getItem: () => {
+        throw new Error('blocked')
+      },
+      setItem: () => {
+        throw new Error('blocked')
+      },
+    }
+    expect(openedHere(bad)).toBe(false)
+    expect(() => rememberOpenedHere(bad)).not.toThrow()
+    expect(openedHere(null)).toBe(false)
+    expect(() => rememberOpenedHere(null)).not.toThrow()
+  })
+  it('one try from a new network, only for such a browser and only when a shop network exists', () => {
+    expect(mayTryFromHere('notAtShop', { openedHere: true, triedHere: false })).toBe(true)
+    expect(mayTryFromHere('notAtShop', { openedHere: true, triedHere: true })).toBe(false)
+    expect(mayTryFromHere('notAtShop', { openedHere: false, triedHere: false })).toBe(false)
+    expect(mayTryFromHere('noNetwork', { openedHere: true, triedHere: false })).toBe(false)
   })
 })
